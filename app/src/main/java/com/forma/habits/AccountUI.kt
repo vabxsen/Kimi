@@ -16,9 +16,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
@@ -42,9 +44,43 @@ import android.app.Application
             factory = ViewModelProvider.AndroidViewModelFactory.getInstance(application))
         FormaApp(habits, account.account) { account.clearMessage(); showAccount = true }
     }
+    // A finished sign-in closes the account screen first, so the confirmation lands over the app
+    // the person is actually returning to.
+    LaunchedEffect(account.welcome) { if (account.welcome != null) showAccount = false }
     if (showAccount) Dialog(onDismissRequest = { if (!account.busy) showAccount = false },
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         AccountScreen(account) { showAccount = false }
+    }
+    account.welcome?.let { WelcomeDialog(it, account::dismissWelcome) }
+}
+
+/**
+ * Confirms a finished sign-in and returns the person to their habits.
+ *
+ * Deliberately not an [AlertDialog]: a stock one lands as a flat system box in the middle of an app
+ * built out of rounded colour cards and a mascot, and this is the first thing a new account sees.
+ */
+@Composable fun WelcomeDialog(welcome: Welcome, onDismiss: () -> Unit) {
+    val created = welcome == Welcome.Created
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(Cream).padding(26.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Flower(Modifier.size(96.dp))
+            Spacer(Modifier.height(16.dp))
+            Text(
+                stringResource(if (created) R.string.welcome_created_title else R.string.welcome_back_title),
+                style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center
+            )
+            Spacer(Modifier.height(10.dp))
+            Text(
+                stringResource(if (created) R.string.welcome_created_body else R.string.welcome_back_body),
+                style = MaterialTheme.typography.bodyMedium, color = Quiet, textAlign = TextAlign.Center
+            )
+            Spacer(Modifier.height(22.dp))
+            MainButton(stringResource(R.string.action_welcome_continue), onClick = onDismiss)
+        }
     }
 }
 

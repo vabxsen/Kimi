@@ -183,7 +183,6 @@
     <string name="settings_theme_light">Light</string>
     <string name="settings_theme_dark">Dark</string>
     <string name="privacy_title">Your world stays yours.</string>
-    <string name="settings_privacy_body">Signed in, your habits and journal sync privately to your own account and no one else can read them. As a guest they never leave this device. Account and guest spaces stay separate either way.</string>
     <string name="settings_data_section">Your data</string>
     <string name="settings_data_caption">Keep a copy of your habits, check-ins, and reflections.</string>
     <string name="settings_damaged_notice">Your original save is protected. Restore a backup or reset to continue.</string>
@@ -233,6 +232,11 @@
     <string name="account_hero_signed_in">You belong here.</string>
     <string name="account_hero_create">Let’s grow together.</string>
     <string name="account_hero_sign_in">Hello, you.</string>
+    <string name="welcome_created_title">You’re all set!</string>
+    <string name="welcome_created_body">Your habits and journal will follow you to every device you sign in to.</string>
+    <string name="welcome_back_title">Welcome back!</string>
+    <string name="welcome_back_body">Everything is right where you left it.</string>
+    <string name="action_welcome_continue">Let’s go</string>
     <string name="account_hero_body">Small steps. A space of your own.</string>
     <string name="account_no_sync_title">Your habits travel with your account</string>
     <string name="account_no_sync_body">Signing in keeps your habits, check-ins and journal in step across every device you use, and brings them back if you reinstall. Guest use stays on this device only.</string>
@@ -255,14 +259,6 @@
     <string name="field_confirm_with_password">Confirm with password</string>
     <string name="field_account_name">Account name</string>
     <string name="field_email">Email address</string>
-
-    <!-- Sync -->
-    <string name="sync_title">Synced to your account</string>
-    <string name="sync_body_on">Your habits and journal are kept in step on every device you sign in to.</string>
-    <string name="sync_state_working">Syncing…</string>
-    <string name="sync_state_done">Everything is up to date</string>
-    <string name="sync_state_failed">Couldn’t sync just now. Kimi will try again.</string>
-    <string name="action_sync_now">Sync now</string>
 
     <!-- Actions -->
     <string name="action_new_habit">+ New habit</string>

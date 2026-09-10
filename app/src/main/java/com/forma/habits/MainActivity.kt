@@ -124,8 +124,7 @@ val LocalToday = compositionLocalOf { LocalDate.now() }
                 Page.Journal -> JournalScreen(state, vm::reflect, vm::deleteReflection, vm.draftMood, vm.draftText, vm::updateDraft, vm.draftDate, vm::loadDraft, vm.draftDates())
                 Page.Settings -> SettingsScreen(state, vm::rename, vm::reset,
                     { export.launch("Kimi-backup-${vm.today}.json") },
-                    { restore.launch(arrayOf("application/json", "text/*", "application/octet-stream")) }, vm.damaged, vm::saveHabit, account, onAccount,
-                    vm.syncable, vm.syncing, vm.syncFailed, vm::syncNow)
+                    { restore.launch(arrayOf("application/json", "text/*", "application/octet-stream")) }, vm.damaged, vm::saveHabit, account, onAccount)
             }
             }
             if (vm.busy) LinearProgressIndicator(Modifier.fillMaxWidth().align(Alignment.TopCenter), color = Accent)

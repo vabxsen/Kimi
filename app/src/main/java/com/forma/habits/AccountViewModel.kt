@@ -32,6 +32,9 @@ internal object AccountSession {
             .digest(owner.toByteArray()).joinToString("") { "%02x".format(it) }
 }
 
+/** Which sentence a finished sign-in should show. */
+enum class Welcome { Created, Returned }
+
 data class KimiAccount(val uid: String, val email: String, val name: String, val verified: Boolean, val passwordProvider: Boolean)
 
 class AccountViewModel(application: Application) : AndroidViewModel(application) {
@@ -46,6 +49,12 @@ class AccountViewModel(application: Application) : AndroidViewModel(application)
         private set
     var error by mutableStateOf(false)
         private set
+    /**
+     * Set when a sign-in completes, so the UI can confirm it and get out of the way instead of
+     * leaving someone parked on the account management screen wondering what just happened.
+     */
+    var welcome by mutableStateOf<Welcome?>(null)
+        private set
     private val listener = FirebaseAuth.AuthStateListener { account = snapshot() }
     init { auth.addAuthStateListener(listener) }
     override fun onCleared() { auth.removeAuthStateListener(listener) }
@@ -54,6 +63,7 @@ class AccountViewModel(application: Application) : AndroidViewModel(application)
             user.providerData.any { it.providerId == EmailAuthProvider.PROVIDER_ID })
     }
     fun clearMessage() { message = null; error = false }
+    fun dismissWelcome() { welcome = null }
     private fun action(block: suspend () -> String?) {
         if (busy) return
         busy = true; clearMessage()
@@ -68,7 +78,9 @@ class AccountViewModel(application: Application) : AndroidViewModel(application)
     fun emailSignIn(email: String, password: String) = action {
         demand(email.trim().isNotEmpty() && password.isNotEmpty(), R.string.err_account_missing_fields)
         auth.signInWithEmailAndPassword(email.trim(), password).await()
-        text(R.string.msg_signed_in)
+        welcome = Welcome.Returned
+        // The dialog says it; a snackbar underneath would only repeat it.
+        null
     }
     fun createAccount(name: String, email: String, password: String) = action {
         demand(name.trim().length in 1..30, R.string.err_account_name)
@@ -90,8 +102,11 @@ class AccountViewModel(application: Application) : AndroidViewModel(application)
         return GoogleAuthProvider.getCredential(GoogleIdTokenCredential.createFrom(credential.data).idToken, null)
     }
     fun googleSignIn(context: Context) = action {
-        auth.signInWithCredential(googleCredential(context)).await()
-        text(R.string.msg_google_signed_in)
+        val result = auth.signInWithCredential(googleCredential(context)).await()
+        // Google covers both cases behind one button, so ask Firebase which just happened rather
+        // than telling a returning user their account was created.
+        welcome = if (result.additionalUserInfo?.isNewUser == true) Welcome.Created else Welcome.Returned
+        null
     }
     fun resetPassword(email: String) = action {
         demand(android.util.Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches(), R.string.err_invalid_email)
