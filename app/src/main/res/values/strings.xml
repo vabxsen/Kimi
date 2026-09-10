@@ -226,14 +226,16 @@
     <string name="notification_body">%1$s\nA little step for you. Kimi is cheering you on.</string>
 
     <!-- Account -->
-    <string name="account_card_title_signed_out">A little more connected.</string>
+    <string name="account_card_title_signed_out">A space of your own</string>
     <string name="account_card_title_signed_in">Your Kimi account</string>
-    <string name="account_card_body">Your space, your pace.</string>
+    <string name="account_card_body">An account keeps your habits separate on this device. It doesn’t back them up.</string>
     <string name="account_screen_title">Your little account</string>
     <string name="account_hero_signed_in">You belong here.</string>
     <string name="account_hero_create">Let’s grow together.</string>
     <string name="account_hero_sign_in">Hello, you.</string>
     <string name="account_hero_body">Small steps. A space of your own.</string>
+    <string name="account_no_sync_title">An account won’t carry your habits over</string>
+    <string name="account_no_sync_body">Your habits and journal stay on this device — signing in never uploads or syncs them. On a new phone your account starts empty, so use “Export my space” in Settings to bring them with you.</string>
     <string name="account_form_create">Create your Kimi account</string>
     <string name="account_form_sign_in">Welcome back to Kimi</string>
     <string name="account_or_email">or continue with email</string>

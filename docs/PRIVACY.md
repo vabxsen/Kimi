@@ -29,6 +29,9 @@ These are stored in Kimi's private app storage and are never uploaded anywhere:
 If you use an account, each account gets its own separate local space on the device, and guest use
 gets another. Signing out leaves that account's data on the device for next time.
 
+**An account is not a backup.** Signing in does not upload or sync anything — on a different phone,
+the same account starts empty. Use *Export my space* to move your data between devices.
+
 **Uninstalling Kimi, or clearing its storage in Android Settings, permanently deletes all of it.**
 There is no cloud copy. Export a backup first if you want to keep it.
 

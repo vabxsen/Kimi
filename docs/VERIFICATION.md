@@ -157,6 +157,22 @@ dashboard has not been confirmed** — only that the SDK is live, activated by t
 collecting in release. The privacy policy and README were updated, since both previously claimed
 Kimi contained no crash reporting.
 
+### Sign-in honesty — 2026-09-10
+
+Kimi has a full authentication stack but no sync: an account is a separate local space, so the same
+account on a new phone starts empty. The Settings entry point said **"A little more connected."**,
+which promises exactly the thing the app does not do, and the only accurate statement lived in a
+privacy card below the sign-in form where nobody deciding whether to sign in would read it.
+
+- The Settings card now reads "A space of your own" / "An account keeps your habits separate on this
+  device. It doesn't back them up."
+- A `CloudOff` card sits directly above the sign-in and create-account form, before the decision:
+  "An account won't carry your habits over", pointing at *Export my space*.
+- The privacy policy states plainly that an account is not a backup.
+
+Verified on the emulator in both themes; 20 unit tests pass, lint 0 errors. No test depended on the
+replaced copy.
+
 ### Not verified
 
 - Release signing, Play App Signing registration, and App Check enforcement — all require console access and a release keystore.
