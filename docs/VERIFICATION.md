@@ -74,6 +74,32 @@ present — `lintVitalRelease` ran for the first time and is clean — producing
 (15.9 MB) after the intended warning. 20 JVM unit tests pass. R8 stays off until a signed release has
 been installed and exercised.
 
+### R8 — 2026-09-10
+
+R8 enabled for release (`isMinifyEnabled = true`, `proguard-android-optimize.txt` plus
+`app/proguard-rules.pro`). **APK 15.9 MB → 3.68 MB, a 77% reduction.** Keep rules are minimal by
+design: `BackupCodec` names every JSON field explicitly and uses no reflection, so the models
+obfuscate safely. Only `ThemeMode` needs keeping, because `ThemeSetting` persists its constant names
+and reads them back with `valueOf` — obfuscated names would silently reset the appearance preference
+across builds.
+
+Verified by installing the minified APK on the `habit_test` emulator (signed with the debug key for
+testing only, which is also the fingerprint on the API key allow list, so Firebase was genuinely
+exercised) and driving it by hand:
+
+| Path | Why it was at risk | Result |
+| --- | --- | --- |
+| First run, starter habits | seeded from `string-array` resources | Created correctly |
+| Check-in, then process kill and relaunch | `BackupCodec` encode → prefs → decode | 1 of 5 done, 1 day streak, 20% — survived, no damaged-save notice |
+| Journal entry, then process kill | `Reflection` round-trip | Entry and mood persisted |
+| Light/Dark preference, then process kill | enum `valueOf` on a persisted name | Dark persisted — the keep rule works |
+| Account screen | Firebase Auth + Credential Manager init | Rendered, Firebase initialised, no reflection errors |
+| Password reset request | real Identity Toolkit call over the network | Returned the success message, so R8 and the API key restriction both let the release build through |
+| Today / Habits / Calendar / Insights / Journal | Compose, fonts, Canvas mascot, plurals | All render correctly in both themes |
+
+No `ClassNotFoundException`, `NoSuchMethodError` or `NoClassDefFoundError` at any point.
+`lintVitalRelease` is clean. Resource shrinking was not enabled, so no string or drawable was removed.
+
 ### Not verified
 
 - Release signing, Play App Signing registration, and App Check enforcement — all require console access and a release keystore.

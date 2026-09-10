@@ -54,10 +54,8 @@ android {
     }
     buildTypes {
         getByName("release") {
-            // R8 is deliberately left off until a signed release build has been installed and
-            // exercised. Turning it on untested risks stripping something Firebase Auth or
-            // Compose reaches reflectively, and that failure only shows up at runtime.
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = if (canSignRelease) signingConfigs.getByName("release") else null
         }
     }

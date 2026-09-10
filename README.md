@@ -165,12 +165,12 @@ App integrity, not just your upload key, since Play re-signs the app.
 gradlew.bat assembleRelease
 ```
 
-Two things are deliberately left for that first real release:
+R8 is enabled for release, which takes the APK from about 15.9 MB to 3.7 MB. Keep rules live in
+`app/proguard-rules.pro` and are deliberately tiny: `BackupCodec` names every JSON field explicitly
+and uses no reflection, so the model classes are safe to obfuscate. The one thing that does need
+keeping is `ThemeMode`, whose constant names are persisted and read back with `valueOf`.
 
-- **R8 is off** (`isMinifyEnabled = false`). Turning it on untested risks stripping something Firebase
-  Auth or Compose reaches reflectively, and that only shows up at runtime. Enable it, install the
-  result, and exercise sign-in, reminders and backup restore before trusting it.
-- **`versionCode` is still 1.** Bump it for every upload; Play rejects a repeat.
+**`versionCode` is still 1.** Bump it for every upload; Play rejects a repeat.
 
 ## Source map
 
