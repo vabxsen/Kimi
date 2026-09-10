@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "952471890795-5oltc5p7qqcftet3fjgila4jpn6g9djn.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.forma.habits",
+            "certificate_hash": "f7119b38d813b5cc8d485a0247ad0febbf3b974e"
+          }
+        },
+        {
           "client_id": "952471890795-tg6nm7iejsqpbmutmhbv80bjpa41ctgs.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
