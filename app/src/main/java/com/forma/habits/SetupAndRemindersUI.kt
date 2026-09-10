@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -44,30 +45,31 @@ import java.time.format.DateTimeFormatter
     Column(Modifier.fillMaxSize().background(Cream).safeDrawingPadding().imePadding().verticalScroll(rememberScrollState())
         .padding(23.dp, 28.dp), verticalArrangement = Arrangement.spacedBy(22.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Flower(Modifier.size(40.dp)); Spacer(Modifier.width(8.dp)); Text("Kimi.", style = MaterialTheme.typography.headlineLarge)
+            Flower(Modifier.size(40.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.app_name) + stringResource(R.string.app_wordmark_dot), style = MaterialTheme.typography.headlineLarge)
         }
         PlayCard(Lavender) {
             Flower(Modifier.size(135.dp).align(Alignment.CenterHorizontally))
             Spacer(Modifier.height(20.dp))
-            Text("Small steps.\nYour kind of happy.", style = MaterialTheme.typography.headlineLarge)
-            Spacer(Modifier.height(12.dp)); Text("A little space for habits that feel good, and a life that feels more like you.", color = Quiet)
+            Text(stringResource(R.string.welcome_title), style = MaterialTheme.typography.headlineLarge)
+            Spacer(Modifier.height(12.dp)); Text(stringResource(R.string.welcome_body), color = Quiet)
         }
-        OutlinedTextField(name, { name = it.take(30) }, label = { Text("What should we call you?") }, singleLine = true,
+        OutlinedTextField(name, { name = it.take(30) }, label = { Text(stringResource(R.string.settings_name_question)) }, singleLine = true,
             modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done), keyboardActions = KeyboardActions(onDone = { keyboard?.hide() }))
         PlayCard(Mint) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("A little help getting started", style = MaterialTheme.typography.titleMedium)
-                    Text("Five gentle rituals to make your own. Your progress starts today.", color = Quiet, fontSize = 12.sp)
+                    Text(stringResource(R.string.welcome_starters_title), style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.welcome_starters_body), color = Quiet, fontSize = 12.sp)
                 }
-                Switch(starters, { starters = it }, Modifier.semantics { contentDescription = "Start with five suggested habits" })
+                val startersLabel = stringResource(R.string.cd_starters_switch)
+                Switch(starters, { starters = it }, Modifier.semantics { contentDescription = startersLabel })
             }
         }
-        MainButton(if (busy) "Making room for you…" else "Let’s grow together", enabled = !busy && name.isNotBlank()) { onStart(name, starters) }
-        TextButton(onClick = onAccount, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("Your Kimi account · Sign in or manage") }
-        TextButton(onClick = onRestore, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("Already have a Kimi backup?") }
-        Text("No account needed. Your habits and journal stay on this device.", color = Quiet, fontSize = 12.sp)
+        MainButton(stringResource(if (busy) R.string.welcome_busy else R.string.action_lets_grow), enabled = !busy && name.isNotBlank()) { onStart(name, starters) }
+        TextButton(onClick = onAccount, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.action_account_link)) }
+        TextButton(onClick = onRestore, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.action_restore_link)) }
+        Text(stringResource(R.string.welcome_privacy), color = Quiet, fontSize = 12.sp)
     }
 }
 
@@ -91,23 +93,24 @@ import java.time.format.DateTimeFormatter
     Column {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("A gentle nudge", style = MaterialTheme.typography.titleMedium)
-                Text("Only on scheduled days, if it’s still undone.", color = Quiet, fontSize = 11.sp)
+                Text(stringResource(R.string.reminder_toggle_title), style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.reminder_toggle_body), color = Quiet, fontSize = 11.sp)
             }
+            val reminderLabel = stringResource(R.string.cd_reminder_switch)
             Switch(checked = minutes != null, onCheckedChange = { enabled ->
                 onChange(if (enabled) 9 * 60 else null)
                 if (enabled && !Reminders.allowed(context) && Build.VERSION.SDK_INT >= 33) permission.launch(Manifest.permission.POST_NOTIFICATIONS)
-            }, modifier = Modifier.semantics { contentDescription = "Habit reminder" })
+            }, modifier = Modifier.semantics { contentDescription = reminderLabel })
         }
         if (minutes != null) {
             val format = DateTimeFormatter.ofPattern(if (DateFormat.is24HourFormat(context)) "HH:mm" else "h:mm a")
             OutlinedButton(onClick = {
                 TimePickerDialog(context, { _, hour, minute -> onChange(hour * 60 + minute) }, minutes / 60, minutes % 60, DateFormat.is24HourFormat(context)).show()
-            }, modifier = Modifier.fillMaxWidth()) { Text("Remind me around ${LocalTime.of(minutes / 60, minutes % 60).format(format)}") }
-            Text("Android may delay a reminder to save battery.", color = Quiet, fontSize = 11.sp)
+            }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.reminder_time_button, LocalTime.of(minutes / 60, minutes % 60).format(format))) }
+            Text(stringResource(R.string.reminder_delay_notice), color = Quiet, fontSize = 11.sp)
             if (!allowed && !permissionGranted) {
-                Text("Notifications are off. Enable them to receive your nudges.", color = Purple, fontSize = 12.sp)
-                TextButton(onClick = { context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)) }) { Text("Open notification settings") }
+                Text(stringResource(R.string.reminder_notifications_off), color = Accent, fontSize = 12.sp)
+                TextButton(onClick = { context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)) }) { Text(stringResource(R.string.action_open_notification_settings)) }
             }
         }
     }
@@ -122,19 +125,18 @@ import java.time.format.DateTimeFormatter
     PlayCard(Yellow) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Rounded.NotificationsActive, null); Spacer(Modifier.width(12.dp))
-            Text("A friendly little nudge", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.reminders_card_title), style = MaterialTheme.typography.titleMedium)
         }
         Spacer(Modifier.height(12.dp))
-        Text(if (allowed) "Notifications are on. Choose a ritual below to set its time. Completed habits won’t nudge you again that day."
-            else "Notifications are off. Allow them here, then choose a ritual below to set its time.", color = Quiet, fontSize = 12.sp)
-        TextButton(onClick = { context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)) }) { Text("Notification settings", fontWeight = FontWeight.Bold) }
+        Text(stringResource(if (allowed) R.string.reminders_on_body else R.string.reminders_off_body), color = Quiet, fontSize = 12.sp)
+        TextButton(onClick = { context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)) }) { Text(stringResource(R.string.action_notification_settings), fontWeight = FontWeight.Bold) }
         habits.forEach { habit ->
             TextButton(onClick = { editingId = habit.id; minutes = habit.reminderMinutes }, modifier = Modifier.fillMaxWidth()) {
                 Text(habit.name, modifier = Modifier.weight(1f), color = Ink)
-                Spacer(Modifier.width(12.dp)); Text(habit.reminderMinutes?.let { LocalTime.of(it / 60, it % 60).toString() } ?: "Off", color = Purple)
+                Spacer(Modifier.width(12.dp)); Text(habit.reminderMinutes?.let { LocalTime.of(it / 60, it % 60).toString() } ?: stringResource(R.string.reminder_off), color = Accent)
             }
         }
-        if (habits.isEmpty()) Text("Plant your first habit to add a reminder.", color = Quiet, fontSize = 12.sp)
+        if (habits.isEmpty()) Text(stringResource(R.string.reminders_empty), color = Quiet, fontSize = 12.sp)
     }
     habits.find { it.id == editingId }?.let { habit ->
         AlertDialog(onDismissRequest = { if (!saving) editingId = null }, title = { Text(habit.name) },
@@ -142,7 +144,7 @@ import java.time.format.DateTimeFormatter
             confirmButton = { TextButton(enabled = !saving, onClick = {
                 saving = true
                 onSave(habit.copy(reminderMinutes = minutes)) { saving = false; editingId = null }
-            }) { Text("Save reminder") } },
-            dismissButton = { TextButton(onClick = { saving = false; editingId = null }) { Text("Cancel") } })
+            }) { Text(stringResource(R.string.action_save_reminder)) } },
+            dismissButton = { TextButton(onClick = { saving = false; editingId = null }) { Text(stringResource(R.string.action_cancel)) } })
     }
 }

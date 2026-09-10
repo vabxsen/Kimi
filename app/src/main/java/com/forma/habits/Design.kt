@@ -1,8 +1,11 @@
 package com.forma.habits
 
+import android.content.Context
+import androidx.core.content.edit
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -12,7 +15,7 @@ import androidx.compose.material.icons.automirrored.rounded.DirectionsWalk
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -22,6 +25,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -34,17 +38,85 @@ import androidx.compose.ui.unit.sp
 import kotlin.math.cos
 import kotlin.math.sin
 
-val Cream = Color(0xFFFFF9F2)
-val Ink = Color(0xFF33283E)
-val Quiet = Color(0xFF776B7E)
-val Purple = Color(0xFF7255D9)
-val Lavender = Color(0xFFE5DCFF)
-val Mint = Color(0xFFCBECDD)
-val Peach = Color(0xFFFFD8C3)
-val Yellow = Color(0xFFFFE696)
-val Pink = Color(0xFFF7D6E8)
-val Blue = Color(0xFFCEE9FA)
-val TileColors = listOf(Lavender, Blue, Yellow, Mint, Pink, Peach)
+/**
+ * Every colour the app draws with, resolved per theme. Screens keep referring to the token
+ * names (`Cream`, `Ink`, `Purple`…) so a light/dark swap never touches a call site.
+ */
+@Immutable
+data class KimiPalette(
+    val cream: Color, val surface: Color, val ink: Color, val onInk: Color, val quiet: Color,
+    val purple: Color, val accent: Color, val onAccent: Color, val highlight: Color,
+    val overlay: Color, val petal: Color, val danger: Color,
+    val lavender: Color, val blue: Color, val yellow: Color, val mint: Color, val pink: Color, val peach: Color,
+    val dark: Boolean
+) {
+    val tiles: List<Color> get() = listOf(lavender, blue, yellow, mint, pink, peach)
+}
+
+private val LightPalette = KimiPalette(
+    cream = Color(0xFFFFF9F2), surface = Color.White, ink = Color(0xFF33283E), onInk = Color.White,
+    quiet = Color(0xFF776B7E), purple = Color(0xFF7255D9), accent = Color(0xFF7255D9),
+    onAccent = Color.White, highlight = Color(0xFFFFE696), overlay = Color.White.copy(alpha = .65f),
+    petal = Color.White.copy(alpha = .85f), danger = Color(0xFF9C463A),
+    lavender = Color(0xFFE5DCFF), blue = Color(0xFFCEE9FA), yellow = Color(0xFFFFE696),
+    mint = Color(0xFFCBECDD), pink = Color(0xFFF7D6E8), peach = Color(0xFFFFD8C3), dark = false
+)
+
+/** Same personality after dark: the tiles keep their hue, they just carry light text instead. */
+private val DarkPalette = KimiPalette(
+    cream = Color(0xFF14101A), surface = Color(0xFF211A2B), ink = Color(0xFFF2ECF8), onInk = Color(0xFF1A1422),
+    quiet = Color(0xFFAEA1BC), purple = Color(0xFF6D4FD6), accent = Color(0xFFC3AAFF),
+    onAccent = Color.White, highlight = Color(0xFFFFE696), overlay = Color.White.copy(alpha = .12f),
+    petal = Color(0xFFE9B8D4), danger = Color(0xFFFF9E8F),
+    lavender = Color(0xFF3A2F57), blue = Color(0xFF1E3A4C), yellow = Color(0xFF4A3A15),
+    mint = Color(0xFF1F4434), pink = Color(0xFF46243A), peach = Color(0xFF4E3020), dark = true
+)
+
+val LocalKimiPalette = staticCompositionLocalOf { LightPalette }
+
+val Cream: Color @Composable @ReadOnlyComposable get() = LocalKimiPalette.current.cream
+val Paper: Color @Composable @ReadOnlyComposable get() = LocalKimiPalette.current.surface
+val Ink: Color @Composable @ReadOnlyComposable get() = LocalKimiPalette.current.ink
+val OnInk: Color @Composable @ReadOnlyComposable get() = LocalKimiPalette.current.onInk
+val Quiet: Color @Composable @ReadOnlyComposable get() = LocalKimiPalette.current.quiet
+val Purple: Color @Composable @ReadOnlyComposable get() = LocalKimiPalette.current.purple
+val Accent: Color @Composable @ReadOnlyComposable get() = LocalKimiPalette.current.accent
+val OnAccent: Color @Composable @ReadOnlyComposable get() = LocalKimiPalette.current.onAccent
+val Highlight: Color @Composable @ReadOnlyComposable get() = LocalKimiPalette.current.highlight
+val Overlay: Color @Composable @ReadOnlyComposable get() = LocalKimiPalette.current.overlay
+val Petal: Color @Composable @ReadOnlyComposable get() = LocalKimiPalette.current.petal
+val Danger: Color @Composable @ReadOnlyComposable get() = LocalKimiPalette.current.danger
+val Lavender: Color @Composable @ReadOnlyComposable get() = LocalKimiPalette.current.lavender
+val Mint: Color @Composable @ReadOnlyComposable get() = LocalKimiPalette.current.mint
+val Peach: Color @Composable @ReadOnlyComposable get() = LocalKimiPalette.current.peach
+val Yellow: Color @Composable @ReadOnlyComposable get() = LocalKimiPalette.current.yellow
+val Pink: Color @Composable @ReadOnlyComposable get() = LocalKimiPalette.current.pink
+val Blue: Color @Composable @ReadOnlyComposable get() = LocalKimiPalette.current.blue
+val TileColors: List<Color> @Composable @ReadOnlyComposable get() = LocalKimiPalette.current.tiles
+
+enum class ThemeMode { System, Light, Dark }
+
+/** A device-level choice, deliberately kept out of per-account stores and backups. */
+object ThemeSetting {
+    private const val PREFS = "kimi_appearance"
+    var mode by mutableStateOf(ThemeMode.System)
+        private set
+    fun load(context: Context) {
+        val saved = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("mode", null)
+        mode = runCatching { ThemeMode.valueOf(saved!!) }.getOrDefault(ThemeMode.System)
+    }
+    fun set(context: Context, value: ThemeMode) {
+        mode = value
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putString("mode", value.name) }
+    }
+}
+
+@Composable fun kimiDarkTheme(): Boolean = when (ThemeSetting.mode) {
+    ThemeMode.System -> isSystemInDarkTheme()
+    ThemeMode.Light -> false
+    ThemeMode.Dark -> true
+}
+
 val HabitSymbols = listOf(Icons.Rounded.SelfImprovement, Icons.Rounded.WaterDrop, Icons.AutoMirrored.Rounded.MenuBook,
     Icons.AutoMirrored.Rounded.DirectionsWalk, Icons.Rounded.Bedtime, Icons.Rounded.FitnessCenter, Icons.Rounded.Brush, Icons.Rounded.Spa)
 private val RoundedFont = FontFamily(
@@ -54,6 +126,7 @@ private val RoundedFont = FontFamily(
 )
 
 @Composable fun FormaTheme(content: @Composable () -> Unit) {
+    val palette = if (kimiDarkTheme()) DarkPalette else LightPalette
     val defaults = Typography()
     val base = defaults.copy(
         bodyLarge = defaults.bodyLarge.copy(fontFamily = RoundedFont),
@@ -61,23 +134,38 @@ private val RoundedFont = FontFamily(
         labelMedium = defaults.labelMedium.copy(fontFamily = RoundedFont),
         labelSmall = defaults.labelSmall.copy(fontFamily = RoundedFont)
     )
-    MaterialTheme(
-        colorScheme = lightColorScheme(primary = Purple, onPrimary = Color.White, secondary = Purple,
-            background = Cream, surface = Cream, onBackground = Ink, onSurface = Ink,
-            surfaceContainer = Color.White, surfaceContainerHigh = Color(0xFFF1EAF8), outline = Quiet),
-        typography = base.copy(
-            headlineLarge = TextStyle(fontFamily = RoundedFont, fontSize = 34.sp, lineHeight = 39.sp, fontWeight = FontWeight.ExtraBold, color = Ink),
-            headlineMedium = TextStyle(fontFamily = RoundedFont, fontSize = 28.sp, lineHeight = 34.sp, fontWeight = FontWeight.Bold, color = Ink),
-            titleLarge = TextStyle(fontFamily = RoundedFont, fontSize = 21.sp, lineHeight = 27.sp, fontWeight = FontWeight.Bold, color = Ink),
-            titleMedium = TextStyle(fontFamily = RoundedFont, fontSize = 16.sp, lineHeight = 21.sp, fontWeight = FontWeight.Bold, color = Ink),
-            bodyMedium = TextStyle(fontFamily = RoundedFont, fontSize = 13.sp, lineHeight = 19.sp, color = Ink),
-            labelLarge = TextStyle(fontFamily = RoundedFont, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-        ), content = content)
+    val colors = if (palette.dark) darkColorScheme(
+        primary = palette.accent, onPrimary = palette.onInk, secondary = palette.accent,
+        background = palette.cream, surface = palette.cream, onBackground = palette.ink, onSurface = palette.ink,
+        surfaceContainer = palette.surface, surfaceContainerHigh = Color(0xFF2C2338), outline = palette.quiet,
+        error = palette.danger
+    ) else lightColorScheme(
+        primary = palette.purple, onPrimary = palette.onAccent, secondary = palette.purple,
+        background = palette.cream, surface = palette.cream, onBackground = palette.ink, onSurface = palette.ink,
+        surfaceContainer = palette.surface, surfaceContainerHigh = Color(0xFFF1EAF8), outline = palette.quiet,
+        error = palette.danger
+    )
+    CompositionLocalProvider(LocalKimiPalette provides palette) {
+        MaterialTheme(
+            colorScheme = colors,
+            typography = base.copy(
+                headlineLarge = TextStyle(fontFamily = RoundedFont, fontSize = 34.sp, lineHeight = 39.sp, fontWeight = FontWeight.ExtraBold, color = palette.ink),
+                headlineMedium = TextStyle(fontFamily = RoundedFont, fontSize = 28.sp, lineHeight = 34.sp, fontWeight = FontWeight.Bold, color = palette.ink),
+                titleLarge = TextStyle(fontFamily = RoundedFont, fontSize = 21.sp, lineHeight = 27.sp, fontWeight = FontWeight.Bold, color = palette.ink),
+                titleMedium = TextStyle(fontFamily = RoundedFont, fontSize = 16.sp, lineHeight = 21.sp, fontWeight = FontWeight.Bold, color = palette.ink),
+                bodyMedium = TextStyle(fontFamily = RoundedFont, fontSize = 13.sp, lineHeight = 19.sp, color = palette.ink),
+                labelLarge = TextStyle(fontFamily = RoundedFont, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            ), content = content)
+    }
 }
 
 /** A resolution-independent flower mascot, drawn with native Compose Canvas. */
-@Composable fun Flower(modifier: Modifier = Modifier, happy: Boolean = true, petal: Color = Yellow) {
-    Canvas(modifier.semantics { contentDescription = "Happy flower mascot" }) {
+@Composable fun Flower(modifier: Modifier = Modifier, happy: Boolean = true, petal: Color = Highlight) {
+    // The mascot is a fixed illustration, not themed UI: a dark face on the orange centre reads
+    // correctly on light and dark alike, whereas the theme ink would invert it after dark.
+    val face = Color(0xFF33283E)
+    val label = stringResource(R.string.cd_mascot)
+    Canvas(modifier.semantics { contentDescription = label }) {
         val unit = size.minDimension
         val center = Offset(size.width / 2, size.height / 2)
         for (i in 0..5) {
@@ -87,12 +175,12 @@ private val RoundedFont = FontFamily(
         drawCircle(Color(0xFFFFAD73), unit * .25f, center)
         val stroke = unit * .027f
         for (x in listOf(-.085f, .085f)) {
-            drawLine(Ink, center + Offset(unit * x, -unit * .055f), center + Offset(unit * x, -unit * .005f), stroke, StrokeCap.Round)
+            drawLine(face, center + Offset(unit * x, -unit * .055f), center + Offset(unit * x, -unit * .005f), stroke, StrokeCap.Round)
         }
         drawCircle(Color(0xFFF88972), unit * .032f, center + Offset(-unit * .15f, unit * .045f))
         drawCircle(Color(0xFFF88972), unit * .032f, center + Offset(unit * .15f, unit * .045f))
-        if (happy) drawArc(Ink, 12f, 156f, false, center + Offset(-unit * .085f, unit * .005f), Size(unit * .17f, unit * .13f), style = Stroke(stroke, cap = StrokeCap.Round))
-        else drawLine(Ink, center + Offset(-unit * .065f, unit * .09f), center + Offset(unit * .065f, unit * .09f), stroke, StrokeCap.Round)
+        if (happy) drawArc(face, 12f, 156f, false, center + Offset(-unit * .085f, unit * .005f), Size(unit * .17f, unit * .13f), style = Stroke(stroke, cap = StrokeCap.Round))
+        else drawLine(face, center + Offset(-unit * .065f, unit * .09f), center + Offset(unit * .065f, unit * .09f), stroke, StrokeCap.Round)
     }
 }
 
@@ -101,7 +189,7 @@ private val RoundedFont = FontFamily(
         Icon(icon, null, Modifier.size((size * .51).dp), tint = Ink)
     }
 }
-@Composable fun Pill(text: String, color: Color = Color.White, icon: ImageVector? = null, onClick: (() -> Unit)? = null) {
+@Composable fun Pill(text: String, color: Color = Paper, icon: ImageVector? = null, onClick: (() -> Unit)? = null) {
     Row(Modifier.clip(CircleShape).background(color).then(if (onClick != null) Modifier.clickable(role = Role.Button, onClick = onClick) else Modifier)
         .padding(horizontal = 13.dp, vertical = if (onClick != null) 13.dp else 7.dp), horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
         if (icon != null) Icon(icon, null, Modifier.size(15.dp), tint = Ink)

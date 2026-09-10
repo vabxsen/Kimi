@@ -1,0 +1,390 @@
+<resources>
+    <!-- Brand -->
+    <string name="app_name">Kimi</string>
+    <string name="app_wordmark_dot">.</string>
+
+    <!-- Navigation -->
+    <string name="nav_today">Today</string>
+    <string name="nav_habits">Habits</string>
+    <string name="nav_calendar">Calendar</string>
+    <string name="nav_insights">Insights</string>
+    <string name="nav_journal">Journal</string>
+
+    <!-- Content descriptions -->
+    <string name="cd_mascot">Happy flower mascot</string>
+    <string name="cd_open_settings">Open settings</string>
+    <string name="cd_open_journal">Open journal</string>
+    <string name="cd_day">%1$s</string>
+    <string name="cd_day_selected">%1$s, selected</string>
+    <string name="cd_complete_habit">Complete %1$s</string>
+    <string name="cd_undo_habit">Undo %1$s</string>
+    <string name="cd_edit_habit">Edit %1$s</string>
+    <string name="cd_prev_month">Previous month</string>
+    <string name="cd_next_month">Next month</string>
+    <plurals name="cd_calendar_day">
+        <item quantity="one">%1$s, %2$d habit complete</item>
+        <item quantity="other">%1$s, %2$d habits complete</item>
+    </plurals>
+    <plurals name="cd_chart_bar">
+        <item quantity="one">%1$s: %2$d percent</item>
+        <item quantity="other">%1$s: %2$d percent</item>
+    </plurals>
+    <string name="cd_close_editor">Close habit editor</string>
+    <string name="cd_habit_icon">Habit icon %1$d</string>
+    <string name="cd_color">Color %1$d</string>
+    <string name="cd_color_selected">Selected color %1$d</string>
+    <string name="cd_starters_switch">Start with five suggested habits</string>
+    <string name="cd_reminder_switch">Habit reminder</string>
+    <string name="cd_back_to_kimi">Back to Kimi</string>
+    <string name="cd_show_password">Show password</string>
+    <string name="cd_hide_password">Hide password</string>
+
+    <!-- Shared vocabulary -->
+    <string name="daypart_morning">Morning</string>
+    <string name="daypart_afternoon">Afternoon</string>
+    <string name="daypart_evening">Evening</string>
+    <string name="daypart_anytime">Anytime</string>
+    <string name="filter_all">All</string>
+    <string name="schedule_every_day">Every day</string>
+    <string name="schedule_weekdays">Weekdays</string>
+    <string name="percent_value">%1$d%%</string>
+
+    <!-- Counted phrases. English needs only one/other; other languages need more forms. -->
+    <plurals name="streak_days">
+        <item quantity="one">%1$d day streak</item>
+        <item quantity="other">%1$d day streak</item>
+    </plurals>
+    <plurals name="habit_count">
+        <item quantity="one">%1$d habit</item>
+        <item quantity="other">%1$d habits</item>
+    </plurals>
+    <plurals name="checkin_count">
+        <item quantity="one">%1$d check-in</item>
+        <item quantity="other">%1$d check-ins</item>
+    </plurals>
+    <plurals name="reflection_count">
+        <item quantity="one">%1$d reflection</item>
+        <item quantity="other">%1$d reflections</item>
+    </plurals>
+
+    <string-array name="mood_names">
+        <item>Low</item>
+        <item>Okay</item>
+        <item>Good</item>
+        <item>Great</item>
+        <item>Amazing</item>
+    </string-array>
+
+    <!-- Seed habits offered on first run. These are copied into the user's own data. -->
+    <string-array name="starter_names">
+        <item>A little headspace</item>
+        <item>Sip, sip, hooray!</item>
+        <item>One more chapter</item>
+        <item>Get your happy steps</item>
+        <item>Less scroll, more soul</item>
+    </string-array>
+    <string-array name="starter_goals">
+        <item>Meditate for 10 minutes</item>
+        <item>Drink 8 glasses of water</item>
+        <item>Read for 20 minutes</item>
+        <item>Walk for 30 minutes</item>
+        <item>Unplug 30 minutes before bed</item>
+    </string-array>
+
+    <!-- Today -->
+    <string name="today_greeting">Hey, sunshine!</string>
+    <string name="today_subtitle">Let’s grow a little today, %1$s.</string>
+    <string name="today_banner_pill">YOUR DAILY DOSE OF GOOD</string>
+    <string name="today_banner_title">Small steps.\nBig happy energy.</string>
+    <plurals name="today_banner_progress">
+        <item quantity="one">%1$d of %2$d done. You’ve got this!</item>
+        <item quantity="other">%1$d of %2$d done. You’ve got this!</item>
+    </plurals>
+    <string name="today_banner_rest">Nothing scheduled. Rest is progress too.</string>
+    <string name="today_streak_caption">Keep your spark!</string>
+    <string name="today_percent_complete">%1$d%% complete</string>
+    <string name="today_percent_caption">Every little bit counts</string>
+    <string name="today_rest_day">Rest day</string>
+    <string name="today_rest_caption">Nothing scheduled today</string>
+    <string name="today_section">Your little rituals</string>
+    <string name="today_empty_title">Room for a new beginning</string>
+    <string name="today_empty_body">Add a habit or try another time of day.</string>
+    <string name="today_journal_caption">Make a little space for your thoughts.</string>
+    <string name="demo_footer_today">Sample habits &amp; check-ins · Make them your own</string>
+
+    <!-- Habits -->
+    <string name="habits_title">Good habits,\ngreat you.</string>
+    <string name="habits_subtitle">Your own little collection of feel-good rituals.</string>
+    <string name="habits_search_label">Find your habit</string>
+    <plurals name="habits_collection_count">
+        <item quantity="one">Your collection · %1$d habit</item>
+        <item quantity="other">Your collection · %1$d habits</item>
+    </plurals>
+    <string name="habits_schedule_summary">%1$s · %2$s</string>
+    <string name="habits_empty_search_title">No little rituals found</string>
+    <string name="habits_empty_search_body">Try a different name or plant a new habit.</string>
+    <string name="habits_empty_title">Let’s plant your first habit</string>
+    <string name="habits_empty_body">Something small is a great place to start.</string>
+
+    <!-- Calendar -->
+    <string name="calendar_title">Look at you grow.</string>
+    <string name="calendar_subtitle">A whole lot of little wins, one day at a time.</string>
+    <string name="calendar_legend_some">Some wins</string>
+    <string name="calendar_legend_all">All done!</string>
+    <string name="calendar_encourage_title">Showing up is a superpower.</string>
+    <string name="calendar_encourage_body">Missed a day? The next one is all yours.</string>
+    <string name="calendar_empty_title">A quiet day</string>
+    <string name="calendar_empty_body">No habits scheduled for this date.</string>
+
+    <!-- Insights -->
+    <string name="insights_title">You’re on a roll!</string>
+    <string name="insights_subtitle">Proof that your little efforts are adding up.</string>
+    <string name="insights_energy_label">THIS WEEK’S GOOD ENERGY</string>
+    <string name="insights_consistency">consistency. That’s all you.</string>
+    <string name="insights_wins">wins this week</string>
+    <string name="insights_best_streak">best current streak</string>
+    <string name="insights_week_chart">Your week in little wins</string>
+    <string name="insights_habits_section">Habits taking root</string>
+    <string name="insights_footnote">Consistency is based on scheduled days in the last 30 days.</string>
+
+    <!-- Journal -->
+    <string name="journal_title">Hello, feelings.</string>
+    <string name="journal_subtitle">A soft landing for whatever’s on your mind.</string>
+    <string name="journal_writing_for">Writing for %1$s</string>
+    <string name="journal_back_to_today">Back to today</string>
+    <string name="journal_continue_draft">Continue draft · %1$s</string>
+    <string name="journal_moods_title">All your moods\nare welcome here.</string>
+    <string name="journal_moods_body">No perfect days required.</string>
+    <string name="journal_prompt">How’s your heart today?</string>
+    <string name="journal_field_label">A thought worth keeping</string>
+    <string name="journal_field_placeholder">A tiny win, a happy accident, a thing you’re grateful for…</string>
+    <string name="journal_privacy">Just for you. Saved privately on this device.</string>
+    <string name="journal_history_section">Pages from your story</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Your kind of happy.</string>
+    <string name="settings_subtitle">A little space that’s completely your own.</string>
+    <string name="settings_team">Team %1$s</string>
+    <string name="settings_team_caption">Growing at your own pace.</string>
+    <string name="settings_name_question">What should we call you?</string>
+    <string name="settings_name_label">Your name</string>
+    <string name="settings_appearance_title">How Kimi looks</string>
+    <string name="settings_appearance_body">Follow your device, or pick a side.</string>
+    <string name="settings_theme_system">Automatic</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="privacy_title">Your world stays yours.</string>
+    <string name="settings_privacy_body">Your habits and journal stay on this device. Your account and guest spaces are separate. Cloud sync is not enabled.</string>
+    <string name="settings_data_section">Your data</string>
+    <string name="settings_data_caption">Keep a copy of your habits, check-ins, and reflections.</string>
+    <string name="settings_damaged_notice">Your original save is protected. Restore a backup or reset to continue.</string>
+    <string name="settings_footer">Made for small steps and fresh starts. Kimi %1$s</string>
+    <string name="demo_footer_settings">You’re exploring sample habits and check-ins. Reset for a fresh workspace.</string>
+
+    <!-- Habit editor -->
+    <string name="editor_title_new">Plant a little habit.</string>
+    <string name="editor_title_edit">Make it more you.</string>
+    <string name="editor_subtitle">Start small. Let the good stuff grow.</string>
+    <string name="editor_preview_name">Your next little win</string>
+    <string name="editor_preview_goal">A promise to yourself</string>
+    <string name="editor_name_label">Habit name</string>
+    <string name="editor_goal_label">A small, specific goal</string>
+    <string name="editor_goal_placeholder">e.g. Read for 15 minutes</string>
+    <string name="editor_icon_section">Pick a personality</string>
+    <string name="editor_schedule_section">Make it a regular thing</string>
+
+    <!-- Welcome -->
+    <string name="welcome_title">Small steps.\nYour kind of happy.</string>
+    <string name="welcome_body">A little space for habits that feel good, and a life that feels more like you.</string>
+    <string name="welcome_starters_title">A little help getting started</string>
+    <string name="welcome_starters_body">Five gentle rituals to make your own. Your progress starts today.</string>
+    <string name="welcome_busy">Making room for you…</string>
+    <string name="welcome_privacy">No account needed. Your habits and journal stay on this device.</string>
+
+    <!-- Reminders -->
+    <string name="reminder_toggle_title">A gentle nudge</string>
+    <string name="reminder_toggle_body">Only on scheduled days, if it’s still undone.</string>
+    <string name="reminder_time_button">Remind me around %1$s</string>
+    <string name="reminder_delay_notice">Android may delay a reminder to save battery.</string>
+    <string name="reminder_notifications_off">Notifications are off. Enable them to receive your nudges.</string>
+    <string name="reminders_card_title">A friendly little nudge</string>
+    <string name="reminders_on_body">Notifications are on. Choose a ritual below to set its time. Completed habits won’t nudge you again that day.</string>
+    <string name="reminders_off_body">Notifications are off. Allow them here, then choose a ritual below to set its time.</string>
+    <string name="reminders_empty">Plant your first habit to add a reminder.</string>
+    <string name="reminder_off">Off</string>
+    <string name="channel_name">Little ritual reminders</string>
+    <string name="channel_description">Gentle reminders for the habits you choose.</string>
+    <string name="notification_body">%1$s\nA little step for you. Kimi is cheering you on.</string>
+
+    <!-- Account -->
+    <string name="account_card_title_signed_out">A little more connected.</string>
+    <string name="account_card_title_signed_in">Your Kimi account</string>
+    <string name="account_card_body">Your space, your pace.</string>
+    <string name="account_screen_title">Your little account</string>
+    <string name="account_hero_signed_in">You belong here.</string>
+    <string name="account_hero_create">Let’s grow together.</string>
+    <string name="account_hero_sign_in">Hello, you.</string>
+    <string name="account_hero_body">Small steps. A space of your own.</string>
+    <string name="account_form_create">Create your Kimi account</string>
+    <string name="account_form_sign_in">Welcome back to Kimi</string>
+    <string name="account_or_email">or continue with email</string>
+    <string name="account_password_hint">At least 8 characters. Make it something only you know.</string>
+    <string name="account_password_mismatch">Your passwords don’t match yet.</string>
+    <string name="account_greeting">Lovely to see you, %1$s.</string>
+    <string name="account_greeting_fallback">friend</string>
+    <string name="account_email_verified">Email verified</string>
+    <string name="account_email_unverified">Email not verified yet</string>
+    <string name="account_copy_title">Bring your little wins along.</string>
+    <string name="account_copy_body">Copy this device’s guest habits and saved reflections into an empty account space. Your guest original stays safe.</string>
+    <string name="account_privacy_body">Firebase securely manages your account. Habits and journal entries stay on this device, separately for each account and guest. Cloud sync is not enabled. Export a backup before switching devices or uninstalling Kimi.</string>
+
+    <!-- Form fields -->
+    <string name="field_password">Password</string>
+    <string name="field_confirm_password">Confirm password</string>
+    <string name="field_confirm_with_password">Confirm with password</string>
+    <string name="field_account_name">Account name</string>
+    <string name="field_email">Email address</string>
+
+    <!-- Actions -->
+    <string name="action_new_habit">+ New habit</string>
+    <string name="action_plant_new_habit">Plant a new habit</string>
+    <string name="action_today">Today</string>
+    <string name="action_edit">Edit</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_not_now">Not now</string>
+    <string name="action_stay_here">Stay here</string>
+    <string name="action_keep_it">Keep it</string>
+    <string name="action_delete_habit">Delete habit</string>
+    <string name="action_delete_habit_full">Delete this habit</string>
+    <string name="action_create_habit">Let’s make it a habit</string>
+    <string name="action_save_changes">Save my changes</string>
+    <string name="action_save_reflection">Keep this little moment</string>
+    <string name="action_thats_me">That’s me!</string>
+    <string name="action_export">Export my space</string>
+    <string name="action_restore">Restore a backup</string>
+    <string name="action_reset">Start with a clean slate</string>
+    <string name="action_reset_confirm">Reset everything</string>
+    <string name="action_keep_progress">Keep my progress</string>
+    <string name="action_restore_backup">Restore backup</string>
+    <string name="action_keep_current_space">Keep current space</string>
+    <string name="action_lets_grow">Let’s grow together</string>
+    <string name="action_account_link">Your Kimi account · Sign in or manage</string>
+    <string name="action_restore_link">Already have a Kimi backup?</string>
+    <string name="action_open_notification_settings">Open notification settings</string>
+    <string name="action_notification_settings">Notification settings</string>
+    <string name="action_save_reminder">Save reminder</string>
+    <string name="action_mark_complete">Mark complete</string>
+    <string name="action_sign_in_kimi">Sign in to Kimi</string>
+    <string name="action_manage_account">Manage account</string>
+    <string name="action_google_sign_in">Sign in with Google</string>
+    <string name="action_create_account">Create my account</string>
+    <string name="action_sign_in">Sign in</string>
+    <string name="action_forgot_password">Forgot password?</string>
+    <string name="action_switch_to_sign_in">Already have an account? Sign in</string>
+    <string name="action_switch_to_create">New here? Create an account</string>
+    <string name="action_send_verification">Send verification email</string>
+    <string name="action_refresh_account">Refresh account</string>
+    <string name="action_save_account_name">Save account name</string>
+    <string name="action_reset_password">Reset my password</string>
+    <string name="action_copy_guest">Copy guest progress</string>
+    <string name="action_copy_progress">Copy progress</string>
+    <string name="action_sign_out">Sign out</string>
+    <string name="action_sign_out_now">Sign out now</string>
+    <string name="action_delete_account">Delete my account</string>
+    <string name="action_delete_permanently">Delete permanently</string>
+    <string name="action_keep_account">Keep my account</string>
+
+    <!-- Dialogs -->
+    <string name="dialog_delete_habit_title">Let this one go?</string>
+    <string name="dialog_delete_habit_body">This removes the habit and its check-in history. There’s always room for a new beginning.</string>
+    <string name="dialog_restore_title">Bring your space back?</string>
+    <string name="dialog_restore_body">This backup belongs to %1$s: %2$s, %3$s, and %4$s. Restoring replaces your current space. Export it first if you want to keep both.</string>
+    <string name="dialog_delete_reflection_title">Delete this moment?</string>
+    <string name="dialog_delete_reflection_body">This reflection will be removed from your journal.</string>
+    <string name="dialog_reset_title">Ready for a fresh start?</string>
+    <string name="dialog_reset_body">All habits, check-ins, and journal entries will be removed. Export a copy first if you want to keep them.</string>
+    <string name="dialog_sign_out_title">See you soon?</string>
+    <string name="dialog_sign_out_body">Your account’s progress stays on this device for your next sign-in. Kimi will open your separate guest space.</string>
+    <string name="dialog_copy_guest_title">Bring in your guest progress?</string>
+    <string name="dialog_copy_guest_body">This copies saved habits, check-ins and reflections only if your account space is empty. Unfinished journal drafts stay in your guest space.</string>
+    <string name="dialog_delete_account_title">Let this account go?</string>
+    <string name="dialog_delete_account_body">This permanently deletes your Firebase account and its habits, check-ins, journal and drafts on this device. Export a backup first. Guest data is kept.</string>
+    <string name="dialog_delete_account_google">Confirm your Google account on the next screen.</string>
+
+    <!-- Confirmations -->
+    <string name="msg_checked">Tiny win. Big high-five!</string>
+    <string name="msg_unchecked">Check-in undone. Fresh starts are allowed.</string>
+    <string name="msg_habit_saved">Your habit is saved. Make it work for you.</string>
+    <string name="msg_habit_removed">Habit removed.</string>
+    <string name="msg_reflection_saved">Your little moment is saved.</string>
+    <string name="msg_reflection_deleted">Reflection deleted.</string>
+    <string name="msg_renamed">Looking good, %1$s!</string>
+    <string name="msg_reset">A blank page. A brand-new beginning.</string>
+    <string name="msg_welcome">Welcome to your little happy place!</string>
+    <string name="msg_backup_saved">Your Kimi backup is saved.</string>
+    <string name="msg_restored">Your space is restored. Welcome back!</string>
+    <string name="msg_signed_in">Welcome back. Your little space is ready.</string>
+    <string name="msg_google_signed_in">You’re in. Welcome to Kimi!</string>
+    <string name="msg_account_created">Your account is ready. You can verify your email below.</string>
+    <string name="msg_account_created_no_name">Your account is ready. Your name could not be updated; try again below.</string>
+    <string name="msg_reset_sent">If this email has a password account, a reset link is on its way. Check your inbox and spam folder.</string>
+    <string name="msg_verification_sent">Verification email sent. Open the link, then tap Refresh account.</string>
+    <string name="msg_email_verified">Your email is verified.</string>
+    <string name="msg_account_refreshed">Account refreshed.</string>
+    <string name="msg_name_updated">Your account name is updated.</string>
+    <string name="msg_signed_out">Signed out. Your account’s local space is kept for your next sign-in.</string>
+    <string name="msg_account_deleted">Your account and its local space have been deleted. Guest data is kept.</string>
+    <string name="msg_account_deleted_partial">Your account was deleted, but local cleanup failed. Clear Kimi’s storage in Android Settings to remove the remaining device data. Export your guest space first.</string>
+    <string name="msg_guest_copied">Your guest habits and saved reflections were copied. The guest original is still safe.</string>
+    <string name="notice_recovered">Your last safe save was recovered. The damaged copy has been kept.</string>
+    <string name="notice_damaged">Your saved file could not be read. It has been kept intact. Restore a backup or reset your space in Settings.</string>
+
+    <!-- Errors -->
+    <string name="err_generic_save">That change could not be saved. Please try again.</string>
+    <string name="err_collection_full">Your collection is full. Remove a habit before adding another.</string>
+    <string name="err_damaged_locked">Restore a backup or reset in Settings before making changes.</string>
+    <string name="err_space_full">Your space is full. Export a backup before removing older entries.</string>
+    <string name="err_disk_write">Could not save to this device. Free some storage and try again.</string>
+    <string name="err_erase_failed">The account was deleted, but local data could not be removed. Clear Kimi’s storage in Android Settings.</string>
+    <string name="err_file_write">The chosen file cannot be written.</string>
+    <string name="err_file_read">Cannot read this file.</string>
+    <string name="err_backup_save">Backup could not be saved. Try another location.</string>
+    <string name="err_backup_read">This backup could not be read. Choose a valid Kimi JSON backup (up to 8 MB). Your current data is unchanged.</string>
+    <string name="err_backup_too_large">Backup is larger than 8 MB.</string>
+    <string name="err_backup_version">This backup needs a newer version of Kimi.</string>
+    <string name="err_backup_format">Choose a Kimi backup.</string>
+    <string name="err_backup_duplicate_habits">Backup has duplicate habits.</string>
+    <string name="err_backup_unknown_habit">Check-in has an unknown habit.</string>
+    <string name="err_backup_too_many_dates">Too many check-in dates.</string>
+    <string name="err_backup_too_many_records">Backup contains too many records.</string>
+    <string name="err_backup_invalid_reflection">Invalid reflection.</string>
+    <string name="err_backup_duplicate_dates">Backup has duplicate journal dates.</string>
+    <string name="err_backup_name">Name must be 1–30 characters.</string>
+    <string name="err_invalid_date">Invalid date.</string>
+    <string name="err_habit_id">Invalid habit identifier.</string>
+    <string name="err_habit_name">Give your habit a name and a short goal.</string>
+    <string name="err_habit_style">Invalid habit style.</string>
+    <string name="err_habit_reminder">Invalid reminder time.</string>
+    <string name="err_habit_schedule">Invalid schedule history.</string>
+    <string name="err_reflection_invalid">A reflection needs a mood and some words.</string>
+    <string name="err_name_length">Your name can be 1 to 30 characters.</string>
+    <string name="err_account_missing_fields">Enter your email and password.</string>
+    <string name="err_account_name">Add a name, up to 30 characters.</string>
+    <string name="err_account_name_range">Use a name between 1 and 30 characters.</string>
+    <string name="err_account_password_short">Choose a password with at least 8 characters.</string>
+    <string name="err_google_confirm">Google could not confirm this account. Please try again.</string>
+    <string name="err_invalid_email">Enter a valid email address first.</string>
+    <string name="err_sign_in_first">Sign in first.</string>
+    <string name="err_password_required">Enter your password to confirm.</string>
+    <string name="err_account_not_empty">This account already has progress. Export and restore a backup to replace it.</string>
+    <string name="err_auth_network">Can’t connect right now. Check your connection and try again.</string>
+    <string name="err_auth_too_many">A few too many attempts. Please wait a little before trying again.</string>
+    <string name="err_auth_no_credential">Add a Google account on this device, then try again, or use email.</string>
+    <string name="err_auth_weak_password">Choose a stronger password with at least 8 characters.</string>
+    <string name="err_auth_collision">This email already has an account. Sign in with its original method.</string>
+    <string name="err_auth_recent_login">For your security, sign in again and retry this action.</string>
+    <string name="err_auth_invalid_credentials">Those details couldn’t be verified. Check your email and password, or try Google.</string>
+    <string name="err_auth_invalid_user">This account is unavailable. Sign in again or create an account.</string>
+    <string name="err_auth_generic">That didn’t go through. Please try again.</string>
+</resources>

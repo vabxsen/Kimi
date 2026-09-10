@@ -25,10 +25,10 @@ object BackupCodec {
     }.toString(2)
 
     fun decode(raw: String): HabitState {
-        require(raw.toByteArray(Charsets.UTF_8).size <= MAX_BYTES) { "Backup is larger than 8 MB." }
+        demand(raw.toByteArray(Charsets.UTF_8).size <= MAX_BYTES, R.string.err_backup_too_large)
         val json = JSONObject(raw.removePrefix("\uFEFF"))
-        require(json.optInt("version", 1) in 1..2) { "This backup needs a newer version of Kimi." }
-        require(!json.has("format") || json.getString("format") == "kimi") { "Choose a Kimi backup." }
+        demand(json.optInt("version", 1) in 1..2, R.string.err_backup_version)
+        demand(!json.has("format") || json.getString("format") == "kimi", R.string.err_backup_format)
         val habits = json.getJSONArray("habits").objects(500).map { h ->
             Habit(id = h.getString("id"), name = h.getString("name"), goal = h.getString("goal"),
                 icon = h.getInt("icon"), color = h.getInt("color"), time = h.getString("time"),
@@ -39,40 +39,40 @@ object BackupCodec {
                 }.orEmpty()).also(::validateHabit)
         }
         val ids = habits.map { it.id }.toSet()
-        require(ids.size == habits.size) { "Backup has duplicate habits." }
+        demand(ids.size == habits.size, R.string.err_backup_duplicate_habits)
         val checks = json.getJSONObject("checks").let { j ->
-            require(j.length() <= 50000) { "Too many check-in dates." }
+            demand(j.length() <= 50000, R.string.err_backup_too_many_dates)
             j.keys().asSequence().associateWith { key ->
                 date(key)
                 val a = j.getJSONArray(key)
-                require(a.length() <= 500)
-                (0 until a.length()).map { a.getString(it).also { id -> require(id in ids) { "Check-in has an unknown habit." } } }.toSet()
+                demand(a.length() <= 500, R.string.err_backup_too_many_records)
+                (0 until a.length()).map { a.getString(it).also { id -> demand(id in ids, R.string.err_backup_unknown_habit) } }.toSet()
             }
         }
         val journal = json.getJSONArray("journal").objects(50000).map {
             Reflection(date(it.getString("date")), it.getInt("mood"), it.getString("text")).also { e ->
-                require(e.mood in 0..4 && e.text.isNotBlank() && e.text.length <= 10000) { "Invalid reflection." }
+                demand(e.mood in 0..4 && e.text.isNotBlank() && e.text.length <= 10000, R.string.err_backup_invalid_reflection)
             }
         }
-        require(journal.distinctBy { it.date }.size == journal.size) { "Backup has duplicate journal dates." }
+        demand(journal.distinctBy { it.date }.size == journal.size, R.string.err_backup_duplicate_dates)
         val name = json.optString("name", "Alex")
-        require(name.isNotBlank() && name.length <= 30) { "Name must be 1–30 characters." }
+        demand(name.isNotBlank() && name.length <= 30, R.string.err_backup_name)
         return HabitState(habits, checks, journal, name, json.optBoolean("demo", false), json.optBoolean("onboarded", true))
     }
 
     fun validateHabit(h: Habit) {
-        require(h.id.matches(Regex("[A-Za-z0-9_-]{1,100}"))) { "Invalid habit identifier." }
-        require(h.name.isNotBlank() && h.name.length <= 70 && h.goal.isNotBlank() && h.goal.length <= 80) { "Give your habit a name and a short goal." }
-        require(h.icon in 0..7 && h.color in 0..5 && h.time in listOf("Morning", "Afternoon", "Evening", "Anytime")) { "Invalid habit style." }
-        require(h.reminderMinutes == null || h.reminderMinutes in 0..1439) { "Invalid reminder time." }
+        demand(h.id.matches(Regex("[A-Za-z0-9_-]{1,100}")), R.string.err_habit_id)
+        demand(h.name.isNotBlank() && h.name.length <= 70 && h.goal.isNotBlank() && h.goal.length <= 80, R.string.err_habit_name)
+        demand(h.icon in 0..7 && h.color in 0..5 && h.time in Dayparts, R.string.err_habit_style)
+        demand(h.reminderMinutes == null || h.reminderMinutes in 0..1439, R.string.err_habit_reminder)
         date(h.created.toString())
-        require(h.schedule.size <= 5000 && h.schedule.zipWithNext().all { (a, b) -> a.from < b.from }) { "Invalid schedule history." }
-        require(h.schedule.all { it.from >= h.created && it.from.year in 1970..2200 })
-        require(h.schedule.isEmpty() || (h.schedule.first().from == h.created && h.schedule.last().weekdays == h.weekdays))
+        demand(h.schedule.size <= 5000 && h.schedule.zipWithNext().all { (a, b) -> a.from < b.from }, R.string.err_habit_schedule)
+        demand(h.schedule.all { it.from >= h.created && it.from.year in 1970..2200 }, R.string.err_habit_schedule)
+        demand(h.schedule.isEmpty() || (h.schedule.first().from == h.created && h.schedule.last().weekdays == h.weekdays), R.string.err_habit_schedule)
     }
-    private fun date(value: String): LocalDate = LocalDate.parse(value).also { require(it.year in 1970..2200) { "Invalid date." } }
+    private fun date(value: String): LocalDate = LocalDate.parse(value).also { demand(it.year in 1970..2200, R.string.err_invalid_date) }
     private fun JSONArray.objects(limit: Int): List<JSONObject> {
-        require(length() <= limit) { "Backup contains too many records." }
+        demand(length() <= limit, R.string.err_backup_too_many_records)
         return (0 until length()).map { getJSONObject(it) }
     }
 }

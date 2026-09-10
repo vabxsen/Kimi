@@ -35,6 +35,8 @@ data class KimiAccount(val uid: String, val email: String, val name: String, val
 
 class AccountViewModel(application: Application) : AndroidViewModel(application) {
     private val auth = AccountSession.auth
+    private val app: Application get() = getApplication()
+    private fun text(resId: Int, vararg args: Any) = app.getString(resId, *args)
     var account by mutableStateOf(snapshot())
         private set
     var busy by mutableStateOf(false)
@@ -58,60 +60,57 @@ class AccountViewModel(application: Application) : AndroidViewModel(application)
             try { message = block(); account = snapshot() }
             catch (e: CancellationException) { throw e }
             catch (_: GetCredentialCancellationException) { /* Dismissing Google's sheet is not an error. */ }
-            catch (e: Exception) { error = true; message = friendlyAuthError(e) }
+            catch (e: Exception) { error = true; message = friendlyAuthError(app, e) }
             finally { busy = false }
         }
     }
     fun emailSignIn(email: String, password: String) = action {
-        require(email.trim().isNotEmpty() && password.isNotEmpty()) { "Enter your email and password." }
+        demand(email.trim().isNotEmpty() && password.isNotEmpty(), R.string.err_account_missing_fields)
         auth.signInWithEmailAndPassword(email.trim(), password).await()
-        "Welcome back. Your little space is ready."
+        text(R.string.msg_signed_in)
     }
     fun createAccount(name: String, email: String, password: String) = action {
-        require(name.trim().length in 1..30) { "Add a name, up to 30 characters." }
-        require(password.length >= 8) { "Choose a password with at least 8 characters." }
+        demand(name.trim().length in 1..30, R.string.err_account_name)
+        demand(password.length >= 8, R.string.err_account_password_short)
         val user = auth.createUserWithEmailAndPassword(email.trim(), password).await().user!!
         // Account creation is successful even if the optional profile update is interrupted.
         val updated = try { user.updateProfile(UserProfileChangeRequest.Builder().setDisplayName(name.trim()).build()).await(); true }
             catch (e: CancellationException) { throw e }
             catch (_: Exception) { false }
-        if (updated) "Your account is ready. You can verify your email below."
-        else "Your account is ready. Your name could not be updated; try again below."
+        if (updated) text(R.string.msg_account_created) else text(R.string.msg_account_created_no_name)
     }
     private suspend fun googleCredential(context: Context): AuthCredential {
         val option = GetSignInWithGoogleOption.Builder(context.getString(R.string.default_web_client_id)).build()
         val result = CredentialManager.create(context).getCredential(MutableContextWrapper(context),
             GetCredentialRequest.Builder().addCredentialOption(option).build())
         val credential = result.credential
-        require(credential is CustomCredential && credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
-            "Google could not confirm this account. Please try again."
-        }
+        demand(credential is CustomCredential && credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL, R.string.err_google_confirm)
         return GoogleAuthProvider.getCredential(GoogleIdTokenCredential.createFrom(credential.data).idToken, null)
     }
     fun googleSignIn(context: Context) = action {
         auth.signInWithCredential(googleCredential(context)).await()
-        "You’re in. Welcome to Kimi!"
+        text(R.string.msg_google_signed_in)
     }
     fun resetPassword(email: String) = action {
-        require(android.util.Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches()) { "Enter a valid email address first." }
+        demand(android.util.Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches(), R.string.err_invalid_email)
         try { auth.sendPasswordResetEmail(email.trim()).await() }
         catch (_: FirebaseAuthInvalidUserException) { /* Same response for unknown accounts. */ }
-        "If this email has a password account, a reset link is on its way. Check your inbox and spam folder."
+        text(R.string.msg_reset_sent)
     }
     fun verifyEmail() = action {
-        val user = auth.currentUser ?: error("Sign in first.")
+        val user = auth.currentUser ?: throw KimiMessage(R.string.err_sign_in_first)
         user.sendEmailVerification().await()
-        "Verification email sent. Open the link, then tap Refresh account."
+        text(R.string.msg_verification_sent)
     }
     fun refresh() = action {
         try { auth.currentUser?.reload()?.await() }
         catch (e: FirebaseAuthInvalidUserException) { auth.signOut(); throw e }
-        if (auth.currentUser?.isEmailVerified == true) "Your email is verified." else "Account refreshed."
+        if (auth.currentUser?.isEmailVerified == true) text(R.string.msg_email_verified) else text(R.string.msg_account_refreshed)
     }
     fun updateName(name: String) = action {
-        require(name.trim().length in 1..30) { "Use a name between 1 and 30 characters." }
+        demand(name.trim().length in 1..30, R.string.err_account_name_range)
         auth.currentUser?.updateProfile(UserProfileChangeRequest.Builder().setDisplayName(name.trim()).build())?.await()
-        "Your account name is updated."
+        text(R.string.msg_name_updated)
     }
     private suspend fun clearCredentials() {
         // Signing out of Firebase must still succeed if the credential provider is unavailable.
@@ -122,13 +121,13 @@ class AccountViewModel(application: Application) : AndroidViewModel(application)
     fun signOut() = action {
         auth.signOut()
         clearCredentials()
-        "Signed out. Your account’s local space is kept for your next sign-in."
+        text(R.string.msg_signed_out)
     }
     fun deleteAccount(context: Context, password: String) = action {
-        val user = auth.currentUser ?: error("Sign in first.")
+        val user = auth.currentUser ?: throw KimiMessage(R.string.err_sign_in_first)
         val owner = user.uid
         val credential = if (user.providerData.any { it.providerId == EmailAuthProvider.PROVIDER_ID }) {
-            require(password.isNotEmpty()) { "Enter your password to confirm." }
+            demand(password.isNotEmpty(), R.string.err_password_required)
             EmailAuthProvider.getCredential(user.email!!, password)
         } else googleCredential(context)
         // Reauthentication rejects a different Google account. Never sign in to it here.
@@ -142,32 +141,32 @@ class AccountViewModel(application: Application) : AndroidViewModel(application)
         } catch (e: CancellationException) { throw e }
         catch (_: Exception) {
             clearCredentials()
-            return@action "Your account was deleted, but local cleanup failed. Clear Kimi’s storage in Android Settings to remove the remaining device data. Export your guest space first."
+            return@action text(R.string.msg_account_deleted_partial)
         }
         clearCredentials()
-        "Your account and its local space have been deleted. Guest data is kept."
+        text(R.string.msg_account_deleted)
     }
     fun copyGuestSpace() = action {
-        val owner = auth.currentUser?.uid ?: error("Sign in first.")
+        val owner = auth.currentUser?.uid ?: throw KimiMessage(R.string.err_sign_in_first)
         val guest = HabitStore.get(getApplication(), "").state.value
         val target = HabitStore.get(getApplication(), owner)
         target.update { current ->
-            require(current.habits.isEmpty() && current.checks.isEmpty() && current.journal.isEmpty()) { "This account already has progress. Export and restore a backup to replace it." }
+            demand(current.habits.isEmpty() && current.checks.isEmpty() && current.journal.isEmpty(), R.string.err_account_not_empty)
             guest.copy(onboarded = true)
         }
-        "Your guest habits and saved reflections were copied. The guest original is still safe."
+        text(R.string.msg_guest_copied)
     }
 }
 
-internal fun friendlyAuthError(error: Exception): String = when (error) {
-    is FirebaseNetworkException -> "Can’t connect right now. Check your connection and try again."
-    is FirebaseTooManyRequestsException -> "A few too many attempts. Please wait a little before trying again."
-    is NoCredentialException -> "Add a Google account on this device, then try again, or use email."
-    is FirebaseAuthWeakPasswordException -> "Choose a stronger password with at least 8 characters."
-    is FirebaseAuthUserCollisionException -> "This email already has an account. Sign in with its original method."
-    is FirebaseAuthRecentLoginRequiredException -> "For your security, sign in again and retry this action."
-    is FirebaseAuthInvalidCredentialsException -> "Those details couldn’t be verified. Check your email and password, or try Google."
-    is FirebaseAuthInvalidUserException -> "This account is unavailable. Sign in again or create an account."
-    is IllegalArgumentException -> error.message ?: "Check your details and try again."
-    else -> "That didn’t go through. Please try again."
-}
+internal fun friendlyAuthError(context: Context, error: Exception): String = context.getString(when (error) {
+    is KimiMessage -> return context.kimiMessage(error)
+    is FirebaseNetworkException -> R.string.err_auth_network
+    is FirebaseTooManyRequestsException -> R.string.err_auth_too_many
+    is NoCredentialException -> R.string.err_auth_no_credential
+    is FirebaseAuthWeakPasswordException -> R.string.err_auth_weak_password
+    is FirebaseAuthUserCollisionException -> R.string.err_auth_collision
+    is FirebaseAuthRecentLoginRequiredException -> R.string.err_auth_recent_login
+    is FirebaseAuthInvalidCredentialsException -> R.string.err_auth_invalid_credentials
+    is FirebaseAuthInvalidUserException -> R.string.err_auth_invalid_user
+    else -> R.string.err_auth_generic
+})

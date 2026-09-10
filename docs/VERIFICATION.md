@@ -1,4 +1,49 @@
-# Kimi Firebase Authentication verification — 2026-09-10
+# Kimi verification
+
+## Maintenance pass — 2026-09-10
+
+Dark theme, string externalization, Firebase App Check, derived-stat caching, rest-day copy, CI and README screenshots.
+
+**Result: 19 JVM unit tests + 9 connected Android tests passed. Android lint: 0 errors, 28 warnings.**
+
+Ran on this machine against the `habit_test` AVD (Android 15 / API 35, 1080 × 2400, density 420), JDK 21, Gradle 8.14.5, Android SDK platform 36:
+
+```text
+gradlew.bat assembleDebug testDebugUnitTest lintDebug connectedDebugAndroidTest
+```
+
+The three account tests were run with the isolated `demo-kimi-auth` Auth emulator running locally, as documented in the README.
+
+### What changed
+
+- **Dark theme.** Every colour now resolves through `KimiPalette` behind a `CompositionLocal`, so the token names screens already used (`Cream`, `Ink`, `Purple`…) swap per theme without touching call sites. Added `values-night` styles so the launch window does not flash light. Status-bar and navigation-bar icon colours follow Kimi's own choice rather than only the device's.
+- **Appearance preference.** Automatic / Light / Dark in Settings, stored per device in its own `kimi_appearance` preferences file — deliberately outside the per-account stores, so it is never written to a backup and never changes when accounts switch.
+- **Strings.** All user-facing copy moved to `res/values/strings.xml` (including plurals for counted phrases). Habit dayparts remain stored as stable English keys so existing backups stay valid; only their labels are translated. Calendar column headings now come from the device locale instead of hardcoded `M T W T F S S`.
+- **Translatable failures.** `KimiMessage` carries a string resource id, letting `BackupCodec` and `HabitStore` stay free of any `Context` — so the JVM tests still exercise them directly — while the UI renders the message in the user's language. This also stops raw exception text from reaching the snackbar.
+- **App Check.** `KimiApp` installs Play Integrity (release) / debug (debug) providers. Enforcement is a server-side switch and is deliberately still off; see the README for the order to turn it on safely.
+- **Derived stats.** Streaks and 30-day consistency are computed once per `(state, today)` in `Stats.kt` instead of once per row drawn. A streak walks back to the habit's creation date, so the old inline version got slower with every day a habit survived.
+- **Rest days.** A day with nothing scheduled now reads as "Rest day" rather than "0% complete".
+
+### Verified by running, not only by reading
+
+The app was installed on the emulator and driven by hand through first run, Today, Insights, Journal and Settings in both themes.
+
+Two real defects were found this way and fixed:
+
+1. The Canvas mascot was drawing its petals from the *tile* yellow and its face from the theme ink, so after dark it rendered as a dark-olive flower with a pale face. The mascot is a fixed illustration, not themed UI; its face is now pinned to the illustration's own ink and its default petal to the bright highlight, so it looks identical in both themes.
+2. The new appearance card originally used a horizontally scrolling row of chips. That gave the Settings page a second scroll container, and `AccountFlowTest` — which finds the sign-in button with `onNode(hasScrollAction())` — began failing. Three short chips always fit, so the row no longer scrolls.
+
+Forcing Light while the device was in night mode was confirmed to survive a process restart, with the status bar icons following Kimi's choice rather than the system's.
+
+### Not verified
+
+- Release signing, Play App Signing registration, and App Check enforcement — all require console access and a release keystore.
+- Real Google sign-in consent and real verification/reset email delivery.
+- No physical device test was performed.
+
+---
+
+## Firebase Authentication verification — 2026-09-10
 
 Final build: **22 tests passed** (13 JVM + 9 connected Android tests). Android lint: **0 errors, 28 warnings**; remaining warnings are dependency-update and platform/Compose recommendations. APK signature verified (v2), debug SHA matches the Firebase Android OAuth registration.
 
@@ -25,7 +70,7 @@ All six existing connected habit/journal/backup/notification tests also passed, 
 
 The original six screens and habit editor were recaptured using the approved fixture. Default layouts remain intact on Today, Habits, Calendar, Insights, Journal and the editor. Raw screenshot equality is 98.74–99.07% for these screens (mean per-channel differences below 0.012/255), with small rasterization differences; this is not a zero-difference pixel claim. Settings intentionally adds the account card and accurate privacy copy. Raw measurements are in `visual-comparison.json`.
 
-The new sign-in and create-account screens were visually inspected. At 1.3× Android font size the account form reflows, and creation/sign-in controls remain reachable by scrolling. The original font size was restored. Google’s button launched native account setup; a complete real Google login still needs a Google account. No physical device test was performed.
+The new sign-in and create-account screens were visually inspected. At 1.3× Android font size the account form reflows, and creation/sign-in controls remain reachable by scrolling. The original font size was restored. Google's button launched native account setup; a complete real Google login still needs a Google account. No physical device test was performed.
 
 ## Data and limits
 

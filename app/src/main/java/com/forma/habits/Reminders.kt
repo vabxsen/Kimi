@@ -22,8 +22,8 @@ object Reminders {
     const val DONE = "com.forma.habits.DONE"
     fun createChannel(context: Context) {
         context.getSystemService(NotificationManager::class.java).createNotificationChannel(
-            NotificationChannel(CHANNEL, "Little ritual reminders", NotificationManager.IMPORTANCE_DEFAULT).apply {
-                description = "Gentle reminders for the habits you choose."
+            NotificationChannel(CHANNEL, context.getString(R.string.channel_name), NotificationManager.IMPORTANCE_DEFAULT).apply {
+                description = context.getString(R.string.channel_description)
             })
     }
     fun allowed(context: Context): Boolean {
@@ -85,10 +85,10 @@ object Reminders {
         }, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val notification = NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_notification).setContentTitle(habit.name)
-            .setContentText(habit.goal).setStyle(NotificationCompat.BigTextStyle().bigText("${habit.goal}\nA little step for you. Kimi is cheering you on."))
+            .setContentText(habit.goal).setStyle(NotificationCompat.BigTextStyle().bigText(context.getString(R.string.notification_body, habit.goal)))
             .setContentIntent(open).setAutoCancel(true).setColor(0xFF7255D9.toInt())
             .setCategory(NotificationCompat.CATEGORY_REMINDER).setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
-            .addAction(R.drawable.ic_notification, "Mark complete", pending(context, habit.id, DONE, date.toString(), owner))
+            .addAction(R.drawable.ic_notification, context.getString(R.string.action_mark_complete), pending(context, habit.id, DONE, date.toString(), owner))
             .build()
         NotificationManagerCompat.from(context).notify(habit.id, 1, notification)
     }

@@ -5,6 +5,9 @@ import java.time.LocalDate
 import java.time.ZonedDateTime
 import java.util.UUID
 
+/** Stored daypart keys. They live in backups, so they stay stable English while the UI shows a localized label. */
+val Dayparts = listOf("Morning", "Afternoon", "Evening", "Anytime")
+
 data class ScheduleChange(val from: LocalDate, val weekdays: Boolean)
 data class Habit(val id: String = UUID.randomUUID().toString(), val name: String, val goal: String,
     val icon: Int = 0, val color: Int = 0, val time: String = "Morning", val weekdays: Boolean = false,
@@ -23,6 +26,8 @@ fun HabitState.due(date: LocalDate) = habits.filter { it.isDue(date) }
 fun HabitState.done(id: String, date: LocalDate) = checks[date.toString()]?.contains(id) == true
 fun HabitState.count(date: LocalDate) = due(date).count { done(it.id, date) }
 fun HabitState.percent(date: LocalDate): Int = if (due(date).isEmpty()) 0 else count(date) * 100 / due(date).size
+/** No habits fall on this day, so there is nothing to be behind on. */
+fun HabitState.isRestDay(date: LocalDate) = due(date).isEmpty()
 fun HabitState.streak(habit: Habit, today: LocalDate = LocalDate.now()): Int {
     var date = if (done(habit.id, today)) today else today.minusDays(1)
     var count = 0
@@ -61,10 +66,18 @@ fun nextReminder(habit: Habit, state: HabitState, now: ZonedDateTime): ZonedDate
     return null
 }
 
-fun starterHabits(today: LocalDate = LocalDate.now()) = listOf(
-    Habit("breathe", "A little headspace", "Meditate for 10 minutes", 0, 0),
-    Habit("water", "Sip, sip, hooray!", "Drink 8 glasses of water", 1, 1, "Anytime"),
-    Habit("read", "One more chapter", "Read for 20 minutes", 2, 2, "Evening"),
-    Habit("move", "Get your happy steps", "Walk for 30 minutes", 3, 3, "Afternoon"),
-    Habit("sleep", "Less scroll, more soul", "Unplug 30 minutes before bed", 4, 4, "Evening")
+/**
+ * Seed habits become the user's own data the moment they are created, so the caller passes in
+ * copy from resources; the defaults keep this callable from JVM tests without a Context.
+ */
+fun starterHabits(
+    today: LocalDate = LocalDate.now(),
+    names: List<String> = listOf("A little headspace", "Sip, sip, hooray!", "One more chapter", "Get your happy steps", "Less scroll, more soul"),
+    goals: List<String> = listOf("Meditate for 10 minutes", "Drink 8 glasses of water", "Read for 20 minutes", "Walk for 30 minutes", "Unplug 30 minutes before bed")
+) = listOf(
+    Habit("breathe", names[0], goals[0], 0, 0),
+    Habit("water", names[1], goals[1], 1, 1, "Anytime"),
+    Habit("read", names[2], goals[2], 2, 2, "Evening"),
+    Habit("move", names[3], goals[3], 3, 3, "Afternoon"),
+    Habit("sleep", names[4], goals[4], 4, 4, "Evening")
 ).map { it.copy(created = today) }

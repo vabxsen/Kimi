@@ -1,6 +1,18 @@
 # Kimi for Android
 
+[![Android CI](https://github.com/vabxsen/Kimi/actions/workflows/android.yml/badge.svg)](https://github.com/vabxsen/Kimi/actions/workflows/android.yml)
+
 A colorful native habit tracker, built in Kotlin and Jetpack Compose. The approved six-screen design supplies the colors, Nunito typography, rounded cards, icons, spacing, and Canvas flower mascot. There is no WebView.
+
+![The six Kimi screens](docs/screenshots/overview.png)
+
+| Today | Habits | Calendar |
+| --- | --- | --- |
+| ![Today](docs/screenshots/today.png) | ![Habits](docs/screenshots/habits.png) | ![Calendar](docs/screenshots/calendar.png) |
+
+| Insights | Journal | Settings |
+| --- | --- | --- |
+| ![Insights](docs/screenshots/insights.png) | ![Journal](docs/screenshots/journal.png) | ![Settings](docs/screenshots/settings.png) |
 
 ## Using Kimi
 
@@ -11,9 +23,22 @@ On first launch, enter your name and choose five suggested rituals or an empty c
 - **Calendar:** browse months and check or undo past scheduled days. Future check-ins are disabled.
 - **Insights:** seven-day completion chart, weekly wins, current streaks, and consistency over the last 30 days. Days before creation and unscheduled days are excluded.
 - **Journal:** five moods, one saved reflection per date, editing and deletion. Drafts persist across navigation and process restarts. Unfinished older drafts can be reopened.
-- **Settings:** change your local display name, manage your Firebase account, export a JSON file, preview and restore a validated backup, manage notification access, or reset the current local space.
+- **Settings:** change your local display name, choose light/dark/automatic appearance, manage your Firebase account, export a JSON file, preview and restore a validated backup, manage notification access, or reset the current local space.
 
 The avatar opens Settings. The five bottom tabs retain their scrolling state. Android Back closes dialogs/sheets and returns other pages to Today.
+
+A day with nothing scheduled reads as a rest day rather than 0% complete.
+
+## Appearance
+
+Kimi ships a full dark theme. **Settings → How Kimi looks** offers Automatic, Light and Dark; Automatic follows the device.
+
+| Today | Insights | Settings |
+| --- | --- | --- |
+| ![Today in dark mode](docs/screenshots/today-dark.png) | ![Insights in dark mode](docs/screenshots/insights-dark.png) | ![Settings in dark mode](docs/screenshots/settings-dark.png) |
+ The choice is stored per device, outside the per-account spaces, so it is never included in a backup and never changes when you switch accounts. The launch window, status bar and navigation bar icons all follow the same choice.
+
+All user-facing text lives in `app/src/main/res/values/strings.xml`, so the app can be translated by adding a `values-<locale>` folder. Habit dayparts are stored as stable English keys and only their on-screen labels are translated, so a backup stays readable in any language. Calendar column headings come from the device locale.
 
 Habit goals are descriptive targets with one completion check per scheduled day. Schedule edits apply from the day of the edit; earlier schedules and statistics are retained. Deleting a habit also deletes its check-ins. Reset removes habits, history, reflections, drafts, and internal recovery copies.
 
@@ -34,6 +59,19 @@ Open the avatar, then **Sign in to Kimi** in Settings. First-run setup also has 
 Guest progress remains intact when signing in. Each account starts with its own local space. **Copy guest progress** explicitly copies saved guest progress into an empty account space, leaving the guest original and unfinished drafts intact. Signing out returns to guest mode and preserves account data for the next sign-in. Deleting an account removes its Firebase identity and local habits, history, journal, drafts and recovery copies on this device. Previously exported files and data on other devices are not remotely erased. Reminders only run for the active space, and old notification actions cannot update another account.
 
 The connected project is **kimi-track**, Android app **1:952471890795:android:c6a437cf29cae1b7a13a2e**, package **com.forma.habits**. The existing `com.kimi.app` registration was preserved. `app/google-services.json` contains public Firebase client configuration, not administrative credentials. Google and email/password providers are enabled. This build’s debug SHA-1/SHA-256 are registered; register a production signing certificate (including the Play App Signing certificate, when applicable) before shipping a release.
+
+### App Check
+
+Because the client configuration is public and this repository is public, the project API key is not a secret. Firebase App Check is what keeps that key from being useful to anyone else: `KimiApp` installs the Play Integrity provider in release builds and the debug provider in debug builds, so Firebase can tell a genuine install of Kimi from a script hitting the sign-up endpoint.
+
+The client half is done. **Enforcement is a server-side switch** in Firebase console → App Check → Authentication, and it is deliberately left off. Before turning it on:
+
+1. Register the release app in App Check with the Play App Signing certificate.
+2. For local debug builds, copy the debug token that Logcat prints at startup (`DebugAppCheckProvider`) into App Check → Manage debug tokens.
+3. Watch the App Check metrics until verified requests dominate.
+4. Only then enable enforcement — turning it on early will lock out existing installs.
+
+App Check initialization is wrapped so that a provider failure can never stop Kimi from starting; while enforcement is off, unattested requests still succeed.
 
 Auth provider configuration is in `firebase.json`. To intentionally update those providers, use `npx -y firebase-tools@latest deploy --only auth --project kimi-track`. Do not deploy the `demo-kimi-auth` test project or unrelated services.
 
@@ -59,10 +97,13 @@ The connected tests use a dedicated emulator and replace its Kimi test data. The
 - `MainActivity.kt`: native app scaffold, navigation, lifecycle/date refresh, document pickers.
 - `AccountUI.kt`: matching account screens and isolated session navigation.
 - `AccountViewModel.kt`: Firebase authentication, Credential Manager, account lifecycle and guest import.
-- `Design.kt`: approved visual tokens and shared native components.
+- `Design.kt`: the light and dark palettes, appearance preference, and shared native components.
 - `Screens.kt`: the six screens and habit editor.
 - `SetupAndRemindersUI.kt`: first-run setup and notification controls.
 - `Data.kt`: models, due dates, streaks, schedule history, next reminder calculation.
+- `Stats.kt`: per-state snapshots of streaks and consistency, so a streak is walked once instead of once per row drawn.
+- `Errors.kt`: failures that carry a string resource id, keeping validation translatable without a `Context`.
+- `KimiApp.kt`: Firebase App Check installation and appearance preference loading.
 - `BackupCodec.kt`: versioned serialization, migration, and validation.
 - `HabitStore.kt`: serialized durable local storage and recovery.
 - `FormaViewModel.kt`: user operations, draft persistence, backup read/write.

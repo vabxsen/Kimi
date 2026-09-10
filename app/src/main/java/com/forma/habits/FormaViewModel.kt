@@ -14,6 +14,8 @@ import org.json.JSONObject
 import java.time.LocalDate
 
 class FormaViewModel(application: Application) : AndroidViewModel(application) {
+    private val app: Application get() = getApplication()
+    private fun text(resId: Int, vararg args: Any) = app.getString(resId, *args)
     private val store = HabitStore.get(application)
     private val draftPrefs = application.getSharedPreferences(AccountSession.preferenceName("kimi_drafts", store.owner), 0)
     private val messages = Channel<String>(Channel.UNLIMITED)
@@ -39,7 +41,7 @@ class FormaViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         loadDraft(today)
-        store.recoveryNotice?.let(::tell)
+        store.recoveryNotice?.let { tell(text(it)) }
         viewModelScope.launch { store.state.collect { state = it } }
         viewModelScope.launch(Dispatchers.IO) { Reminders.reschedule(application, state, force = true, owner = store.owner) }
     }
@@ -54,7 +56,7 @@ class FormaViewModel(application: Application) : AndroidViewModel(application) {
                 tell(message)
                 withContext(Dispatchers.IO) { Reminders.reschedule(getApplication(), state, owner = store.owner) }
             } catch (e: Exception) {
-                tell(e.message ?: "That change could not be saved. Please try again.")
+                tell(app.kimiMessage(e))
             } finally { endTask() }
         }
     }
@@ -66,45 +68,48 @@ class FormaViewModel(application: Application) : AndroidViewModel(application) {
     fun toggle(habit: Habit, date: LocalDate) {
         if (date.isAfter(LocalDate.now()) || !habit.isDue(date)) return
         val wasDone = state.done(habit.id, date)
-        change(if (wasDone) "Check-in undone. Fresh starts are allowed." else "Tiny win. Big high-five!") {
+        change(text(if (wasDone) R.string.msg_unchecked else R.string.msg_checked)) {
             it.checked(habit.id, date, !it.done(habit.id, date))
         }
     }
     fun saveHabit(habit: Habit, onSaved: () -> Unit) {
-        change("Your habit is saved. Make it work for you.", onSaved = onSaved) { current ->
+        change(text(R.string.msg_habit_saved), onSaved = onSaved) { current ->
             val old = current.habits.find { it.id == habit.id }
-            require(old != null || current.habits.size < 500) { "Your collection is full. Remove a habit before adding another." }
+            demand(old != null || current.habits.size < 500, R.string.err_collection_full)
             val saved = if (old == null) habit.copy(created = LocalDate.now()) else habit.editedFrom(old, LocalDate.now())
             BackupCodec.validateHabit(saved)
             current.copy(habits = if (old != null) current.habits.map { if (it.id == saved.id) saved else it } else current.habits + saved)
         }
     }
-    fun deleteHabit(id: String, onSaved: () -> Unit = {}) = change("Habit removed.", onSaved = onSaved) {
+    fun deleteHabit(id: String, onSaved: () -> Unit = {}) = change(text(R.string.msg_habit_removed), onSaved = onSaved) {
         it.copy(habits = it.habits.filterNot { h -> h.id == id }, checks = it.checks.mapValues { entry -> entry.value - id }.filterValues { ids -> ids.isNotEmpty() })
     }
     fun reflect(mood: Int, text: String) {
         val date = draftDate
-        change("Your little moment is saved.", onSaved = {
+        change(text(R.string.msg_reflection_saved), onSaved = {
             if (draftDate == date && draftMood == mood && draftText == text) draftPrefs.edit().remove(date.toString()).apply()
         }) {
-            require(mood in 0..4 && text.isNotBlank() && text.length <= 10000)
+            demand(mood in 0..4 && text.isNotBlank() && text.length <= 10000, R.string.err_reflection_invalid)
             it.copy(journal = it.journal.filterNot { e -> e.date == date } + Reflection(date, mood, text.trim()))
         }
     }
-    fun deleteReflection(date: LocalDate) = change("Reflection deleted.", onSaved = {
+    fun deleteReflection(date: LocalDate) = change(text(R.string.msg_reflection_deleted), onSaved = {
         draftPrefs.edit().remove(date.toString()).apply()
         if (date == draftDate) { draftMood = 2; draftText = "" }
     }) { it.copy(journal = it.journal.filterNot { e -> e.date == date }) }
-    fun rename(name: String) = change("Looking good, ${name.trim()}!") {
-        require(name.isNotBlank() && name.trim().length <= 30)
+    fun rename(name: String) = change(text(R.string.msg_renamed, name.trim())) {
+        demand(name.isNotBlank() && name.trim().length <= 30, R.string.err_name_length)
         it.copy(name = name.trim())
     }
-    fun reset() = change("A blank page. A brand-new beginning.", replaceDamaged = true, eraseHistory = true, onSaved = {
+    fun reset() = change(text(R.string.msg_reset), replaceDamaged = true, eraseHistory = true, onSaved = {
         draftPrefs.edit().clear().apply(); loadDraft(today)
     }) { HabitState(name = it.name) }
-    fun start(name: String, starters: Boolean) = change("Welcome to your little happy place!") {
-        require(name.isNotBlank() && name.trim().length <= 30)
-        HabitState(name = name.trim(), habits = if (starters) starterHabits() else emptyList())
+    fun start(name: String, starters: Boolean) = change(text(R.string.msg_welcome)) {
+        demand(name.isNotBlank() && name.trim().length <= 30, R.string.err_name_length)
+        val seeds = starterHabits(LocalDate.now(),
+            app.resources.getStringArray(R.array.starter_names).toList(),
+            app.resources.getStringArray(R.array.starter_goals).toList())
+        HabitState(name = name.trim(), habits = if (starters) seeds else emptyList())
     }
 
     fun updateDraft(mood: Int, text: String) {
@@ -127,9 +132,9 @@ class FormaViewModel(application: Application) : AndroidViewModel(application) {
                 withContext(Dispatchers.IO) {
                     getApplication<Application>().contentResolver.openOutputStream(uri, "wt")?.use {
                         it.write(BackupCodec.encode(store.state.value).toByteArray(Charsets.UTF_8))
-                    } ?: error("The chosen file cannot be written.")
+                    } ?: throw KimiMessage(R.string.err_file_write)
                 }
-            }.onSuccess { tell("Your Kimi backup is saved.") }.onFailure { tell("Backup could not be saved. Try another location.") }
+            }.onSuccess { tell(text(R.string.msg_backup_saved)) }.onFailure { tell(text(R.string.err_backup_save)) }
         }
     }
     fun readBackup(uri: Uri) {
@@ -142,22 +147,22 @@ class FormaViewModel(application: Application) : AndroidViewModel(application) {
                         val output = java.io.ByteArrayOutputStream()
                         val buffer = ByteArray(8192)
                         while (true) { val n = input.read(buffer); if (n < 0) break
-                            require(output.size() + n <= BackupCodec.MAX_BYTES) { "Backup is larger than 8 MB." }
+                            demand(output.size() + n <= BackupCodec.MAX_BYTES, R.string.err_backup_too_large)
                             output.write(buffer, 0, n)
                         }
                         output.toByteArray()
-                    } ?: error("Cannot read this file.")
+                    } ?: throw KimiMessage(R.string.err_file_read)
                     BackupCodec.decode(bytes.toString(Charsets.UTF_8))
                 }
             }.onSuccess { pendingRestore = it.copy(onboarded = true) }
-                .onFailure { tell("This backup could not be read. Choose a valid Kimi JSON backup (up to 8 MB). Your current data is unchanged.") }
+                .onFailure { tell(text(R.string.err_backup_read)) }
             endTask()
         }
     }
     fun cancelRestore() { pendingRestore = null }
     fun confirmRestore() {
         val restored = pendingRestore ?: return
-        change("Your space is restored. Welcome back!", replaceDamaged = true, onSaved = {
+        change(text(R.string.msg_restored), replaceDamaged = true, onSaved = {
             pendingRestore = null; draftPrefs.edit().clear().apply(); loadDraft(today)
         }) { restored }
     }
