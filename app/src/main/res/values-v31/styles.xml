@@ -1,0 +1,11 @@
+<resources>
+    <style name="Theme.Forma" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:colorAccent">#7255D9</item>
+        <item name="android:windowBackground">#FFF9F2</item>
+        <item name="android:windowSplashScreenBackground">#FFF9F2</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_splash</item>
+    </style>
+</resources>

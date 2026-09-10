@@ -1,0 +1,16 @@
+{
+  "auth": {
+    "providers": {
+      "emailPassword": true,
+      "googleSignIn": {
+        "oAuthBrandDisplayName": "Kimi",
+        "supportEmail": "cheeseburst06@gmail.com"
+      }
+    }
+  },
+  "emulators": {
+    "auth": { "port": 9099 },
+    "ui": { "enabled": false },
+    "singleProjectMode": true
+  }
+}

@@ -1,0 +1,107 @@
+{
+  "today": {
+    "width": 1080,
+    "height": 2400,
+    "appPixels": 2484000,
+    "changedPixels": 31271,
+    "identicalPercent": 98.74110305958132,
+    "meanChannelDifference": 0.011799919484702093,
+    "maxChannelDifference": 153,
+    "changedBounds": [
+      28,
+      149,
+      1028,
+      2373
+    ]
+  },
+  "habits": {
+    "width": 1080,
+    "height": 2400,
+    "appPixels": 2484000,
+    "changedPixels": 29487,
+    "identicalPercent": 98.81292270531401,
+    "meanChannelDifference": 0.00902589908749329,
+    "maxChannelDifference": 153,
+    "changedBounds": [
+      59,
+      149,
+      1028,
+      2373
+    ]
+  },
+  "calendar": {
+    "width": 1080,
+    "height": 2400,
+    "appPixels": 2484000,
+    "changedPixels": 23887,
+    "identicalPercent": 99.0383655394525,
+    "meanChannelDifference": 0.008655260332796564,
+    "maxChannelDifference": 204,
+    "changedBounds": [
+      59,
+      149,
+      1028,
+      2373
+    ]
+  },
+  "insights": {
+    "width": 1080,
+    "height": 2400,
+    "appPixels": 2484000,
+    "changedPixels": 23082,
+    "identicalPercent": 99.0707729468599,
+    "meanChannelDifference": 0.009465915190552872,
+    "maxChannelDifference": 203,
+    "changedBounds": [
+      59,
+      149,
+      1028,
+      2373
+    ]
+  },
+  "journal": {
+    "width": 1080,
+    "height": 2400,
+    "appPixels": 2484000,
+    "changedPixels": 29555,
+    "identicalPercent": 98.81018518518519,
+    "meanChannelDifference": 0.01115096618357488,
+    "maxChannelDifference": 153,
+    "changedBounds": [
+      59,
+      149,
+      1051,
+      2373
+    ]
+  },
+  "settings": {
+    "width": 1080,
+    "height": 2400,
+    "appPixels": 2484000,
+    "changedPixels": 561598,
+    "identicalPercent": 77.39138486312399,
+    "meanChannelDifference": 9.035503623188406,
+    "maxChannelDifference": 215,
+    "changedBounds": [
+      59,
+      149,
+      1028,
+      2373
+    ]
+  },
+  "new-habit": {
+    "width": 1080,
+    "height": 2400,
+    "appPixels": 2484000,
+    "changedPixels": 25325,
+    "identicalPercent": 98.98047504025766,
+    "meanChannelDifference": 0.007157809983896941,
+    "maxChannelDifference": 4,
+    "changedBounds": [
+      0,
+      149,
+      1079,
+      2373
+    ]
+  }
+}

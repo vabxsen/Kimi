@@ -1,0 +1,76 @@
+{
+  "project_info": {
+    "project_number": "952471890795",
+    "project_id": "kimi-track",
+    "storage_bucket": "kimi-track.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:952471890795:android:c6a437cf29cae1b7a13a2e",
+        "android_client_info": {
+          "package_name": "com.forma.habits"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "952471890795-tg6nm7iejsqpbmutmhbv80bjpa41ctgs.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.forma.habits",
+            "certificate_hash": "4a75730f0d793452866f17d6ed5ddf83ffa4ffd1"
+          }
+        },
+        {
+          "client_id": "952471890795-evehrehrhuc0bi6o5358qftnvm53ci0j.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBW27jFc07C8_m7HbfPf3gRwdX5_KiL3Ws"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "952471890795-evehrehrhuc0bi6o5358qftnvm53ci0j.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:952471890795:android:4c489a0cd53a7731a13a2e",
+        "android_client_info": {
+          "package_name": "com.kimi.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "952471890795-evehrehrhuc0bi6o5358qftnvm53ci0j.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBW27jFc07C8_m7HbfPf3gRwdX5_KiL3Ws"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "952471890795-evehrehrhuc0bi6o5358qftnvm53ci0j.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
