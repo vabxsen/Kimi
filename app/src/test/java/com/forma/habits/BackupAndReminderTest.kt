@@ -24,9 +24,18 @@ class BackupAndReminderTest {
         listOf("{}", "garbage", BackupCodec.encode(HabitState(listOf(habit, habit))),
             BackupCodec.encode(HabitState(listOf(habit.copy(color = 100)))) ,
             BackupCodec.encode(HabitState(listOf(habit), mapOf(monday.toString() to setOf("unknown")))),
-            BackupCodec.encode(HabitState(listOf(habit))).replace("\"version\": 2", "\"version\": 99"),
-            BackupCodec.encode(HabitState(journal = listOf(Reflection(monday, 9, "Invalid"))))
+            BackupCodec.encode(HabitState(listOf(habit))).replace("\"version\": 3", "\"version\": 99"),
+            BackupCodec.encode(HabitState(journal = listOf(Reflection(monday, 9, "Invalid")))),
+            BackupCodec.encode(HabitState()).replace("\"habitUpdates\": {}", "\"habitUpdates\": {\"ghost\": 1}")
         ).forEach { assertTrue("Accepted invalid input: $it", runCatching { BackupCodec.decode(it) }.isFailure) }
+    }
+    @Test fun backupRoundTripRetainsSyncTombstones() {
+        val original = HabitState(listOf(habit), journal = listOf(Reflection(monday, 2, "Keep me")))
+            .recordChangesFrom(HabitState(), 100)
+        val removed = original.copy(habits = emptyList(), journal = emptyList()).recordChangesFrom(original, 200)
+        assertEquals(removed, BackupCodec.decode(BackupCodec.encode(removed)))
+        assertEquals(200L, removed.sync.habitDeletions[habit.id])
+        assertEquals(200L, removed.sync.reflectionDeletions[monday.toString()])
     }
     @Test fun editingSchedulePreservesEarlierWeekends() {
         val friday = monday.minusDays(3)

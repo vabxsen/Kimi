@@ -13,6 +13,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.tasks.await
 import org.json.JSONObject
@@ -20,16 +21,18 @@ import org.junit.*
 import org.junit.Assert.*
 import org.junit.runner.RunWith
 import java.net.URL
+import java.net.HttpURLConnection
 import java.time.LocalDate
 import java.util.UUID
 
-/** Real Android UI + SDK requests to an isolated demo Auth backend. No real emails are sent. */
+/** Real Android UI + SDK requests to isolated Auth and Firestore emulators. No real emails are sent. */
 @RunWith(AndroidJUnit4::class)
 class AccountFlowTest {
     @get:Rule val compose = createEmptyComposeRule()
     private val app get() = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
     private lateinit var firebase: FirebaseApp
     private lateinit var auth: FirebaseAuth
+    private lateinit var firestore: FirebaseFirestore
     private lateinit var scenario: ActivityScenario<MainActivity>
     private lateinit var vm: AccountViewModel
     private val viewModels = ViewModelStore()
@@ -41,8 +44,13 @@ class AccountFlowTest {
             .setProjectId("demo-kimi-auth").setApplicationId("1:123456789:android:kimitest")
             .setApiKey("fake-api-key-for-auth-emulator-only").build(), "kimi-auth-test")
         auth = FirebaseAuth.getInstance(firebase)
-        if (existing == null) auth.useEmulator("10.0.2.2", 9099)
+        firestore = FirebaseFirestore.getInstance(firebase)
+        if (existing == null) {
+            auth.useEmulator("10.0.2.2", 9099)
+            firestore.useEmulator("10.0.2.2", 8080)
+        }
         AccountSession.testAuth = auth
+        SpaceSync.testFirebaseAppName = firebase.name
         runBlocking { HabitStore.get(app, "").update(true, true) { HabitState(name = "Guest", habits = listOf(Habit(id = "guest", name = "Guest ritual", goal = "Stay private"))) } }
         InstrumentationRegistry.getInstrumentation().runOnMainSync {
             vm = ViewModelProvider(viewModels, ViewModelProvider.AndroidViewModelFactory.getInstance(app))[AccountViewModel::class.java]
@@ -51,8 +59,12 @@ class AccountFlowTest {
     }
     @After fun close() {
         if (::scenario.isInitialized) scenario.close()
-        if (::auth.isInitialized) { runBlocking { auth.currentUser?.delete()?.await() }; auth.signOut() }
+        if (::auth.isInitialized) {
+            runBlocking { auth.currentUser?.let { user -> SpaceSync.deleteSpace(user.uid); user.delete().await() } }
+            auth.signOut()
+        }
         InstrumentationRegistry.getInstrumentation().runOnMainSync { viewModels.clear() }
+        SpaceSync.testFirebaseAppName = null
         AccountSession.testAuth = null
     }
     private fun waitFor(check: () -> Boolean) = compose.waitUntil(20000, check)
@@ -82,6 +94,8 @@ class AccountFlowTest {
         compose.onNodeWithText("Copy guest progress").performScrollTo().performClick()
         compose.onNodeWithText("Copy progress", substring = false).performClick()
         waitFor { HabitStore.get(app, uid).state.value.habits.size == 1 }
+        val cloudAfterCopy = runBlocking { firestore.collection("spaces").document(uid).get().await() }
+        assertEquals("Guest ritual", BackupCodec.decode(cloudAfterCopy.getString("state")!!).habits.single().name)
         compose.onNodeWithText("Sign out", substring = false).performScrollTo().performClick()
         compose.onNodeWithText("Sign out now").performClick()
         waitFor { auth.currentUser == null }
@@ -93,10 +107,12 @@ class AccountFlowTest {
         scenario.recreate()
         waitFor { vm.account?.uid == uid }
         assertEquals("Guest ritual", HabitStore.get(app).state.value.habits.single().name)
+        val ownerToken = runBlocking { auth.currentUser!!.getIdToken(false).await().token!! }
         compose.onNodeWithText("Delete my account").performScrollTo().performClick()
         compose.onNodeWithText("Confirm with password").performTextInput(password)
         compose.onNodeWithText("Delete permanently").performClick()
         waitFor { auth.currentUser == null && HabitStore.get(app, uid).state.value.habits.isEmpty() }
+        assertFalse(cloudDocumentExists(uid, ownerToken))
         assertEquals("Guest ritual", HabitStore.get(app, "").state.value.habits.single().name)
     }
 
@@ -157,10 +173,61 @@ class AccountFlowTest {
         assertFalse(app.getSharedPreferences(AccountSession.preferenceName("kimi_drafts", first), 0).contains("private"))
     }
 
+    @Test fun firestoreReconciliationKeepsIndependentEditsAndPropagatesDeletion() = runBlocking {
+        action { vm.createAccount("Sync tester", email, password) }
+        val uid = auth.currentUser!!.uid
+        val firstStamp = System.currentTimeMillis()
+        val reading = Habit(id = "sync-read", name = "Read", goal = "Ten pages")
+        val baseline = HabitState(habits = listOf(reading)).recordChangesFrom(HabitState(), firstStamp)
+        val seeded = SpaceSync.reconcile(uid, baseline, firstStamp)
+
+        val walking = Habit(id = "sync-walk", name = "Walk", goal = "Twenty minutes")
+        val phone = seeded.state.copy(habits = seeded.state.habits + walking)
+            .recordChangesFrom(seeded.state, seeded.updatedAt + 1)
+        val tablet = seeded.state.copy(journal = listOf(Reflection(LocalDate.now(), 4, "A separate tablet note")))
+            .recordChangesFrom(seeded.state, seeded.updatedAt + 2)
+        SpaceSync.reconcile(uid, phone, seeded.updatedAt + 1)
+        val combined = SpaceSync.reconcile(uid, tablet, seeded.updatedAt + 2)
+        assertEquals(setOf("sync-read", "sync-walk"), combined.state.habits.map { it.id }.toSet())
+        assertEquals("A separate tablet note", combined.state.journal.single().text)
+
+        val deleted = combined.state.copy(habits = combined.state.habits.filterNot { it.id == walking.id })
+            .recordChangesFrom(combined.state, combined.updatedAt + 1)
+        val afterDelete = SpaceSync.reconcile(uid, deleted, combined.updatedAt + 1)
+        val staleDevice = SpaceSync.reconcile(uid, phone, afterDelete.updatedAt + 1)
+        assertNull(staleDevice.state.habits.find { it.id == walking.id })
+        assertEquals(afterDelete.state.sync.habitDeletions[walking.id], staleDevice.state.sync.habitDeletions[walking.id])
+
+        val emptied = staleDevice.state.copy(habits = emptyList(), checks = emptyMap(), journal = emptyList())
+            .recordChangesFrom(staleDevice.state, staleDevice.updatedAt + 1)
+        val emptyRemote = SpaceSync.reconcile(uid, emptied, staleDevice.updatedAt + 1)
+        val copiedAgain = SpaceSync.createIfEmpty(
+            uid,
+            HabitState(habits = listOf(walking), name = "Guest again"),
+            emptyRemote.updatedAt + 1
+        )!!
+        assertEquals("sync-walk", copiedAgain.state.habits.single().id)
+        assertFalse(copiedAgain.state.sync.habitDeletions.containsKey("sync-walk"))
+        assertTrue(copiedAgain.state.sync.habitDeletions.containsKey("sync-read"))
+
+        action { vm.deleteAccount(app, password) }
+    }
+
     private fun oobCode(type: String): String {
         val result = URL("http://10.0.2.2:9099/emulator/v1/projects/demo-kimi-auth/oobCodes").readText()
         val codes = JSONObject(result).getJSONArray("oobCodes")
         return (0 until codes.length()).map { codes.getJSONObject(it) }
             .last { it.getString("email") == email && it.getString("requestType") == type }.getString("oobCode")
+    }
+
+    private fun cloudDocumentExists(uid: String, ownerToken: String): Boolean {
+        val connection = URL("http://10.0.2.2:8080/v1/projects/demo-kimi-auth/databases/(default)/documents/spaces/$uid")
+            .openConnection() as HttpURLConnection
+        connection.setRequestProperty("Authorization", "Bearer $ownerToken")
+        return when (connection.responseCode) {
+            HttpURLConnection.HTTP_OK -> true
+            HttpURLConnection.HTTP_NOT_FOUND -> false
+            else -> error("Unexpected Firestore response ${connection.responseCode}: ${connection.errorStream?.bufferedReader()?.readText()}")
+        }.also { connection.disconnect() }
     }
 }

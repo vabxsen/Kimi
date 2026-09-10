@@ -24,8 +24,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.pluralStringResource
@@ -58,7 +58,6 @@ private val MonthLabel = DateTimeFormatter.ofPattern("MMMM yyyy")
 @Composable fun TodayScreen(state: HabitState, onToggle: (Habit, LocalDate) -> Unit, onNew: () -> Unit, onJournal: () -> Unit) {
     val today = LocalToday.current
     val stats = rememberHabitStats(state, today)
-    val stackStats = LocalConfiguration.current.screenWidthDp < 390 || LocalDensity.current.fontScale > 1.2f
     var dateString by rememberSaveable(today) { mutableStateOf(today.toString()) }
     val date = LocalDate.parse(dateString)
     var filter by rememberSaveable { mutableStateOf("All") }
@@ -91,25 +90,26 @@ private val MonthLabel = DateTimeFormatter.ofPattern("MMMM yyyy")
             }
         }
         item {
-            val restDay = state.isRestDay(date)
-            val streakValue = pluralStringResource(R.plurals.streak_days, stats.bestStreak, stats.bestStreak)
-            val streakCaption = stringResource(R.string.today_streak_caption)
-            val progressValue = if (restDay) stringResource(R.string.today_rest_day) else stringResource(R.string.today_percent_complete, state.percent(date))
-            val progressCaption = if (restDay) stringResource(R.string.today_rest_caption) else stringResource(R.string.today_percent_caption)
-            if (stackStats) Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                WideStat(Peach, Icons.Rounded.LocalFireDepartment, streakValue, streakCaption)
-                WideStat(Mint, Icons.Rounded.Stars, progressValue, progressCaption)
-            } else {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(Modifier.weight(1f).clip(RoundedCornerShape(18.dp)).background(Peach).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.LocalFireDepartment, null, tint = Ink, modifier = Modifier.size(28.dp)); Spacer(Modifier.width(10.dp))
-                    Column { Text(streakValue, fontSize = 14.sp, fontWeight = FontWeight.Bold); Text(streakCaption, fontSize = 10.sp, color = Quiet) }
+            BoxWithConstraints {
+                val restDay = state.isRestDay(date)
+                val streakValue = pluralStringResource(R.plurals.streak_days, stats.bestStreak, stats.bestStreak)
+                val streakCaption = stringResource(R.string.today_streak_caption)
+                val progressValue = if (restDay) stringResource(R.string.today_rest_day) else stringResource(R.string.today_percent_complete, state.percent(date))
+                val progressCaption = if (restDay) stringResource(R.string.today_rest_caption) else stringResource(R.string.today_percent_caption)
+                val stackStats = maxWidth < 344.dp || LocalDensity.current.fontScale > 1.2f
+                if (stackStats) Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    WideStat(Peach, Icons.Rounded.LocalFireDepartment, streakValue, streakCaption)
+                    WideStat(Mint, Icons.Rounded.Stars, progressValue, progressCaption)
+                } else Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(Modifier.weight(1f).clip(RoundedCornerShape(18.dp)).background(Peach).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.LocalFireDepartment, null, tint = Ink, modifier = Modifier.size(28.dp)); Spacer(Modifier.width(10.dp))
+                        Column { Text(streakValue, fontSize = 14.sp, fontWeight = FontWeight.Bold); Text(streakCaption, fontSize = 10.sp, color = Quiet) }
+                    }
+                    Row(Modifier.weight(1f).clip(RoundedCornerShape(18.dp)).background(Mint).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.Stars, null, tint = Ink, modifier = Modifier.size(28.dp)); Spacer(Modifier.width(10.dp))
+                        Column { Text(progressValue, fontSize = 14.sp, fontWeight = FontWeight.Bold); Text(progressCaption, fontSize = 10.sp, color = Quiet) }
+                    }
                 }
-                Row(Modifier.weight(1f).clip(RoundedCornerShape(18.dp)).background(Mint).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.Stars, null, tint = Ink, modifier = Modifier.size(28.dp)); Spacer(Modifier.width(10.dp))
-                    Column { Text(progressValue, fontSize = 14.sp, fontWeight = FontWeight.Bold); Text(progressCaption, fontSize = 10.sp, color = Quiet) }
-                }
-            }
             }
         }
         item {

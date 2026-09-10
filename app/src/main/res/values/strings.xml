@@ -378,6 +378,7 @@
     <string name="err_backup_unknown_habit">Check-in has an unknown habit.</string>
     <string name="err_backup_too_many_dates">Too many check-in dates.</string>
     <string name="err_backup_too_many_records">Backup contains too many records.</string>
+    <string name="err_backup_sync_metadata">Backup has invalid synchronization history.</string>
     <string name="err_backup_invalid_reflection">Invalid reflection.</string>
     <string name="err_backup_duplicate_dates">Backup has duplicate journal dates.</string>
     <string name="err_backup_name">Name must be 1–30 characters.</string>
@@ -398,6 +399,7 @@
     <string name="err_sign_in_first">Sign in first.</string>
     <string name="err_password_required">Enter your password to confirm.</string>
     <string name="err_account_not_empty">This account already has progress. Export and restore a backup to replace it.</string>
+    <string name="err_account_delete_cloud">Your cloud space could not be deleted, so your account was kept safe. Check your connection and try again.</string>
     <string name="err_auth_network">Can’t connect right now. Check your connection and try again.</string>
     <string name="err_auth_too_many">A few too many attempts. Please wait a little before trying again.</string>
     <string name="err_auth_no_credential">Add a Google account on this device, then try again, or use email.</string>

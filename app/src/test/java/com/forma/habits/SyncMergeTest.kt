@@ -41,18 +41,48 @@ class SyncMergeTest {
         assertEquals("written first", mergeSpaces(phone, 300, tablet, 200).journal.single().text)
     }
 
-    /**
-     * The documented cost of having no tombstones, pinned so it cannot change by accident: a
-     * device that never saw a removal reintroduces the entry. Erring this way keeps content.
-     */
-    @Test fun removalsDoNotPropagateToADeviceThatNeverSawThem() {
-        val checked = HabitState(listOf(reading), mapOf(monday.toString() to setOf("read")))
-        val unchecked = HabitState(listOf(reading))
-        assertTrue(mergeSpaces(checked, 100, unchecked, 200).done("read", monday))
+    @Test fun removalsPropagateWithoutBeingResurrectedByAStaleDevice() {
+        val original = HabitState(
+            habits = listOf(reading, walking),
+            checks = mapOf(monday.toString() to setOf("read")),
+            journal = listOf(Reflection(monday, 3, "old note"))
+        ).recordChangesFrom(HabitState(), 100)
+        val removed = original.copy(
+            habits = listOf(walking),
+            checks = emptyMap(),
+            journal = emptyList()
+        ).recordChangesFrom(original, 200)
 
-        val withHabit = HabitState(listOf(reading, walking))
-        val deleted = HabitState(listOf(reading))
-        assertEquals(2, mergeSpaces(withHabit, 100, deleted, 200).habits.size)
+        // Even a legacy client with a newer whole-space timestamp cannot disprove explicit deletes.
+        val staleLegacy = HabitState(
+            habits = listOf(reading, walking),
+            checks = mapOf(monday.toString() to setOf("read")),
+            journal = listOf(Reflection(monday, 3, "old note"))
+        )
+        val merged = mergeSpaces(removed, 200, staleLegacy, 300)
+        assertNull(merged.habits.find { it.id == "read" })
+        assertFalse(merged.done("read", monday))
+        assertTrue(merged.journal.isEmpty())
+        assertEquals(200L, merged.sync.habitDeletions["read"])
+        assertEquals(200L, merged.sync.checkDeletions[checkRevisionKey(monday.toString(), "read")])
+        assertEquals(200L, merged.sync.reflectionDeletions[monday.toString()])
+    }
+
+    @Test fun aLaterExplicitRecreationWinsAnOlderDeletion() {
+        val original = HabitState(listOf(reading)).recordChangesFrom(HabitState(), 100)
+        val deleted = HabitState(sync = original.sync).recordChangesFrom(original, 200)
+        val recreatedHabit = reading.copy(name = "Read again")
+        val recreated = deleted.copy(habits = listOf(recreatedHabit)).recordChangesFrom(deleted, 300)
+
+        assertEquals("Read again", mergeSpaces(deleted, 200, recreated, 300).habits.single().name)
+        assertFalse(mergeSpaces(deleted, 200, recreated, 300).sync.habitDeletions.containsKey("read"))
+    }
+
+    @Test fun unrelatedEditsDoNotMakeLegacyItemsLookNew() {
+        val legacy = HabitState(listOf(reading))
+        val seeded = legacy.withBaselineRevisions(100)
+        val renamed = seeded.copy(name = "New name").recordChangesFrom(seeded, 300)
+        assertEquals(100L, renamed.sync.habitUpdates["read"])
     }
 
     @Test fun checkInsForHabitsNeitherSideHasAreDropped() {

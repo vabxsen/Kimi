@@ -10,6 +10,8 @@ import kotlinx.coroutines.withContext
 
 /** One store for both the UI and notification actions. Writes are serialized and durable. */
 class HabitStore private constructor(context: Context, val owner: String) {
+    data class Snapshot(val state: HabitState, val updatedAt: Long)
+
     private val prefs = context.getSharedPreferences(AccountSession.preferenceName("forma", owner), Context.MODE_PRIVATE)
     private val mutex = Mutex()
     var recoveryNotice: Int? = null
@@ -19,7 +21,7 @@ class HabitStore private constructor(context: Context, val owner: String) {
     private val mutableState = MutableStateFlow(load())
     val state = mutableState.asStateFlow()
 
-    /** Wall-clock millis of the last local write. Sync uses it to decide which copy is newer. */
+    /** Wall-clock millis of the last local write. Prefer [snapshot] when state and revision must agree. */
     val updatedAt: Long get() = prefs.getLong("updated_at", 0L)
 
     private fun load(): HabitState {
@@ -32,24 +34,48 @@ class HabitStore private constructor(context: Context, val owner: String) {
         }
     }
 
+    suspend fun snapshot(): Snapshot = withContext(Dispatchers.IO) {
+        mutex.withLock { Snapshot(mutableState.value, updatedAt) }
+    }
+
     suspend fun update(replaceDamaged: Boolean = false, eraseHistory: Boolean = false, stamp: Long = System.currentTimeMillis(), transform: (HabitState) -> HabitState): HabitState = withContext(Dispatchers.IO) {
         mutex.withLock {
             demand(!damaged || replaceDamaged, R.string.err_damaged_locked)
-            val next = transform(mutableState.value)
-            val json = BackupCodec.encode(next)
-            demand(json.toByteArray().size <= BackupCodec.MAX_BYTES, R.string.err_space_full)
-            val previous = prefs.getString("state", null)
-            val editor = prefs.edit().putString("state", json).putLong("updated_at", stamp)
-            if (eraseHistory) editor.remove("previous_good").remove("damaged_state")
-            else if (previous != null) {
-                if (runCatching { BackupCodec.decode(previous) }.isSuccess) editor.putString("previous_good", previous)
-                else editor.putString("damaged_state", previous)
-            }
-            if (!editor.commit()) throw KimiMessage(R.string.err_disk_write)
-            damaged = false
-            mutableState.value = next
-            next
+            val previousRevision = updatedAt
+            val current = mutableState.value.withBaselineRevisions(previousRevision)
+            val revision = monotonicStamp(stamp, previousRevision)
+            persist(transform(current).recordChangesFrom(current, revision), revision, eraseHistory)
         }
+    }
+
+    /** Applies a remote reconciliation only if no local write happened after [expected]. */
+    suspend fun replaceIfUnchanged(expected: Snapshot, replacement: HabitState, stamp: Long): Snapshot? = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            if (mutableState.value != expected.state || updatedAt != expected.updatedAt || stamp < expected.updatedAt) return@withLock null
+            if (replacement == expected.state && stamp == expected.updatedAt) return@withLock expected
+            Snapshot(persist(replacement, stamp, eraseHistory = false), stamp)
+        }
+    }
+
+    private fun monotonicStamp(requested: Long, current: Long): Long {
+        val afterCurrent = if (current == Long.MAX_VALUE) Long.MAX_VALUE else current + 1
+        return maxOf(1L, requested, afterCurrent)
+    }
+
+    private fun persist(next: HabitState, stamp: Long, eraseHistory: Boolean): HabitState {
+        val json = BackupCodec.encode(next)
+        demand(json.toByteArray(Charsets.UTF_8).size <= BackupCodec.MAX_BYTES, R.string.err_space_full)
+        val previous = prefs.getString("state", null)
+        val editor = prefs.edit().putString("state", json).putLong("updated_at", stamp)
+        if (eraseHistory) editor.remove("previous_good").remove("damaged_state")
+        else if (previous != null) {
+            if (runCatching { BackupCodec.decode(previous) }.isSuccess) editor.putString("previous_good", previous)
+            else editor.putString("damaged_state", previous)
+        }
+        if (!editor.commit()) throw KimiMessage(R.string.err_disk_write)
+        damaged = false
+        mutableState.value = next
+        return next
     }
 
     suspend fun erase() = withContext(Dispatchers.IO) {

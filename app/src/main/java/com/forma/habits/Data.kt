@@ -14,9 +14,25 @@ data class Habit(val id: String = UUID.randomUUID().toString(), val name: String
     val created: LocalDate = LocalDate.now(), val reminderMinutes: Int? = null,
     val schedule: List<ScheduleChange> = emptyList())
 data class Reflection(val date: LocalDate, val mood: Int, val text: String)
+
+/**
+ * Per-entry revisions used by multi-device sync. A key lives in exactly one of each
+ * updated/deleted pair, so removals and undone check-ins cannot be resurrected by an older device.
+ */
+data class SyncMetadata(
+    val habitUpdates: Map<String, Long> = emptyMap(),
+    val habitDeletions: Map<String, Long> = emptyMap(),
+    val checkUpdates: Map<String, Long> = emptyMap(),
+    val checkDeletions: Map<String, Long> = emptyMap(),
+    val reflectionUpdates: Map<String, Long> = emptyMap(),
+    val reflectionDeletions: Map<String, Long> = emptyMap()
+)
+
 data class HabitState(val habits: List<Habit> = emptyList(), val checks: Map<String, Set<String>> = emptyMap(),
     val journal: List<Reflection> = emptyList(), val name: String = "Alex", val demo: Boolean = false,
-    val onboarded: Boolean = true)
+    val onboarded: Boolean = true, val sync: SyncMetadata = SyncMetadata())
+
+internal fun checkRevisionKey(date: String, habitId: String) = "$date/$habitId"
 
 fun Habit.isDue(date: LocalDate): Boolean {
     val weekdaysOnly = schedule.lastOrNull { !it.from.isAfter(date) }?.weekdays ?: weekdays

@@ -6,7 +6,10 @@ import androidx.compose.runtime.*
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -41,6 +44,8 @@ class FormaViewModel(application: Application) : AndroidViewModel(application) {
         private set
     var syncFailed by mutableStateOf(false)
         private set
+    private var syncRequested = false
+    private var syncJob: Job? = null
     /** Sync exists only for a signed-in space; guests stay entirely local. */
     val syncable get() = store.owner.isNotEmpty()
     val damaged get() = store.damaged
@@ -48,7 +53,7 @@ class FormaViewModel(application: Application) : AndroidViewModel(application) {
     init {
         loadDraft(today)
         store.recoveryNotice?.let { tell(text(it)) }
-        viewModelScope.launch { store.state.collect { state = it } }
+        viewModelScope.launch { store.state.drop(1).collect { state = it; syncNow() } }
         viewModelScope.launch(Dispatchers.IO) { Reminders.reschedule(application, state, force = true, owner = store.owner) }
         syncNow()
     }
@@ -61,31 +66,46 @@ class FormaViewModel(application: Application) : AndroidViewModel(application) {
      * a flag for the UI and is retried on the next change or resume.
      */
     fun syncNow() {
-        if (!syncable || syncing) return
+        if (!syncable) return
+        syncRequested = true
+        if (syncJob?.isActive == true) return
         syncing = true
-        viewModelScope.launch {
+        syncJob = viewModelScope.launch {
             try {
-                val uid = store.owner
-                val local = store.state.value
-                val remote = SpaceSync.pull(uid)
-                val now = System.currentTimeMillis()
-                if (remote == null) {
-                    SpaceSync.push(uid, local, maxOf(store.updatedAt, now))
-                } else {
-                    val merged = mergeSpaces(local, store.updatedAt, remote.state, remote.updatedAt)
-                    if (merged != local) {
-                        // replaceDamaged, so a local space that failed to load can heal from the cloud.
-                        state = store.update(replaceDamaged = true, stamp = now) { merged }
-                        withContext(Dispatchers.IO) { Reminders.reschedule(getApplication(), state, owner = uid) }
+                do {
+                    syncRequested = false
+                    try {
+                        reconcileOnce()
+                        syncFailed = false
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (_: Exception) {
+                        syncFailed = true
                     }
-                    if (merged != remote.state) SpaceSync.push(uid, merged, now)
-                }
-                syncFailed = false
-            } catch (e: Exception) {
-                syncFailed = true
+                } while (syncRequested)
             } finally {
                 syncing = false
+                syncJob = null
+                // A request can arrive after the loop condition but before cleanup finishes.
+                if (syncRequested) syncNow()
             }
+        }
+    }
+
+    private suspend fun reconcileOnce() {
+        val uid = store.owner
+        val local = store.snapshot()
+        val reconciled = SpaceSync.reconcile(uid, local.state, local.updatedAt)
+        if (reconciled.state == local.state && reconciled.updatedAt == local.updatedAt) return
+        val applied = store.replaceIfUnchanged(local, reconciled.state, reconciled.updatedAt)
+        if (applied == null) {
+            // A local edit landed while Firestore was in flight. Never overwrite it; merge again.
+            syncRequested = true
+            return
+        }
+        state = applied.state
+        if (applied.state != local.state) {
+            withContext(Dispatchers.IO) { Reminders.reschedule(getApplication(), applied.state, owner = uid) }
         }
     }
 
@@ -99,6 +119,8 @@ class FormaViewModel(application: Application) : AndroidViewModel(application) {
                 tell(message)
                 withContext(Dispatchers.IO) { Reminders.reschedule(getApplication(), state, owner = store.owner) }
                 syncNow()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 tell(app.kimiMessage(e))
             } finally { endTask() }
@@ -173,21 +195,26 @@ class FormaViewModel(application: Application) : AndroidViewModel(application) {
 
     fun exportBackup(uri: Uri) {
         viewModelScope.launch {
-            runCatching {
+            try {
                 withContext(Dispatchers.IO) {
                     getApplication<Application>().contentResolver.openOutputStream(uri, "wt")?.use {
                         it.write(BackupCodec.encode(store.state.value).toByteArray(Charsets.UTF_8))
                     } ?: throw KimiMessage(R.string.err_file_write)
                 }
-            }.onSuccess { tell(text(R.string.msg_backup_saved)) }.onFailure { tell(text(R.string.err_backup_save)) }
+                tell(text(R.string.msg_backup_saved))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                tell(text(R.string.err_backup_save))
+            }
         }
     }
     fun readBackup(uri: Uri) {
         if (busy) return
         beginTask()
         viewModelScope.launch {
-            runCatching {
-                withContext(Dispatchers.IO) {
+            try {
+                val restored = withContext(Dispatchers.IO) {
                     val bytes = getApplication<Application>().contentResolver.openInputStream(uri)?.use { input ->
                         val output = java.io.ByteArrayOutputStream()
                         val buffer = ByteArray(8192)
@@ -199,9 +226,14 @@ class FormaViewModel(application: Application) : AndroidViewModel(application) {
                     } ?: throw KimiMessage(R.string.err_file_read)
                     BackupCodec.decode(bytes.toString(Charsets.UTF_8))
                 }
-            }.onSuccess { pendingRestore = it.copy(onboarded = true) }
-                .onFailure { tell(text(R.string.err_backup_read)) }
-            endTask()
+                pendingRestore = restored.copy(onboarded = true)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                tell(text(R.string.err_backup_read))
+            } finally {
+                endTask()
+            }
         }
     }
     fun cancelRestore() { pendingRestore = null }

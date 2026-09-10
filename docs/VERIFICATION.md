@@ -179,22 +179,22 @@ Signing in now syncs a space to Firestore, so it follows the user across devices
 untouched and never leaves the phone.
 
 **Shape.** One document per user at `spaces/{uid}`, holding the same versioned JSON `BackupCodec`
-already produces plus an `updatedAt` stamp. Storing the whole space rather than exploding it into
-per-habit documents leaves the careful durable local store completely alone, and means only data the
-codec can validate ever travels. `HabitStore` now records when it last wrote, so two copies can be
-ordered.
+already produces plus an `updatedAt` stamp. Backup format 3 adds per-entry revisions and deletion
+tombstones while formats 1 and 2 remain readable. Storing the whole space rather than exploding it
+into per-habit documents leaves the durable local store intact, and means only data the codec can
+validate ever travels. `HabitStore` records strictly increasing local revisions.
 
 **Merging, not overwriting.** `mergeSpaces` reconciles entry by entry — habits by id, check-ins and
 reflections by date — with the more recently written side winning any collision. Whole-blob
 last-write-wins would have destroyed work: write a reflection on an offline phone, check a habit on a
-tablet, let the tablet sync last, and the reflection is gone. Eight unit tests cover this, including
-that exact scenario and that a merged space always survives a codec round trip.
+tablet, let the tablet sync last, and the reflection is gone. Unit tests cover this scenario, codec
+round trips, legacy migration, deletion propagation and deliberate re-creation.
 
-**Known cost, deliberately accepted:** removals are not tracked. A deleted habit, deleted reflection
-or undone check-in can be reintroduced by a device that never saw the removal, because an absent
-entry is indistinguishable from one that has not arrived. Tombstones would fix it and are a much
-larger change. Repeating a deletion is an annoyance; losing a journal entry is not, so the merge errs
-towards keeping things. `SyncMergeTest` pins this so it cannot drift silently.
+**Deletion convergence.** Habit deletions, reflection deletions and undone check-ins now write
+tombstones. A stale device cannot resurrect them, while an explicitly newer re-creation wins as
+expected. Firestore reconciliation runs in a transaction, and applying its result to the local store
+uses a compare-and-set snapshot; an edit that lands while the network request is in flight is retried
+instead of overwritten. `SyncMergeTest` and an emulator-backed two-device flow cover these cases.
 
 **Security rules** (`firestore.rules`) allow access to `spaces/{uid}` only when the signed-in uid
 matches, and deny everything else. Verified live against the deployed rules:
@@ -217,9 +217,9 @@ used), the `(default)` database created in `asia-south1`, and the rules deployed
 **Limits worth knowing.** Sync runs on app start, on resume, and after each change — there are no
 realtime listeners, so two devices open at once do not update each other instantly. Firestore caps a
 document at 1 MiB, so `SpaceSync` refuses to push a space over 900 KB and says so. The notification
-*Mark complete* action writes locally from a receiver and syncs on next app open rather than
-immediately. Instrumented tests are skipped by `SpaceSync` when the auth emulator is in use, so they
-never reach production Firestore.
+*Mark complete* action writes locally from a receiver and syncs immediately if the app is already
+running, or on next app open otherwise. Instrumented tests use isolated Auth and Firestore emulators;
+they never reach production data.
 
 ### Not verified
 
@@ -260,8 +260,8 @@ The new sign-in and create-account screens were visually inspected. At 1.3× And
 
 ## Data and limits
 
-The original emulator guest data was restored after tests. Account credentials are managed by Firebase; habit/journal spaces are local and separate by Firebase UID. Guest progress is copied only through the explicit copy action, and only into an empty account space. There is **no cloud habit/journal sync**. Backups and old device data are not remotely erased by account deletion.
+Account credentials are managed by Firebase. Signed-in habit/journal spaces are local-first, separate by Firebase UID, and synchronized to that user's Firestore document. Guest data remains device-only. Guest progress is copied only through the explicit copy action and only when both the local and cloud account space are empty. Account deletion removes the Firestore document before deleting the Firebase identity; if cloud removal fails, identity deletion is aborted so data cannot become orphaned.
 
-The APK is debug-signed. Production distribution needs its release/Play signing certificate registered in Firebase. Google verification/consent completion and real mailbox delivery were not claimed as tested.
+The public v1.0.1 APK is release-signed, and its signing certificate is registered for the Android API-key restriction, Firebase Android app, and App Check. Google consent completion on a physical phone and real mailbox delivery were not claimed as tested.
 
-APK SHA-256: `8209811f2e4442ff4c278921a1043a8587d98acd2d0557d2bc8a52c851b0c559`
+Public v1.0.1 APK SHA-256: `2a481631dcf0032e7c2852a9ab86b86d3830a5052c9a2622373c7d120a7fbb97`

@@ -43,6 +43,7 @@ class KimiFlowTest {
         compose.onNodeWithContentDescription("Edit Practice guitar").performClick()
         compose.onNodeWithText("Habit name").performTextReplacement("Play guitar")
         compose.onNodeWithText("Weekdays", substring = false).performScrollTo().performClick()
+        compose.onNodeWithText("Weekdays", substring = false).assertIsSelected()
         compose.onNodeWithText("Save my changes").performScrollTo().performClick()
         waitFor { store.state.value.habits.first().name == "Play guitar" }
         assertTrue(store.state.value.habits.first().weekdays)
@@ -72,17 +73,31 @@ class KimiFlowTest {
 
     @Test fun backupAndRestoreRoundTripInRealAndroidStorage() = runBlocking {
         val h = Habit(name = "Read", goal = "Ten pages")
-        val expected = HabitState(listOf(h), mapOf(LocalDate.now().toString() to setOf(h.id)), listOf(Reflection(LocalDate.now(), 3, "A real win")))
-        store.update { expected }
+        val content = HabitState(listOf(h), mapOf(LocalDate.now().toString() to setOf(h.id)), listOf(Reflection(LocalDate.now(), 3, "A real win")))
+        val expected = store.update { content }
         val file = java.io.File(context.cacheDir, "roundtrip.json")
         file.writeText(BackupCodec.encode(store.state.value))
+        assertEquals(expected, BackupCodec.decode(file.readText()))
         store.update { HabitState() }
         store.update { BackupCodec.decode(file.readText()) }
-        assertEquals(expected, store.state.value)
+        val restored = store.state.value
+        assertEquals(expected.copy(sync = SyncMetadata()), restored.copy(sync = SyncMetadata()))
+        assertTrue(restored.sync.habitUpdates.getValue(h.id) > expected.sync.habitUpdates.getValue(h.id))
         val persisted = context.getSharedPreferences("forma", 0).getString("state", null)!!
-        assertEquals(expected, BackupCodec.decode(persisted))
+        assertEquals(restored, BackupCodec.decode(persisted))
         file.delete()
         Unit
+    }
+
+    @Test fun staleSyncSnapshotCannotOverwriteANewerLocalWrite() = runBlocking {
+        val old = store.snapshot()
+        store.update(stamp = old.updatedAt) { it.copy(name = "Newest local name") }
+        val current = store.snapshot()
+        assertTrue(current.updatedAt > old.updatedAt)
+
+        val staleApply = store.replaceIfUnchanged(old, old.state.copy(name = "Stale cloud name"), current.updatedAt + 1)
+        assertNull(staleApply)
+        assertEquals("Newest local name", store.state.value.name)
     }
 
     @Test fun notificationActionMarksCompleteOnce() {

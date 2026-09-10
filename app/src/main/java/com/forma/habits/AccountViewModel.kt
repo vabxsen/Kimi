@@ -16,6 +16,7 @@ import com.google.firebase.FirebaseTooManyRequestsException
 import com.google.firebase.auth.*
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.tasks.await
@@ -72,7 +73,8 @@ class AccountViewModel(application: Application) : AndroidViewModel(application)
     fun createAccount(name: String, email: String, password: String) = action {
         demand(name.trim().length in 1..30, R.string.err_account_name)
         demand(password.length >= 8, R.string.err_account_password_short)
-        val user = auth.createUserWithEmailAndPassword(email.trim(), password).await().user!!
+        val user = auth.createUserWithEmailAndPassword(email.trim(), password).await().user
+            ?: throw KimiMessage(R.string.err_auth_generic)
         // Account creation is successful even if the optional profile update is interrupted.
         val updated = try { user.updateProfile(UserProfileChangeRequest.Builder().setDisplayName(name.trim()).build()).await(); true }
             catch (e: CancellationException) { throw e }
@@ -128,35 +130,53 @@ class AccountViewModel(application: Application) : AndroidViewModel(application)
         val owner = user.uid
         val credential = if (user.providerData.any { it.providerId == EmailAuthProvider.PROVIDER_ID }) {
             demand(password.isNotEmpty(), R.string.err_password_required)
-            EmailAuthProvider.getCredential(user.email!!, password)
+            EmailAuthProvider.getCredential(user.email ?: throw KimiMessage(R.string.err_auth_invalid_user), password)
         } else googleCredential(context)
         // Reauthentication rejects a different Google account. Never sign in to it here.
         user.reauthenticate(credential).await()
         // Before user.delete(): the Firestore rules require request.auth.uid to match, so the
         // cloud copy is unreachable once the identity is gone.
-        runCatching { SpaceSync.deleteSpace(owner) }
-        user.delete().await()
-        try {
-            HabitStore.get(getApplication(), owner).erase()
-            withContext(Dispatchers.IO) {
-                check(getApplication<Application>().getSharedPreferences(AccountSession.preferenceName("kimi_drafts", owner), 0).edit().clear().commit())
+        var localCleanupFailed = false
+        withContext(NonCancellable) {
+            try { SpaceSync.deleteSpace(owner) }
+            catch (_: Exception) { throw KimiMessage(R.string.err_account_delete_cloud) }
+            try { user.delete().await() }
+            catch (error: Exception) {
+                SpaceSync.resumeAfterFailedDeletion(owner)
+                throw error
             }
-        } catch (e: CancellationException) { throw e }
-        catch (_: Exception) {
+            try {
+                HabitStore.get(getApplication(), owner).erase()
+                withContext(Dispatchers.IO) {
+                    check(getApplication<Application>().getSharedPreferences(AccountSession.preferenceName("kimi_drafts", owner), 0).edit().clear().commit())
+                }
+            } catch (_: Exception) {
+                localCleanupFailed = true
+            }
             clearCredentials()
-            return@action text(R.string.msg_account_deleted_partial)
         }
-        clearCredentials()
-        text(R.string.msg_account_deleted)
+        text(if (localCleanupFailed) R.string.msg_account_deleted_partial else R.string.msg_account_deleted)
     }
     fun copyGuestSpace() = action {
         val owner = auth.currentUser?.uid ?: throw KimiMessage(R.string.err_sign_in_first)
         val guest = HabitStore.get(getApplication(), "").state.value
         val target = HabitStore.get(getApplication(), owner)
-        target.update { current ->
-            demand(current.habits.isEmpty() && current.checks.isEmpty() && current.journal.isEmpty(), R.string.err_account_not_empty)
-            guest.copy(onboarded = true)
+        demand(!target.damaged, R.string.err_damaged_locked)
+        val local = target.snapshot()
+        demand(local.state.contentIsEmpty(), R.string.err_account_not_empty)
+        val afterLocal = if (local.updatedAt == Long.MAX_VALUE) Long.MAX_VALUE else local.updatedAt + 1
+        val copyStamp = maxOf(System.currentTimeMillis(), afterLocal, 1L)
+        val proposed = guest.copy(onboarded = true).recordChangesFrom(local.state, copyStamp)
+        val copied = SpaceSync.createIfEmpty(owner, proposed, copyStamp)
+            ?: throw KimiMessage(R.string.err_account_not_empty)
+        if (target.replaceIfUnchanged(local, copied.state, copied.updatedAt) == null) {
+            // A notification action may have changed this device while the cloud transaction ran.
+            // Reconcile instead of overwriting that newer local work.
+            val current = target.snapshot()
+            val reconciled = SpaceSync.reconcile(owner, current.state, current.updatedAt)
+            target.replaceIfUnchanged(current, reconciled.state, reconciled.updatedAt)
         }
+        withContext(Dispatchers.IO) { Reminders.reschedule(getApplication(), target.state.value, force = true, owner = owner) }
         text(R.string.msg_guest_copied)
     }
 }
