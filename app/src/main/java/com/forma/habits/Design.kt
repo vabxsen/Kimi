@@ -211,8 +211,10 @@ private val RoundedFont = FontFamily(
     Spacer(Modifier.height(7.dp))
     Text(description, color = Quiet, style = MaterialTheme.typography.bodyMedium)
 }
-@Composable fun PlayCard(color: Color, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
-    Column(modifier.fillMaxWidth().clip(RoundedCornerShape(25.dp)).background(color).padding(20.dp), content = content)
+@Composable fun PlayCard(color: Color, modifier: Modifier = Modifier, onClick: (() -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
+    Column(modifier.fillMaxWidth().clip(RoundedCornerShape(25.dp)).background(color)
+        .then(if (onClick != null) Modifier.clickable(role = Role.Button, onClick = onClick) else Modifier)
+        .padding(20.dp), content = content)
 }
 @Composable fun EmptySpace(title: String, text: String) {
     Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {

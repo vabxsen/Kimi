@@ -117,6 +117,7 @@
     <string name="today_section">Your little rituals</string>
     <string name="today_empty_title">Room for a new beginning</string>
     <string name="today_empty_body">Add a habit or try another time of day.</string>
+    <string name="today_empty_first_body">Plant your first real habit and start tracking it today.</string>
     <string name="today_journal_caption">Make a little space for your thoughts.</string>
     <string name="demo_footer_today">Sample habits &amp; check-ins · Make them your own</string>
 
@@ -221,8 +222,6 @@
     <!-- Welcome -->
     <string name="welcome_title">Small steps.\nYour kind of happy.</string>
     <string name="welcome_body">A little space for habits that feel good, and a life that feels more like you.</string>
-    <string name="welcome_starters_title">A little help getting started</string>
-    <string name="welcome_starters_body">Five gentle rituals to make your own. Your progress starts today.</string>
     <string name="welcome_busy">Making room for you…</string>
     <string name="welcome_privacy">No account needed — as a guest, everything stays on this device. Sign in later to sync across devices.</string>
 
@@ -300,7 +299,7 @@
     <string name="action_keep_progress">Keep my progress</string>
     <string name="action_restore_backup">Restore backup</string>
     <string name="action_keep_current_space">Keep current space</string>
-    <string name="action_lets_grow">Let’s grow together</string>
+    <string name="action_lets_grow">Start tracking my habits</string>
     <string name="action_account_link">Your Kimi account · Sign in or manage</string>
     <string name="action_restore_link">Already have a Kimi backup?</string>
     <string name="action_open_notification_settings">Open notification settings</string>

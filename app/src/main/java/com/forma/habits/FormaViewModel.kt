@@ -171,12 +171,9 @@ class FormaViewModel(application: Application) : AndroidViewModel(application) {
     fun reset() = change(text(R.string.msg_reset), replaceDamaged = true, eraseHistory = true, onSaved = {
         draftPrefs.edit().clear().apply(); loadDraft(today)
     }) { HabitState(name = it.name) }
-    fun start(name: String, starters: Boolean) = change(text(R.string.msg_welcome)) {
+    fun start(name: String, onStarted: () -> Unit = {}) = change(text(R.string.msg_welcome), onSaved = onStarted) {
         demand(name.isNotBlank() && name.trim().length <= 30, R.string.err_name_length)
-        val seeds = starterHabits(LocalDate.now(),
-            app.resources.getStringArray(R.array.starter_names).toList(),
-            app.resources.getStringArray(R.array.starter_goals).toList())
-        HabitState(name = name.trim(), habits = if (starters) seeds else emptyList())
+        HabitState(name = name.trim(), onboarded = true)
     }
 
     fun updateDraft(mood: Int, text: String) {

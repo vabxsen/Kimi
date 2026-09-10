@@ -82,7 +82,9 @@ val LocalToday = compositionLocalOf { LocalDate.now() }
     CompositionLocalProvider(LocalToday provides vm.today) {
     if (!state.onboarded) {
         Box(Modifier.fillMaxSize()) {
-            WelcomeScreen(vm.busy, vm::start, onAccount) { restore.launch(arrayOf("application/json", "text/*", "application/octet-stream")) }
+            WelcomeScreen(vm.busy, { name -> vm.start(name) { edit(null) } }, onAccount) {
+                restore.launch(arrayOf("application/json", "text/*", "application/octet-stream"))
+            }
             SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding())
         }
     } else {

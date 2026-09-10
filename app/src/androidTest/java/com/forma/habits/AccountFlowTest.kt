@@ -73,10 +73,10 @@ class AccountFlowTest {
         waitFor { !vm.busy }
         assertFalse(vm.message, vm.error)
     }
-    private fun openAccount() {
+    private fun openAccount(action: String = "Sign in to Kimi") {
         compose.onNodeWithContentDescription("Open settings").performClick()
-        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Sign in to Kimi"))
-        compose.onNodeWithText("Sign in to Kimi").performScrollTo().performClick()
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText(action))
+        compose.onNodeWithText(action).performScrollTo().performClick()
     }
 
     @Test fun createSignOutSignInAndDeleteThroughUi() {
@@ -86,11 +86,21 @@ class AccountFlowTest {
         compose.onNodeWithText("Email address").performScrollTo().performTextInput(email)
         compose.onNodeWithText("Password", substring = false).performScrollTo().performTextInput(password)
         compose.onNodeWithText("Confirm password", substring = false).performScrollTo().performTextInput(password)
-        compose.onNodeWithText("Create my account").performScrollTo().performClick()
+        compose.onNodeWithText("Create my account").performScrollTo().assertIsEnabled()
+        compose.waitForIdle()
+        compose.onNodeWithText("Create my account").performClick()
         waitFor { auth.currentUser?.displayName == "Kimi tester" }
         waitFor { compose.onAllNodesWithText("Your account is ready. You can verify your email below.").fetchSemanticsNodes().isNotEmpty() }
         val uid = auth.currentUser!!.uid
-        assertTrue(HabitStore.get(app, uid).state.value.habits.isEmpty())
+        val fresh = HabitStore.get(app, uid).state.value
+        assertTrue(fresh.onboarded)
+        assertTrue(fresh.habits.isEmpty())
+        assertTrue(fresh.checks.isEmpty())
+        assertTrue(fresh.journal.isEmpty())
+        val freshCloud = runBlocking { firestore.collection("spaces").document(uid).get().await() }
+        val freshRemote = BackupCodec.decode(freshCloud.getString("state")!!)
+        assertTrue(freshRemote.onboarded)
+        assertTrue(freshRemote.contentIsEmpty())
         compose.onNodeWithText("Copy guest progress").performScrollTo().performClick()
         compose.onNodeWithText("Copy progress", substring = false).performClick()
         waitFor { HabitStore.get(app, uid).state.value.habits.size == 1 }
@@ -107,6 +117,8 @@ class AccountFlowTest {
         scenario.recreate()
         waitFor { vm.account?.uid == uid }
         assertEquals("Guest ritual", HabitStore.get(app).state.value.habits.single().name)
+        compose.onNodeWithText("Let’s go").performClick()
+        openAccount("Manage account")
         val ownerToken = runBlocking { auth.currentUser!!.getIdToken(false).await().token!! }
         compose.onNodeWithText("Delete my account").performScrollTo().performClick()
         compose.onNodeWithText("Confirm with password").performTextInput(password)
@@ -156,6 +168,7 @@ class AccountFlowTest {
         action { vm.createAccount("Account B", "b-$email", password) }
         val second = auth.currentUser!!.uid
         assertNotEquals(first, second)
+        assertTrue(HabitStore.get(app).state.value.onboarded)
         assertTrue(HabitStore.get(app).state.value.habits.isEmpty())
         assertFalse(app.getSharedPreferences(AccountSession.preferenceName("kimi_drafts"), 0).contains("private"))
         runBlocking { HabitStore.get(app).update { HabitState(habits = listOf(habit.copy(name = "Private B"))) } }

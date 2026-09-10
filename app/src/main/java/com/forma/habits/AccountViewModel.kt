@@ -91,6 +91,7 @@ class AccountViewModel(application: Application) : AndroidViewModel(application)
         val updated = try { user.updateProfile(UserProfileChangeRequest.Builder().setDisplayName(name.trim()).build()).await(); true }
             catch (e: CancellationException) { throw e }
             catch (_: Exception) { false }
+        initializeNewSpace(user, name)
         if (updated) text(R.string.msg_account_created) else text(R.string.msg_account_created_no_name)
     }
     private suspend fun googleCredential(context: Context): AuthCredential {
@@ -105,8 +106,37 @@ class AccountViewModel(application: Application) : AndroidViewModel(application)
         val result = auth.signInWithCredential(googleCredential(context)).await()
         // Google covers both cases behind one button, so ask Firebase which just happened rather
         // than telling a returning user their account was created.
-        welcome = if (result.additionalUserInfo?.isNewUser == true) Welcome.Created else Welcome.Returned
+        val created = result.additionalUserInfo?.isNewUser == true
+        if (created) result.user?.let { initializeNewSpace(it, it.displayName.orEmpty()) }
+        welcome = if (created) Welcome.Created else Welcome.Returned
         null
+    }
+
+    /** A new identity starts as an empty real space, never as the guest onboarding/demo state. */
+    private suspend fun initializeNewSpace(user: FirebaseUser, preferredName: String) {
+        val target = HabitStore.get(app, user.uid)
+        val before = target.snapshot()
+        // A concurrent action already created real data for this uid; it always wins.
+        if (!before.state.contentIsEmpty() || before.updatedAt == Long.MAX_VALUE) return
+        val fallback = user.email?.substringBefore('@').orEmpty()
+        val accountName = preferredName.trim().ifBlank { fallback }.take(30).ifBlank { HabitState().name }
+        val revision = maxOf(System.currentTimeMillis(), before.updatedAt + 1, 1L)
+        val local = target.replaceIfUnchanged(before, HabitState(name = accountName, onboarded = true), revision)
+            ?: return
+        // Local tracking remains usable offline. FormaViewModel will retry this upload on resume.
+        try {
+            val remote = SpaceSync.createIfEmpty(user.uid, local.state, local.updatedAt)
+                ?: SpaceSync.reconcile(user.uid, local.state, local.updatedAt)
+            if (target.replaceIfUnchanged(local, remote.state, remote.updatedAt) == null) {
+                val current = target.snapshot()
+                val reconciled = SpaceSync.reconcile(user.uid, current.state, current.updatedAt)
+                target.replaceIfUnchanged(current, reconciled.state, reconciled.updatedAt)
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            // Account creation must not fail just because its first cloud upload is temporarily offline.
+        }
     }
     fun resetPassword(email: String) = action {
         demand(android.util.Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches(), R.string.err_invalid_email)

@@ -38,9 +38,8 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
-@Composable fun WelcomeScreen(busy: Boolean, onStart: (String, Boolean) -> Unit, onAccount: () -> Unit = {}, onRestore: () -> Unit) {
+@Composable fun WelcomeScreen(busy: Boolean, onStart: (String) -> Unit, onAccount: () -> Unit = {}, onRestore: () -> Unit) {
     var name by rememberSaveable { mutableStateOf("") }
-    var starters by rememberSaveable { mutableStateOf(true) }
     val keyboard = LocalSoftwareKeyboardController.current
     Column(Modifier.fillMaxSize().background(Cream).safeDrawingPadding().imePadding().verticalScroll(rememberScrollState())
         .padding(23.dp, 28.dp), verticalArrangement = Arrangement.spacedBy(22.dp)) {
@@ -56,17 +55,7 @@ import java.time.format.DateTimeFormatter
         OutlinedTextField(name, { name = it.take(30) }, label = { Text(stringResource(R.string.settings_name_question)) }, singleLine = true,
             modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done), keyboardActions = KeyboardActions(onDone = { keyboard?.hide() }))
-        PlayCard(Mint) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.welcome_starters_title), style = MaterialTheme.typography.titleMedium)
-                    Text(stringResource(R.string.welcome_starters_body), color = Quiet, fontSize = 12.sp)
-                }
-                val startersLabel = stringResource(R.string.cd_starters_switch)
-                Switch(starters, { starters = it }, Modifier.semantics { contentDescription = startersLabel })
-            }
-        }
-        MainButton(stringResource(if (busy) R.string.welcome_busy else R.string.action_lets_grow), enabled = !busy && name.isNotBlank()) { onStart(name, starters) }
+        MainButton(stringResource(if (busy) R.string.welcome_busy else R.string.action_lets_grow), enabled = !busy && name.isNotBlank()) { onStart(name) }
         TextButton(onClick = onAccount, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.action_account_link)) }
         TextButton(onClick = onRestore, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.action_restore_link)) }
         Text(stringResource(R.string.welcome_privacy), color = Quiet, fontSize = 12.sp)

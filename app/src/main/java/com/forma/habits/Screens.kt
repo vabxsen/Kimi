@@ -10,8 +10,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
@@ -22,12 +25,16 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
@@ -36,6 +43,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -142,13 +150,20 @@ private val MonthLabel = DateTimeFormatter.ofPattern("MMMM yyyy")
         }
         val habits = state.due(date).filter { filter == "All" || it.time == filter }
         items(habits, key = { it.id }) { habit -> HabitRow(habit, state, date, { onToggle(habit, date) }) }
-        if (habits.isEmpty()) item { EmptySpace(stringResource(R.string.today_empty_title), stringResource(R.string.today_empty_body)) }
+        if (habits.isEmpty()) item {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                EmptySpace(stringResource(R.string.today_empty_title), stringResource(
+                    if (state.habits.isEmpty()) R.string.today_empty_first_body else R.string.today_empty_body))
+                if (state.habits.isEmpty()) MainButton(stringResource(R.string.action_plant_new_habit), onClick = onNew)
+            }
+        }
         item {
-            PlayCard(Yellow) {
+            val journalLabel = stringResource(R.string.cd_open_journal)
+            PlayCard(Yellow, Modifier.semantics { contentDescription = journalLabel }, onJournal) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     BubbleIcon(Icons.Rounded.EditNote, Overlay); Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) { Text(stringResource(R.string.journal_prompt), style = MaterialTheme.typography.titleMedium); Text(stringResource(R.string.today_journal_caption), fontSize = 11.sp, color = Quiet) }
-                    IconButton(onClick = onJournal) { Icon(Icons.AutoMirrored.Rounded.ArrowForward, stringResource(R.string.cd_open_journal)) }
+                    Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) { Icon(Icons.AutoMirrored.Rounded.ArrowForward, null) }
                 }
             }
         }
@@ -161,16 +176,18 @@ private val MonthLabel = DateTimeFormatter.ofPattern("MMMM yyyy")
     val checked = state.done(habit.id, date)
     val haptics = LocalHapticFeedback.current
     val background by animateColorAsState(TileColors[habit.color.coerceIn(0, 5)], label = "habit color")
-    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(background).padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
+    val toggleLabel = stringResource(if (checked) R.string.cd_undo_habit else R.string.cd_complete_habit, habit.name)
+    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(background)
+        .toggleable(value = checked, enabled = !date.isAfter(today), role = Role.Checkbox, onValueChange = {
+            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove); onToggle()
+        }).semantics { contentDescription = toggleLabel }.padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
         BubbleIcon(HabitSymbols[habit.icon.coerceIn(0, 7)], Overlay, size = 44)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(habit.name, style = MaterialTheme.typography.titleMedium, fontSize = 14.sp)
             Spacer(Modifier.height(4.dp)); Text(habit.goal, fontSize = 10.sp, color = Quiet)
         }
-        val toggleLabel = stringResource(if (checked) R.string.cd_undo_habit else R.string.cd_complete_habit, habit.name)
-        IconToggleButton(checked = checked, enabled = !date.isAfter(today), onCheckedChange = { haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove); onToggle() },
-            modifier = Modifier.size(48.dp).semantics { contentDescription = toggleLabel }) {
+        Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
             Box(Modifier.size(29.dp).clip(CircleShape).background(if (checked) Ink else Overlay)
                 .border(1.5.dp, if (checked) Ink else Quiet, CircleShape), contentAlignment = Alignment.Center) {
                 if (checked) Icon(Icons.Rounded.Check, null, Modifier.size(19.dp), tint = OnInk)
@@ -191,11 +208,12 @@ private val MonthLabel = DateTimeFormatter.ofPattern("MMMM yyyy")
         }
         item { Text(pluralStringResource(R.plurals.habits_collection_count, state.habits.size, state.habits.size), style = MaterialTheme.typography.titleLarge) }
         items(state.habits.filter { it.name.contains(query, true) }, key = { it.id }) { h ->
-            PlayCard(TileColors[h.color.coerceIn(0, 5)]) {
+            val editLabel = stringResource(R.string.cd_edit_habit, h.name)
+            PlayCard(TileColors[h.color.coerceIn(0, 5)], Modifier.semantics { contentDescription = editLabel }, { onEdit(h) }) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     BubbleIcon(HabitSymbols[h.icon.coerceIn(0, 7)], Overlay, size = 51)
                     Spacer(Modifier.width(12.dp)); Column(Modifier.weight(1f)) { Text(h.name, style = MaterialTheme.typography.titleMedium); Text(h.goal, color = Quiet, fontSize = 11.sp) }
-                    IconButton(onClick = { onEdit(h) }) { Icon(Icons.Rounded.Edit, stringResource(R.string.cd_edit_habit, h.name), Modifier.size(21.dp)) }
+                    Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Edit, null, Modifier.size(21.dp)) }
                 }
                 Spacer(Modifier.height(18.dp))
                 val week = (0..6).map { today.minusDays((6 - it).toLong()) }
@@ -585,6 +603,9 @@ private val MoodIcons = listOf(Icons.Rounded.SentimentVeryDissatisfied, Icons.Ro
     var symbol by rememberSaveable(existing?.id) { mutableIntStateOf(existing?.icon ?: 0) }
     var time by rememberSaveable(existing?.id) { mutableStateOf(existing?.time ?: "Morning") }
     var weekdays by rememberSaveable(existing?.id) { mutableStateOf(existing?.weekdays ?: false) }
+    val goalFocus = remember { FocusRequester() }
+    val focus = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
     Column(Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState()).padding(23.dp, 0.dp, 23.dp, 30.dp), verticalArrangement = Arrangement.spacedBy(17.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) { Text(stringResource(if (existing == null) R.string.editor_title_new else R.string.editor_title_edit), style = MaterialTheme.typography.headlineMedium); Text(stringResource(R.string.editor_subtitle), color = Quiet, fontSize = 12.sp) }
@@ -594,8 +615,13 @@ private val MoodIcons = listOf(Icons.Rounded.SentimentVeryDissatisfied, Icons.Ro
             BubbleIcon(HabitSymbols[symbol], Overlay); Spacer(Modifier.width(13.dp))
             Column { Text(name.ifBlank { stringResource(R.string.editor_preview_name) }, style = MaterialTheme.typography.titleMedium); Text(goal.ifBlank { stringResource(R.string.editor_preview_goal) }, fontSize = 11.sp, color = Quiet) }
         }
-        OutlinedTextField(name, { name = it.take(70) }, label = { Text(stringResource(R.string.editor_name_label)) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), singleLine = true)
-        OutlinedTextField(goal, { goal = it.take(80) }, label = { Text(stringResource(R.string.editor_goal_label)) }, placeholder = { Text(stringResource(R.string.editor_goal_placeholder)) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), singleLine = true)
+        OutlinedTextField(name, { name = it.take(70) }, label = { Text(stringResource(R.string.editor_name_label)) }, modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp), singleLine = true, keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+            keyboardActions = KeyboardActions(onNext = { goalFocus.requestFocus() }))
+        OutlinedTextField(goal, { goal = it.take(80) }, label = { Text(stringResource(R.string.editor_goal_label)) },
+            placeholder = { Text(stringResource(R.string.editor_goal_placeholder)) }, modifier = Modifier.fillMaxWidth().focusRequester(goalFocus),
+            shape = RoundedCornerShape(16.dp), singleLine = true, keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { keyboard?.hide(); focus.clearFocus() }))
         Text(stringResource(R.string.editor_icon_section), style = MaterialTheme.typography.titleMedium)
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
             HabitSymbols.forEachIndexed { i, icon -> IconButton(onClick = { symbol = i }, modifier = Modifier.size(48.dp).clip(RoundedCornerShape(15.dp)).background(if (symbol == i) Purple else Paper)) { Icon(icon, stringResource(R.string.cd_habit_icon, i + 1), tint = if (symbol == i) OnAccent else Ink) } }

@@ -39,16 +39,20 @@ class KimiFlowTest {
         waitFor { compose.onAllNodesWithText("Your habit is saved. Make it work for you.").fetchSemanticsNodes().isEmpty() }
         compose.onNodeWithContentDescription("Complete Practice guitar").performScrollTo().performClick()
         waitFor { store.state.value.count(LocalDate.now()) == 1 }
+        assertTrue(store.state.value.done(store.state.value.habits.single().id, LocalDate.now()))
         compose.onNodeWithText("Habits", substring = false).performClick()
         compose.onNodeWithContentDescription("Edit Practice guitar").performClick()
         compose.onNodeWithText("Habit name").performTextReplacement("Play guitar")
+        compose.onNodeWithText("Habit name").performImeAction()
+        compose.onNodeWithText("A small, specific goal").performImeAction()
         compose.onNodeWithText("Weekdays", substring = false).performScrollTo().performClick()
-        compose.onNodeWithText("Weekdays", substring = false).assertIsSelected()
+        waitFor { runCatching { compose.onNodeWithText("Weekdays", substring = false).assertIsSelected() }.isSuccess }
         compose.onNodeWithText("Save my changes").performScrollTo().performClick()
         waitFor { store.state.value.habits.first().name == "Play guitar" }
         assertTrue(store.state.value.habits.first().weekdays)
         assertEquals(1, store.state.value.count(LocalDate.now()))
         scenario.recreate()
+        waitFor { store.state.value.count(LocalDate.now()) == 1 }
         compose.onNodeWithText("Habits", substring = false).performClick()
         compose.onNodeWithContentDescription("Edit Play guitar").performClick()
         compose.onNodeWithText("Delete this habit").performScrollTo().performClick()
@@ -122,12 +126,18 @@ class KimiFlowTest {
         runBlocking { store.update { HabitState(onboarded = false) } }
         compose.onNodeWithText("What should we call you?").performTextInput("Vaibhav")
         compose.onNodeWithText("What should we call you?").performImeAction()
-        compose.onNodeWithText("Let’s grow together").performScrollTo().performClick()
+        compose.onNodeWithText("Start tracking my habits").performScrollTo().performClick()
         waitFor { store.state.value.onboarded }
         assertEquals("Vaibhav", store.state.value.name)
-        assertEquals(5, store.state.value.habits.size)
+        assertTrue(store.state.value.habits.isEmpty())
         assertTrue(store.state.value.checks.isEmpty())
         assertTrue(store.state.value.journal.isEmpty())
+        compose.onNodeWithText("Habit name").assertExists().performTextInput("Morning walk")
+        compose.onNodeWithText("A small, specific goal").performTextInput("Walk for ten minutes")
+        compose.onNodeWithText("Let’s make it a habit").performScrollTo().performClick()
+        waitFor { store.state.value.habits.size == 1 }
+        assertEquals("Morning walk", store.state.value.habits.single().name)
+        assertTrue(store.state.value.checks.isEmpty())
     }
 
     @Test fun scheduledReminderDeliversThroughAndroidAlarmManager() {
