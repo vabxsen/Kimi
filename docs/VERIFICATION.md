@@ -100,6 +100,34 @@ exercised) and driving it by hand:
 No `ClassNotFoundException`, `NoSuchMethodError` or `NoClassDefFoundError` at any point.
 `lintVitalRelease` is clean. Resource shrinking was not enabled, so no string or drawable was removed.
 
+### Adaptive launcher icon and privacy policy — 2026-09-10
+
+The launcher icon was a single full-bleed 108dp vector in `drawable/`, with no adaptive icon, no
+round icon and no themed icon, so modern launchers could not mask it into the device's icon shape.
+Replaced with a proper `<adaptive-icon>` carrying background, foreground and monochrome layers.
+
+Two things were found by looking at it on a launcher rather than trusting that it compiled:
+
+1. `mipmap-anydpi` — which lint recommends over `mipmap-anydpi-v26` when `minSdk` is 26 — is not
+   resolved by the resource merger at all; the build failed with `resource mipmap/ic_launcher not
+   found` and no mipmap entries were produced. Since every supported API level has adaptive icons,
+   the XML now lives in plain `mipmap/` with no qualifier, which resolves and leaves no obsolete
+   folder for lint to flag.
+2. At full size the mascot filled the whole canvas and its petals pressed against the circular mask.
+   The foreground is now scaled to 0.75 about the centre and re-centred from (57,48) to (54,54), so
+   it sits inside the safe zone with a clean margin like neighbouring icons.
+
+Verified on the emulator at 640dpi, masked correctly with the purple background visible around the
+mascot. The old orphaned `drawable/ic_launcher.xml` was deleted.
+
+`docs/PRIVACY.md` was written to match the app's verified behaviour — local-only habit and journal
+storage, Firebase Authentication as the only network dependency, App Check/Play Integrity, the three
+declared permissions, and what account deletion can and cannot reach. **It still needs a contact
+address and a public URL before a Play listing.**
+
+Verified: `assembleDebug testDebugUnitTest lintDebug assembleRelease` all pass, 20 unit tests, lint
+0 errors with only the pre-existing dependency-update and Compose advisories remaining.
+
 ### Not verified
 
 - Release signing, Play App Signing registration, and App Check enforcement — all require console access and a release keystore.
