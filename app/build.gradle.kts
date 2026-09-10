@@ -2,6 +2,7 @@ import java.util.Properties
 
 plugins {
     id("com.google.gms.google-services")
+    id("com.google.firebase.crashlytics")
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
@@ -53,9 +54,24 @@ android {
         }
     }
     buildTypes {
+        getByName("debug") {
+            // Crashes from a machine running the app under a debugger are noise, not signal.
+            // This has to be a manifest value, not a runtime call: Crashlytics initialises from a
+            // ContentProvider before Application.onCreate, so a setter in KimiApp would run too late.
+            manifestPlaceholders["crashlyticsCollectionEnabled"] = "false"
+            configure<com.google.firebase.crashlytics.buildtools.gradle.CrashlyticsExtension> {
+                mappingFileUploadEnabled = false
+            }
+        }
         getByName("release") {
+            manifestPlaceholders["crashlyticsCollectionEnabled"] = "true"
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // R8 renames everything, so without the mapping file every crash report would be
+            // unreadable. proguard-rules.pro keeps SourceFile/LineNumberTable for the same reason.
+            configure<com.google.firebase.crashlytics.buildtools.gradle.CrashlyticsExtension> {
+                mappingFileUploadEnabled = true
+            }
             signingConfig = if (canSignRelease) signingConfigs.getByName("release") else null
         }
     }
@@ -73,6 +89,7 @@ tasks.matching { it.name.startsWith("assemble") && it.name.contains("Release") }
 dependencies {
     implementation(platform("com.google.firebase:firebase-bom:34.18.0"))
     implementation("com.google.firebase:firebase-auth")
+    implementation("com.google.firebase:firebase-crashlytics")
     implementation("com.google.firebase:firebase-appcheck-playintegrity")
     debugImplementation("com.google.firebase:firebase-appcheck-debug")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.2")

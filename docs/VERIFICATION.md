@@ -128,6 +128,35 @@ address and a public URL before a Play listing.**
 Verified: `assembleDebug testDebugUnitTest lintDebug assembleRelease` all pass, 20 unit tests, lint
 0 errors with only the pre-existing dependency-update and Compose advisories remaining.
 
+### Crashlytics — 2026-09-10
+
+Added Firebase Crashlytics (SDK via the existing BOM, Gradle plugin 3.0.8). Release APK grew from
+3.68 MB to 3.85 MB. `uploadCrashlyticsMappingFileRelease` runs on release builds, which matters
+because R8 is enabled — `proguard-rules.pro` already keeps `SourceFile` and `LineNumberTable`, and
+without the uploaded mapping every report would be unreadable.
+
+**A first attempt at disabling collection for debug builds did not work, and only running it showed
+that.** `FirebaseCrashlytics.setCrashlyticsCollectionEnabled(!BuildConfig.DEBUG)` in `KimiApp` was
+too late: Crashlytics initialises from its own `ContentProvider` before `Application.onCreate`, and
+the debug build was observed fetching backend settings and registering sessions exactly like release.
+Replaced with a `firebase_crashlytics_collection_enabled` manifest value driven by a per-build-type
+`manifestPlaceholders` entry, which is read before the provider starts.
+
+The same pass split `KimiApp`'s single `runCatching` into separate blocks, since an App Check failure
+would previously have skipped everything after it.
+
+Verified on the emulator, with the merged manifest checked per variant:
+
+| Variant | Manifest value | Runtime behaviour |
+| --- | --- | --- |
+| debug | `android:value="false"` | Initialises, then nothing — no settings fetch, no session registration |
+| release | `android:value="true"` | Fetches settings, app reports `"status":"activated"` and `collect_reports:true` |
+
+No crash was deliberately triggered, so **end-to-end delivery of a report into the Crashlytics
+dashboard has not been confirmed** — only that the SDK is live, activated by the backend and
+collecting in release. The privacy policy and README were updated, since both previously claimed
+Kimi contained no crash reporting.
+
 ### Not verified
 
 - Release signing, Play App Signing registration, and App Check enforcement — all require console access and a release keystore.

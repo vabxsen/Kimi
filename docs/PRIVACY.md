@@ -13,8 +13,8 @@ this repository.
 ## The short version
 
 Your habits, check-ins and journal entries never leave your device. Kimi has no server of its own,
-no analytics, no advertising and no tracking. The only thing that touches the network is signing in,
-and only if you choose to create an account.
+no analytics, no advertising and no tracking. The network is used for two things only: signing in,
+if you choose to create an account, and reporting crashes so the app can be fixed.
 
 ## What stays on your device
 
@@ -61,17 +61,32 @@ app is a genuine, unmodified copy of Kimi. This sends device and app integrity s
 exists to stop other people abusing the project's sign-up endpoint. It does not identify you and
 carries none of your habit or journal content.
 
+### Crash reports
+
+When Kimi crashes, **Firebase Crashlytics** sends a report to Google so the fault can be found and
+fixed. A report contains:
+
+- The stack trace of the crash
+- Your device model, operating system version and app version
+- Whether the device was rooted, and how much memory and storage were free
+- A random Crashlytics installation identifier, which is not linked to your Kimi account
+
+**No habit, check-in or journal content is ever attached to a crash report.** Kimi does not add any
+custom keys, logs or user identifiers to reports, so nothing you have written can appear in one.
+
+Crash reporting is active in released builds only. Development builds never send anything.
+
 ### Nothing else
 
-Kimi contains **no analytics, no advertising, no crash reporting, no tracking of any kind, and no
-third-party SDKs beyond those needed for sign-in and app integrity.** Your habit and journal content
-is never transmitted, sold, shared or used for advertising or model training.
+Beyond sign-in, app integrity and crash reporting, Kimi contains **no analytics, no advertising, no
+tracking of any kind and no other third-party SDKs.** Your habit and journal content is never
+transmitted, sold, shared or used for advertising or model training.
 
 ## Permissions
 
 | Permission | Why |
 | --- | --- |
-| `INTERNET` | Only to reach Firebase Authentication when you sign in |
+| `INTERNET` | To reach Firebase Authentication when you sign in, and to send crash reports |
 | `POST_NOTIFICATIONS` | To show habit reminders. These are generated on your device; nothing is sent anywhere |
 | `RECEIVE_BOOT_COMPLETED` | To restore your reminder schedule after a restart |
 
