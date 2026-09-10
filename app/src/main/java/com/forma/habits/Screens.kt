@@ -123,8 +123,8 @@ private val MonthLabel = DateTimeFormatter.ofPattern("MMMM yyyy")
                         .semantics { contentDescription = dayLabel }
                         .padding(vertical = 9.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(d.dayOfWeek.name.take(1), fontSize = 10.sp, color = if (selected) OnAccent else Quiet)
-                        Spacer(Modifier.height(7.dp)); Text(d.dayOfMonth.toString(), fontSize = 17.sp, fontWeight = FontWeight.Bold, color = if (selected) OnAccent else if (d.isAfter(today)) Quiet.copy(alpha = .65f) else Ink)
-                        Spacer(Modifier.height(7.dp)); Box(Modifier.size(4.dp).background(if (selected) Yellow else Lavender, CircleShape))
+                        Spacer(Modifier.height(7.dp)); Text(d.dayOfMonth.toString(), fontSize = 17.sp, fontWeight = FontWeight.Bold, color = if (selected) OnAccent else if (d.isAfter(today)) Quiet.copy(alpha = .78f) else Ink)
+                        Spacer(Modifier.height(7.dp)); Box(Modifier.size(4.dp).background(if (selected) Highlight else Lavender, CircleShape))
                     }
                 }
             }
@@ -213,7 +213,7 @@ private val MonthLabel = DateTimeFormatter.ofPattern("MMMM yyyy")
                                 when {
                                     done -> Icon(Icons.Rounded.Check, null, Modifier.size(17.dp), tint = OnInk)
                                     scheduled -> Text("·", color = Quiet)
-                                    else -> Text(stringResource(R.string.rest_marker), color = Quiet.copy(alpha = .45f), fontSize = 11.sp)
+                                    else -> Text(stringResource(R.string.rest_marker), color = Quiet.copy(alpha = .68f), fontSize = 11.sp)
                                 }
                             }
                         }
@@ -269,7 +269,7 @@ private val MonthLabel = DateTimeFormatter.ofPattern("MMMM yyyy")
                                     .clickable(role = Role.Button) { dateString = d.toString() }
                                     .semantics { contentDescription = dayLabel }, contentAlignment = Alignment.Center) {
                                     Text(day.toString(), fontWeight = FontWeight.Bold, fontSize = 12.sp,
-                                        color = if (selected) OnAccent else if (rest) Quiet.copy(alpha = .55f) else Ink)
+                                        color = if (selected) OnAccent else if (rest) Quiet.copy(alpha = .72f) else Ink)
                                 }
                             }
                         }
@@ -280,7 +280,7 @@ private val MonthLabel = DateTimeFormatter.ofPattern("MMMM yyyy")
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
                     LegendDot(Lavender, stringResource(R.string.calendar_legend_some))
                     LegendDot(Mint, stringResource(R.string.calendar_legend_all))
-                    LegendDot(Quiet.copy(alpha = .3f), stringResource(R.string.calendar_legend_rest))
+                    LegendDot(Quiet.copy(alpha = .55f), stringResource(R.string.calendar_legend_rest))
                 }
             }
         }

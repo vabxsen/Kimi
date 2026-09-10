@@ -54,18 +54,18 @@ data class KimiPalette(
 }
 
 private val LightPalette = KimiPalette(
-    cream = Color(0xFFFFF9F2), surface = Color.White, ink = Color(0xFF33283E), onInk = Color.White,
-    quiet = Color(0xFF776B7E), purple = Color(0xFF7255D9), accent = Color(0xFF7255D9),
+    cream = Color(0xFFFFF8F0), surface = Color.White, ink = Color(0xFF30243A), onInk = Color.White,
+    quiet = Color(0xFF615567), purple = Color(0xFF6847D6), accent = Color(0xFF6847D6),
     onAccent = Color.White, highlight = Color(0xFFFFE696), overlay = Color.White.copy(alpha = .65f),
     petal = Color.White.copy(alpha = .85f), danger = Color(0xFF9C463A),
-    lavender = Color(0xFFE5DCFF), blue = Color(0xFFCEE9FA), yellow = Color(0xFFFFE696),
-    mint = Color(0xFFCBECDD), pink = Color(0xFFF7D6E8), peach = Color(0xFFFFD8C3), dark = false
+    lavender = Color(0xFFDCCFFF), blue = Color(0xFFBFE1F6), yellow = Color(0xFFFFDC70),
+    mint = Color(0xFFB8E3CD), pink = Color(0xFFF1C4D9), peach = Color(0xFFFFC9AB), dark = false
 )
 
 /** Same personality after dark: the tiles keep their hue, they just carry light text instead. */
 private val DarkPalette = KimiPalette(
-    cream = Color(0xFF14101A), surface = Color(0xFF211A2B), ink = Color(0xFFF2ECF8), onInk = Color(0xFF1A1422),
-    quiet = Color(0xFFAEA1BC), purple = Color(0xFF6D4FD6), accent = Color(0xFFC3AAFF),
+    cream = Color(0xFF14101A), surface = Color(0xFF211A2B), ink = Color(0xFFF5EFFA), onInk = Color(0xFF1A1422),
+    quiet = Color(0xFFC0B3CC), purple = Color(0xFF744FE0), accent = Color(0xFFC7B1FF),
     onAccent = Color.White, highlight = Color(0xFFFFE696), overlay = Color.White.copy(alpha = .12f),
     petal = Color(0xFFE9B8D4), danger = Color(0xFFFF9E8F),
     lavender = Color(0xFF3A2F57), blue = Color(0xFF1E3A4C), yellow = Color(0xFF4A3A15),
@@ -137,23 +137,27 @@ private val RoundedFont = FontFamily(
     val colors = if (palette.dark) darkColorScheme(
         primary = palette.accent, onPrimary = palette.onInk, secondary = palette.accent,
         background = palette.cream, surface = palette.cream, onBackground = palette.ink, onSurface = palette.ink,
+        onSurfaceVariant = palette.quiet,
         surfaceContainer = palette.surface, surfaceContainerHigh = Color(0xFF2C2338), outline = palette.quiet,
+        inverseSurface = palette.ink, inverseOnSurface = palette.cream,
         error = palette.danger
     ) else lightColorScheme(
         primary = palette.purple, onPrimary = palette.onAccent, secondary = palette.purple,
         background = palette.cream, surface = palette.cream, onBackground = palette.ink, onSurface = palette.ink,
+        onSurfaceVariant = palette.quiet,
         surfaceContainer = palette.surface, surfaceContainerHigh = Color(0xFFF1EAF8), outline = palette.quiet,
+        inverseSurface = palette.ink, inverseOnSurface = palette.surface,
         error = palette.danger
     )
     CompositionLocalProvider(LocalKimiPalette provides palette) {
         MaterialTheme(
             colorScheme = colors,
             typography = base.copy(
-                headlineLarge = TextStyle(fontFamily = RoundedFont, fontSize = 34.sp, lineHeight = 39.sp, fontWeight = FontWeight.ExtraBold, color = palette.ink),
-                headlineMedium = TextStyle(fontFamily = RoundedFont, fontSize = 28.sp, lineHeight = 34.sp, fontWeight = FontWeight.Bold, color = palette.ink),
-                titleLarge = TextStyle(fontFamily = RoundedFont, fontSize = 21.sp, lineHeight = 27.sp, fontWeight = FontWeight.Bold, color = palette.ink),
-                titleMedium = TextStyle(fontFamily = RoundedFont, fontSize = 16.sp, lineHeight = 21.sp, fontWeight = FontWeight.Bold, color = palette.ink),
-                bodyMedium = TextStyle(fontFamily = RoundedFont, fontSize = 13.sp, lineHeight = 19.sp, color = palette.ink),
+                headlineLarge = TextStyle(fontFamily = RoundedFont, fontSize = 34.sp, lineHeight = 39.sp, fontWeight = FontWeight.ExtraBold),
+                headlineMedium = TextStyle(fontFamily = RoundedFont, fontSize = 28.sp, lineHeight = 34.sp, fontWeight = FontWeight.Bold),
+                titleLarge = TextStyle(fontFamily = RoundedFont, fontSize = 21.sp, lineHeight = 27.sp, fontWeight = FontWeight.Bold),
+                titleMedium = TextStyle(fontFamily = RoundedFont, fontSize = 16.sp, lineHeight = 21.sp, fontWeight = FontWeight.Bold),
+                bodyMedium = TextStyle(fontFamily = RoundedFont, fontSize = 13.sp, lineHeight = 19.sp),
                 labelLarge = TextStyle(fontFamily = RoundedFont, fontSize = 13.sp, fontWeight = FontWeight.Bold)
             ), content = content)
     }
