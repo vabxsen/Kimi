@@ -39,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
@@ -455,6 +456,7 @@ private val MoodIcons = listOf(Icons.Rounded.SentimentVeryDissatisfied, Icons.Ro
 @Composable fun SettingsScreen(state: HabitState, onRename: (String) -> Unit, onReset: () -> Unit, export: () -> Unit, restore: () -> Unit, damaged: Boolean, onSaveHabit: (Habit, () -> Unit) -> Unit, account: KimiAccount? = null, onAccount: () -> Unit = {}) {
     var name by rememberSaveable(state.name) { mutableStateOf(state.name) }
     var confirm by remember { mutableStateOf(false) }
+    var credits by remember { mutableStateOf(false) }
     LazyColumn(contentPadding = PaddingValues(23.dp, 17.dp, 23.dp, 24.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
         item { PageTitle(stringResource(R.string.settings_title), stringResource(R.string.settings_subtitle)) }
         item {
@@ -485,10 +487,69 @@ private val MoodIcons = listOf(Icons.Rounded.SentimentVeryDissatisfied, Icons.Ro
             }
         }
         item { NotificationSettings(state.habits, onSaveHabit) }
-        item { Text(if (state.demo) stringResource(R.string.demo_footer_settings) else stringResource(R.string.settings_footer, BuildConfig.VERSION_NAME), color = Quiet, fontSize = 11.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) }
+        if (state.demo) item { Text(stringResource(R.string.demo_footer_settings), color = Quiet, fontSize = 11.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) }
+        item { AboutCard { credits = true } }
     }
+    if (credits) CreditsDialog { credits = false }
     if (confirm) AlertDialog(onDismissRequest = { confirm = false }, title = { Text(stringResource(R.string.dialog_reset_title)) }, text = { Text(stringResource(R.string.dialog_reset_body)) },
         confirmButton = { TextButton(onClick = { onReset(); confirm = false }) { Text(stringResource(R.string.action_reset_confirm)) } }, dismissButton = { TextButton(onClick = { confirm = false }) { Text(stringResource(R.string.action_keep_progress)) } })
+}
+
+/** Version is here so a bug report can name a build; credits are an obligation, not decoration. */
+@Composable fun AboutCard(onCredits: () -> Unit) {
+    PlayCard(Paper) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            BubbleIcon(Icons.Rounded.Info, Overlay); Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.about_title), style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.about_body), color = Quiet, fontSize = 11.sp)
+            }
+        }
+        Spacer(Modifier.height(14.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(stringResource(R.string.about_version_label), style = MaterialTheme.typography.bodyMedium)
+            Text(stringResource(R.string.about_version_value, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE),
+                style = MaterialTheme.typography.bodyMedium, color = Quiet)
+        }
+        Spacer(Modifier.height(12.dp))
+        OutlinedButton(onClick = onCredits, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp), shape = RoundedCornerShape(15.dp)) {
+            Text(stringResource(R.string.action_credits))
+        }
+    }
+}
+
+/**
+ * Kimi bundles Nunito, whose SIL Open Font License requires the licence and copyright to travel
+ * with the font. The repository carries `Nunito-OFL.txt`, but nothing shipped inside the APK said
+ * so until this screen existed.
+ */
+@Composable fun CreditsDialog(onDismiss: () -> Unit) {
+    val entries = listOf(
+        R.string.credits_kimi_name to R.string.credits_kimi_detail,
+        R.string.credits_nunito_name to R.string.credits_nunito_detail,
+        R.string.credits_icons_name to R.string.credits_icons_detail,
+        R.string.credits_androidx_name to R.string.credits_androidx_detail,
+        R.string.credits_firebase_name to R.string.credits_firebase_detail
+    )
+    Dialog(onDismissRequest = onDismiss) {
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(26.dp)).background(Cream).padding(24.dp)) {
+            Text(stringResource(R.string.credits_title), style = MaterialTheme.typography.headlineMedium)
+            Spacer(Modifier.height(6.dp))
+            Text(stringResource(R.string.credits_intro), color = Quiet, style = MaterialTheme.typography.bodyMedium)
+            Spacer(Modifier.height(16.dp))
+            Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                entries.forEach { (name, detail) ->
+                    Column {
+                        Text(stringResource(name), style = MaterialTheme.typography.titleMedium, fontSize = 14.sp)
+                        Text(stringResource(detail), color = Quiet, style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+            }
+            Spacer(Modifier.height(20.dp))
+            MainButton(stringResource(R.string.action_close), onClick = onDismiss)
+        }
+    }
 }
 
 /** Light, dark, or whatever the device is doing. Stored per device, never in a backup. */
