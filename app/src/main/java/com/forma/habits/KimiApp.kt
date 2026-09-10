@@ -3,8 +3,6 @@ package com.forma.habits
 import android.app.Application
 import com.google.firebase.FirebaseApp
 import com.google.firebase.appcheck.FirebaseAppCheck
-import com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory
-import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory
 
 /**
  * Installs Firebase App Check before anything touches Authentication.
@@ -13,6 +11,10 @@ import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderF
  * project's API key is not a secret. App Check is what stops that key from being useful to anyone
  * else: Play Integrity attests that a request really came from a genuine install of Kimi, which
  * keeps strangers from farming accounts against the project's sign-up quota.
+ *
+ * Which provider is installed is decided per build variant by [appCheckProviderFactory], defined
+ * separately in `src/debug` and `src/release`. It has to be split that way because the debug
+ * provider is a `debugImplementation` dependency and does not exist in a release build at all.
  *
  * Enforcement is a server-side switch in the Firebase console — until it is turned on for
  * Authentication, unattested requests still succeed and this is purely additive. Turn it on only
@@ -27,10 +29,7 @@ class KimiApp : Application() {
         // attestation, and Authentication keeps working while enforcement is off.
         runCatching {
             FirebaseApp.initializeApp(this)
-            FirebaseAppCheck.getInstance().installAppCheckProviderFactory(
-                if (BuildConfig.DEBUG) DebugAppCheckProviderFactory.getInstance()
-                else PlayIntegrityAppCheckProviderFactory.getInstance()
-            )
+            FirebaseAppCheck.getInstance().installAppCheckProviderFactory(appCheckProviderFactory())
         }
     }
 }

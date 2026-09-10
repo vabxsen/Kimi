@@ -1,9 +1,34 @@
+import java.util.Properties
+
 plugins {
     id("com.google.gms.google-services")
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
 }
+/**
+ * Release signing material never enters the repository.
+ *
+ * Supply it either in `keystore.properties` at the repo root (gitignored), or through the
+ * KIMI_* environment variables, which is how a CI job would inject it from secrets. When
+ * nothing is supplied the release build simply stays unsigned, so `assembleDebug`, the unit
+ * tests and lint keep working on a machine that has no keystore at all.
+ */
+val keystoreProperties = Properties().apply {
+    val file = rootProject.file("keystore.properties")
+    if (file.exists()) file.inputStream().use { load(it) }
+}
+fun signingValue(property: String, environment: String): String? =
+    (keystoreProperties.getProperty(property) ?: System.getenv(environment))?.takeIf { it.isNotBlank() }
+
+val releaseStorePath = signingValue("storeFile", "KIMI_KEYSTORE_FILE")
+val releaseStorePassword = signingValue("storePassword", "KIMI_KEYSTORE_PASSWORD")
+val releaseKeyAlias = signingValue("keyAlias", "KIMI_KEY_ALIAS")
+val releaseKeyPassword = signingValue("keyPassword", "KIMI_KEY_PASSWORD")
+val releaseKeystore = releaseStorePath?.let(rootProject::file)
+val canSignRelease = releaseKeystore?.exists() == true &&
+    releaseStorePassword != null && releaseKeyAlias != null && releaseKeyPassword != null
+
 android {
     namespace = "com.forma.habits"
     compileSdk = 36
@@ -19,6 +44,33 @@ android {
     kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }
     buildFeatures { compose = true; buildConfig = true }
     packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
+    signingConfigs {
+        if (canSignRelease) create("release") {
+            storeFile = releaseKeystore
+            storePassword = releaseStorePassword
+            keyAlias = releaseKeyAlias
+            keyPassword = releaseKeyPassword
+        }
+    }
+    buildTypes {
+        getByName("release") {
+            // R8 is deliberately left off until a signed release build has been installed and
+            // exercised. Turning it on untested risks stripping something Firebase Auth or
+            // Compose reaches reflectively, and that failure only shows up at runtime.
+            isMinifyEnabled = false
+            signingConfig = if (canSignRelease) signingConfigs.getByName("release") else null
+        }
+    }
+}
+
+// An unsigned release APK is easy to produce by accident and confusing to debug later.
+tasks.matching { it.name.startsWith("assemble") && it.name.contains("Release") }.configureEach {
+    doFirst {
+        if (!canSignRelease) logger.warn(
+            "Kimi: no release signing material found - producing an UNSIGNED release build. " +
+            "Create keystore.properties (see README, 'Release signing') or set the KIMI_* environment variables."
+        )
+    }
 }
 dependencies {
     implementation(platform("com.google.firebase:firebase-bom:34.18.0"))

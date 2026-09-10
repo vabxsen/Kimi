@@ -110,6 +110,68 @@ gradlew.bat connectedDebugAndroidTest
 
 The connected tests use a dedicated emulator and replace its Kimi test data. The delivered `kimi-android-debug.apk` is signed with an Android debug certificate, suitable for installing and testing. It is not a Play Store release. A production distribution should use your own protected release signing key. The application ID remains `com.forma.habits` to allow updates over the earlier Kimi preview without losing its data; the launcher name is Kimi.
 
+## Release signing
+
+The build reads release signing material from `keystore.properties` at the repository root, or from
+`KIMI_*` environment variables if that file is absent. Both are gitignored, and neither the keystore
+nor its passwords ever enter the repository. With nothing supplied, `assembleRelease` still succeeds
+and simply produces `app-release-unsigned.apk` after printing a warning, so a fresh clone and CI keep
+working without any secrets.
+
+**1. Create the keystore.** Run this yourself and choose your own passwords — this key is the single
+most critical secret in the project. Losing it means you can never publish an update to an app
+already on Play under it; leaking it lets someone ship a build signed as you. Back it up somewhere
+durable and private.
+
+```text
+keytool -genkeypair -v -keystore kimi-release.jks -alias kimi -keyalg RSA -keysize 4096 -validity 10000 -storetype PKCS12
+```
+
+10000 days is about 27 years; Play requires a key valid well past 2033. Keep `kimi-release.jks` at
+the repository root, or anywhere else and point `storeFile` at it.
+
+**2. Create `keystore.properties`** next to `keystore.properties.example`, using the same keys:
+
+```text
+storeFile=kimi-release.jks
+storePassword=<your store password>
+keyAlias=kimi
+keyPassword=<your key password>
+```
+
+For CI, set `KIMI_KEYSTORE_FILE`, `KIMI_KEYSTORE_PASSWORD`, `KIMI_KEY_ALIAS` and `KIMI_KEY_PASSWORD`
+from repository secrets instead, and decode the keystore into place before the build step.
+
+**3. Register the new fingerprint in three places.** Read it with:
+
+```text
+keytool -list -v -keystore kimi-release.jks -alias kimi
+```
+
+Then add the SHA-1 to each of these, or the release build will fail in ways that look unrelated:
+
+| Where | Why | Symptom if skipped |
+| --- | --- | --- |
+| Google Cloud console → Credentials → Android key | The key is restricted to an allow list (see [API key restriction](#api-key-restriction)) | All auth fails with `403 API_KEY_ANDROID_APP_BLOCKED` |
+| Firebase console → Project settings → your Android app → SHA certificate fingerprints | Google Sign-In matches the OAuth client by certificate | Google sign-in fails, email sign-in still works |
+| Firebase console → App Check → Play Integrity | Only needed when enforcement is eventually turned on | Attestation fails once enforcement is on |
+
+If you publish through Play, use the **Play App Signing** certificate from Play Console → Setup →
+App integrity, not just your upload key, since Play re-signs the app.
+
+**4. Build.**
+
+```text
+gradlew.bat assembleRelease
+```
+
+Two things are deliberately left for that first real release:
+
+- **R8 is off** (`isMinifyEnabled = false`). Turning it on untested risks stripping something Firebase
+  Auth or Compose reaches reflectively, and that only shows up at runtime. Enable it, install the
+  result, and exercise sign-in, reminders and backup restore before trusting it.
+- **`versionCode` is still 1.** Bump it for every upload; Play rejects a repeat.
+
 ## Source map
 
 - `MainActivity.kt`: native app scaffold, navigation, lifecycle/date refresh, document pickers.
@@ -122,6 +184,8 @@ The connected tests use a dedicated emulator and replace its Kimi test data. The
 - `Stats.kt`: per-state snapshots of streaks and consistency, so a streak is walked once instead of once per row drawn.
 - `Errors.kt`: failures that carry a string resource id, keeping validation translatable without a `Context`.
 - `KimiApp.kt`: Firebase App Check installation and appearance preference loading.
+- `src/debug` and `src/release` each define `appCheckProviderFactory()`: the debug provider is a
+  `debugImplementation` dependency and does not exist in a release build, so the choice cannot live in `src/main`.
 - `BackupCodec.kt`: versioned serialization, migration, and validation.
 - `HabitStore.kt`: serialized durable local storage and recovery.
 - `FormaViewModel.kt`: user operations, draft persistence, backup read/write.

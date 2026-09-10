@@ -54,6 +54,26 @@ The key value was checked against `app/google-services.json` before editing, so 
 
 App Check enforcement remains **off**. It was considered and deliberately deferred: no release keystore or signing config exists yet, so the release app cannot be registered for Play Integrity, and no attested request has ever been observed for this project. Enabling enforcement in that state would reject every sign-in, sign-up and password reset on `kimi-track`, including from debug builds.
 
+### Release signing config — 2026-09-10
+
+Added a release signing config reading `keystore.properties` (gitignored) or `KIMI_*` environment
+variables, with `keystore.properties.example` as the template. The keystore itself was deliberately
+not created here: choosing and holding that password is the owner's, since losing it forfeits the
+ability to update the app on Play and leaking it lets someone ship signed as them. The README
+carries the `keytool` command and the three places a new fingerprint has to be registered.
+
+Building the release variant immediately exposed a latent compile break introduced with App Check
+earlier the same day: `KimiApp` referenced `DebugAppCheckProviderFactory`, which comes from a
+`debugImplementation` dependency and therefore does not exist in the release variant. `BuildConfig.DEBUG`
+does not help, because the import must resolve for every variant at compile time. **The release build
+had been broken since App Check was added and nothing caught it, because only debug was ever built.**
+Fixed by moving the choice into `src/debug` and `src/release`, each defining `appCheckProviderFactory()`.
+
+Verified: `assembleDebug testDebugUnitTest lintDebug assembleRelease` all pass with no keystore
+present — `lintVitalRelease` ran for the first time and is clean — producing `app-release-unsigned.apk`
+(15.9 MB) after the intended warning. 20 JVM unit tests pass. R8 stays off until a signed release has
+been installed and exercised.
+
 ### Not verified
 
 - Release signing, Play App Signing registration, and App Check enforcement — all require console access and a release keystore.
