@@ -27,7 +27,11 @@ On first launch, enter your name and choose five suggested rituals or an empty c
 
 The avatar opens Settings. The five bottom tabs retain their scrolling state. Android Back closes dialogs/sheets and returns other pages to Today.
 
-A day with nothing scheduled reads as a rest day rather than 0% complete.
+A day with nothing scheduled is a rest day, not a failure. Kimi never draws one as a zero:
+Today says "Rest day", the seven-day chart shows a dash and a flat marker, the calendar leaves
+the cell unfilled with a muted number (see the **Rest day** legend entry), and a habit's week
+strip leaves days it was never due on blank instead of marking them missed. Consistency and
+streaks have always excluded these days; now the per-day visuals agree with them.
 
 ## Appearance
 

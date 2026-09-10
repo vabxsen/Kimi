@@ -29,6 +29,12 @@
         <item quantity="one">%1$s: %2$d percent</item>
         <item quantity="other">%1$s: %2$d percent</item>
     </plurals>
+    <string name="cd_calendar_day_rest">%1$s, rest day</string>
+    <string name="cd_chart_bar_rest">%1$s: rest day, nothing scheduled</string>
+    <plurals name="cd_habit_week">
+        <item quantity="one">Last seven days: %1$d of %2$d scheduled day done</item>
+        <item quantity="other">Last seven days: %1$d of %2$d scheduled days done</item>
+    </plurals>
     <string name="cd_close_editor">Close habit editor</string>
     <string name="cd_habit_icon">Habit icon %1$d</string>
     <string name="cd_color">Color %1$d</string>
@@ -48,6 +54,8 @@
     <string name="schedule_every_day">Every day</string>
     <string name="schedule_weekdays">Weekdays</string>
     <string name="percent_value">%1$d%%</string>
+    <!-- Shown instead of a percentage on a day with nothing scheduled. -->
+    <string name="rest_marker">–</string>
 
     <!-- Counted phrases. English needs only one/other; other languages need more forms. -->
     <plurals name="streak_days">
@@ -131,6 +139,7 @@
     <string name="calendar_subtitle">A whole lot of little wins, one day at a time.</string>
     <string name="calendar_legend_some">Some wins</string>
     <string name="calendar_legend_all">All done!</string>
+    <string name="calendar_legend_rest">Rest day</string>
     <string name="calendar_encourage_title">Showing up is a superpower.</string>
     <string name="calendar_encourage_body">Missed a day? The next one is all yours.</string>
     <string name="calendar_empty_title">A quiet day</string>

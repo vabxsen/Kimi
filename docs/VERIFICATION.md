@@ -4,7 +4,7 @@
 
 Dark theme, string externalization, Firebase App Check, derived-stat caching, rest-day copy, CI and README screenshots.
 
-**Result: 19 JVM unit tests + 9 connected Android tests passed. Android lint: 0 errors, 28 warnings.**
+**Result: 20 JVM unit tests + 9 connected Android tests passed. Android lint: 0 errors, 28 warnings.**
 
 Ran on this machine against the `habit_test` AVD (Android 15 / API 35, 1080 × 2400, density 420), JDK 21, Gradle 8.14.5, Android SDK platform 36:
 
@@ -22,7 +22,12 @@ The three account tests were run with the isolated `demo-kimi-auth` Auth emulato
 - **Translatable failures.** `KimiMessage` carries a string resource id, letting `BackupCodec` and `HabitStore` stay free of any `Context` — so the JVM tests still exercise them directly — while the UI renders the message in the user's language. This also stops raw exception text from reaching the snackbar.
 - **App Check.** `KimiApp` installs Play Integrity (release) / debug (debug) providers. Enforcement is a server-side switch and is deliberately still off; see the README for the order to turn it on safely.
 - **Derived stats.** Streaks and 30-day consistency are computed once per `(state, today)` in `Stats.kt` instead of once per row drawn. A streak walks back to the habit's creation date, so the old inline version got slower with every day a habit survived.
-- **Rest days.** A day with nothing scheduled now reads as "Rest day" rather than "0% complete".
+- **Rest days.** A day with nothing scheduled is never drawn as a zero. `InsightSummary` now carries a
+  `DayScore(date, percent, rest)` per column so the screens do not each re-derive it. Today reads
+  "Rest day"; the seven-day chart shows a dash and a flat marker; the calendar leaves the cell
+  unfilled with a muted number and gains a **Rest day** legend entry; a habit's week strip leaves
+  days it was never due on blank rather than marking them missed. The summary figures already
+  excluded these days, so this is the per-day visuals catching up with the arithmetic.
 
 ### Verified by running, not only by reading
 

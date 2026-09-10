@@ -43,9 +43,9 @@ class DerivedStatsTest {
     @Test fun insightWeekCoversSevenDaysEndingToday() {
         val summary = sample().insightSummary(wednesday)
         assertEquals(7, summary.week.size)
-        assertEquals(wednesday.minusDays(6), summary.week.first().first)
-        assertEquals(wednesday, summary.week.last().first)
-        summary.week.forEach { (date, percent) -> assertEquals(sample().percent(date), percent) }
+        assertEquals(wednesday.minusDays(6), summary.week.first().date)
+        assertEquals(wednesday, summary.week.last().date)
+        summary.week.forEach { day -> assertEquals(sample().percent(day.date), day.percent) }
     }
 
     @Test fun insightConsistencyIgnoresUnscheduledDays() {
@@ -62,7 +62,29 @@ class DerivedStatsTest {
         // Five were made - Tuesday's weekday habit was left undone - which is 83%, not 100%.
         assertEquals(5, summary.wins)
         assertEquals(83, summary.percent)
-        assertEquals(0, summary.week.first().second)
+        assertEquals(0, summary.week.first().percent)
+    }
+
+    /** A flawless weekday habit must not render as a zero every Saturday and Sunday. */
+    @Test fun aPerfectWeekdayRecordHasNoZeroDays() {
+        val start = LocalDate.of(2026, 8, 24)   // Monday
+        val sunday = LocalDate.of(2026, 9, 6)
+        val habit = Habit("h", "Stretch", "Five minutes", weekdays = true, created = start)
+        val everyScheduledDay = generateSequence(start) { it.plusDays(1) }
+            .takeWhile { !it.isAfter(sunday) }
+            .filter { habit.isDue(it) }
+            .associate { it.toString() to setOf("h") }
+        val state = HabitState(listOf(habit), everyScheduledDay)
+        val summary = state.insightSummary(sunday)
+
+        assertEquals(100, summary.percent)
+        assertEquals(100, summary.consistency["h"])
+        // Every column is either a completed day or an explicit rest day - never a bare zero.
+        summary.week.forEach { day ->
+            assertTrue("${day.date} rendered as a zero", day.rest || day.percent == 100)
+        }
+        assertEquals(2, summary.week.count { it.rest })
+        summary.week.filter { it.rest }.forEach { assertFalse(habit.isDue(it.date)) }
     }
 
     @Test fun restDayIsNotAFailedDay() {

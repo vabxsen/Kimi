@@ -197,14 +197,24 @@ private val MonthLabel = DateTimeFormatter.ofPattern("MMMM yyyy")
                     IconButton(onClick = { onEdit(h) }) { Icon(Icons.Rounded.Edit, stringResource(R.string.cd_edit_habit, h.name), Modifier.size(21.dp)) }
                 }
                 Spacer(Modifier.height(18.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    repeat(7) { i ->
-                        val d = today.minusDays((6 - i).toLong()); val done = state.done(h.id, d)
+                val week = (0..6).map { today.minusDays((6 - it).toLong()) }
+                val scheduledDays = week.count { h.isDue(it) }
+                val weekLabel = pluralStringResource(R.plurals.cd_habit_week, scheduledDays,
+                    week.count { state.done(h.id, it) }, scheduledDays)
+                Row(Modifier.fillMaxWidth().semantics { contentDescription = weekLabel }, horizontalArrangement = Arrangement.SpaceBetween) {
+                    week.forEach { d ->
+                        val done = state.done(h.id, d); val scheduled = h.isDue(d)
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(d.dayOfWeek.name.take(1), fontSize = 10.sp, color = Quiet)
                             Spacer(Modifier.height(6.dp))
-                            Box(Modifier.size(30.dp).clip(RoundedCornerShape(10.dp)).background(if (done) Ink else Overlay), contentAlignment = Alignment.Center) {
-                                if (done) Icon(Icons.Rounded.Check, null, Modifier.size(17.dp), tint = OnInk) else Text("·", color = Quiet)
+                            // A day this habit was never due on is left blank, not marked missed.
+                            Box(Modifier.size(30.dp).clip(RoundedCornerShape(10.dp))
+                                .background(if (done) Ink else if (scheduled) Overlay else Color.Transparent), contentAlignment = Alignment.Center) {
+                                when {
+                                    done -> Icon(Icons.Rounded.Check, null, Modifier.size(17.dp), tint = OnInk)
+                                    scheduled -> Text("·", color = Quiet)
+                                    else -> Text(stringResource(R.string.rest_marker), color = Quiet.copy(alpha = .45f), fontSize = 11.sp)
+                                }
                             }
                         }
                     }
@@ -250,12 +260,16 @@ private val MonthLabel = DateTimeFormatter.ofPattern("MMMM yyyy")
                             if (day !in 1..month.lengthOfMonth()) Box(Modifier.weight(1f).height(44.dp))
                             else {
                                 val d = month.atDay(day); val pct = state.percent(d); val selected = d == date
-                                val dayLabel = pluralStringResource(R.plurals.cd_calendar_day, state.count(d), d.format(ShortDate), state.count(d))
+                                val rest = state.isRestDay(d)
+                                val dayLabel = if (rest) stringResource(R.string.cd_calendar_day_rest, d.format(ShortDate))
+                                    else pluralStringResource(R.plurals.cd_calendar_day, state.count(d), d.format(ShortDate), state.count(d))
                                 Box(Modifier.weight(1f).height(44.dp).clip(RoundedCornerShape(13.dp))
-                                    .background(if (selected) Purple else if (pct == 100) Mint else if (pct > 0) Lavender else Cream)
+                                    // A rest day stays unfilled so it never reads as a day you missed.
+                                    .background(if (selected) Purple else if (rest) Color.Transparent else if (pct == 100) Mint else if (pct > 0) Lavender else Cream)
                                     .clickable(role = Role.Button) { dateString = d.toString() }
                                     .semantics { contentDescription = dayLabel }, contentAlignment = Alignment.Center) {
-                                    Text(day.toString(), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = if (selected) OnAccent else Ink)
+                                    Text(day.toString(), fontWeight = FontWeight.Bold, fontSize = 12.sp,
+                                        color = if (selected) OnAccent else if (rest) Quiet.copy(alpha = .55f) else Ink)
                                 }
                             }
                         }
@@ -263,9 +277,10 @@ private val MonthLabel = DateTimeFormatter.ofPattern("MMMM yyyy")
                     Spacer(Modifier.height(6.dp))
                 }
                 Spacer(Modifier.height(8.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(8.dp).background(Lavender, CircleShape)); Text("  " + stringResource(R.string.calendar_legend_some) + "    ", fontSize = 10.sp, color = Quiet)
-                    Box(Modifier.size(8.dp).background(Mint, CircleShape)); Text("  " + stringResource(R.string.calendar_legend_all), fontSize = 10.sp, color = Quiet)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
+                    LegendDot(Lavender, stringResource(R.string.calendar_legend_some))
+                    LegendDot(Mint, stringResource(R.string.calendar_legend_all))
+                    LegendDot(Quiet.copy(alpha = .3f), stringResource(R.string.calendar_legend_rest))
                 }
             }
         }
@@ -315,12 +330,17 @@ private val MonthLabel = DateTimeFormatter.ofPattern("MMMM yyyy")
                 Text(stringResource(R.string.insights_week_chart), style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(24.dp))
                 Row(Modifier.fillMaxWidth().then(if (enlargedText) Modifier.heightIn(min = 165.dp) else Modifier.height(165.dp)), horizontalArrangement = Arrangement.spacedBy(11.dp), verticalAlignment = Alignment.Bottom) {
-                    summary.week.forEachIndexed { i, (date, p) ->
-                        val barLabel = pluralStringResource(R.plurals.cd_chart_bar, p, date.format(ShortDate), p)
+                    summary.week.forEachIndexed { i, day ->
+                        val barLabel = if (day.rest) stringResource(R.string.cd_chart_bar_rest, day.date.format(ShortDate))
+                            else pluralStringResource(R.plurals.cd_chart_bar, day.percent, day.date.format(ShortDate), day.percent)
                         Column(Modifier.weight(1f).semantics { contentDescription = barLabel }, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom) {
-                            Text(stringResource(R.string.percent_value, p), fontSize = 9.sp, color = Quiet); Spacer(Modifier.height(7.dp))
-                            Box(Modifier.fillMaxWidth().height((p * 1.05f + 4).dp).clip(RoundedCornerShape(11.dp)).background(if (i == 6) Purple else TileColors[i % 6]))
-                            Spacer(Modifier.height(9.dp)); Text(date.dayOfWeek.name.take(1), fontSize = 10.sp, color = Quiet)
+                            // A rest day shows a dash and a flat marker; charting it as 0% would
+                            // make a perfect week look like it collapsed every weekend.
+                            Text(if (day.rest) stringResource(R.string.rest_marker) else stringResource(R.string.percent_value, day.percent),
+                                fontSize = 9.sp, color = Quiet); Spacer(Modifier.height(7.dp))
+                            Box(Modifier.fillMaxWidth().height(if (day.rest) 4.dp else (day.percent * 1.05f + 4).dp).clip(RoundedCornerShape(11.dp))
+                                .background(if (day.rest) Quiet.copy(alpha = .25f) else if (i == 6) Purple else TileColors[i % 6]))
+                            Spacer(Modifier.height(9.dp)); Text(day.date.dayOfWeek.name.take(1), fontSize = 10.sp, color = Quiet)
                         }
                     }
                 }
@@ -339,6 +359,13 @@ private val MonthLabel = DateTimeFormatter.ofPattern("MMMM yyyy")
             }
         }
         item { Text(stringResource(R.string.insights_footnote), color = Quiet, fontSize = 10.sp) }
+    }
+}
+
+@Composable private fun LegendDot(color: Color, label: String) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+        Box(Modifier.size(8.dp).background(color, CircleShape))
+        Text(label, fontSize = 10.sp, color = Quiet)
     }
 }
 
