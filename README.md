@@ -64,6 +64,20 @@ Guest progress remains intact when signing in. Each account starts with its own 
 
 The connected project is **kimi-track**, Android app **1:952471890795:android:c6a437cf29cae1b7a13a2e**, package **com.forma.habits**. The existing `com.kimi.app` registration was preserved. `app/google-services.json` contains public Firebase client configuration, not administrative credentials. Google and email/password providers are enabled. This build’s debug SHA-1/SHA-256 are registered; register a production signing certificate (including the Play App Signing certificate, when applicable) before shipping a release.
 
+### API key restriction
+
+The Android API key (`Android key (auto created by Firebase)` in Google Cloud console → APIs and services → Credentials) is restricted to **Android apps**, allowing only:
+
+| Package | SHA-1 certificate fingerprint |
+| --- | --- |
+| `com.forma.habits` | `4A:75:73:0F:0D:79:34:52:86:6F:17:D6:ED:5D:DF:83:FF:A4:FF:D1` (debug) |
+
+This closes the practical abuse route for a public client config: a script calling `identitytoolkit.googleapis.com` with the key and no Android headers now gets `403 API_KEY_ANDROID_APP_BLOCKED`, so the key alone can no longer be used to farm accounts or trigger verification and password-reset emails. The separate *Browser key* is untouched.
+
+**Adding a release build means adding its signing SHA-1 to this list first, or release sign-in will fail.** That includes the Play App Signing certificate when distributing through Play. Changes take up to five minutes to propagate.
+
+This is weaker than App Check — the package and certificate headers are supplied by the caller and can be forged by someone determined, where Play Integrity is cryptographic — so it is a stopgap that raises the cost of casual abuse, not a replacement for enforcement.
+
 ### App Check
 
 Because the client configuration is public and this repository is public, the project API key is not a secret. Firebase App Check is what keeps that key from being useful to anyone else: `KimiApp` installs the Play Integrity provider in release builds and the debug provider in debug builds, so Firebase can tell a genuine install of Kimi from a script hitting the sign-up endpoint.

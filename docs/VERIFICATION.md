@@ -40,6 +40,20 @@ Two real defects were found this way and fixed:
 
 Forcing Light while the device was in night mode was confirmed to survive a process restart, with the status bar icons following Kimi's choice rather than the system's.
 
+### API key restriction — 2026-09-10
+
+The Firebase Android API key was restricted in Google Cloud console to Android apps, allowing only `com.forma.habits` with the debug SHA-1 `4A:75:73:0F:0D:79:34:52:86:6F:17:D6:ED:5D:DF:83:FF:A4:FF:D1`. Verified live against `identitytoolkit.googleapis.com/v1/accounts:signUp`, using a deliberately malformed email so no account could be created in any case:
+
+| Caller | Result |
+| --- | --- |
+| Package + registered debug cert (what the app sends) | `400 INVALID_EMAIL` — passed the restriction |
+| Right package, wrong cert | `403 API_KEY_ANDROID_APP_BLOCKED` |
+| No Android headers (a plain script) | `403 API_KEY_ANDROID_APP_BLOCKED` |
+
+The key value was checked against `app/google-services.json` before editing, so the restriction was applied to the key the app actually ships. The project's separate *Browser key* was left untouched.
+
+App Check enforcement remains **off**. It was considered and deliberately deferred: no release keystore or signing config exists yet, so the release app cannot be registered for Play Integrity, and no attested request has ever been observed for this project. Enabling enforcement in that state would reject every sign-in, sign-up and password reset on `kimi-track`, including from debug builds.
+
 ### Not verified
 
 - Release signing, Play App Signing registration, and App Check enforcement — all require console access and a release keystore.
