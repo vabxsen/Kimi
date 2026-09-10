@@ -19,6 +19,9 @@ class HabitStore private constructor(context: Context, val owner: String) {
     private val mutableState = MutableStateFlow(load())
     val state = mutableState.asStateFlow()
 
+    /** Wall-clock millis of the last local write. Sync uses it to decide which copy is newer. */
+    val updatedAt: Long get() = prefs.getLong("updated_at", 0L)
+
     private fun load(): HabitState {
         val raw = prefs.getString("state", null) ?: return HabitState(onboarded = false)
         return runCatching { BackupCodec.decode(raw) }.getOrElse {
@@ -29,14 +32,14 @@ class HabitStore private constructor(context: Context, val owner: String) {
         }
     }
 
-    suspend fun update(replaceDamaged: Boolean = false, eraseHistory: Boolean = false, transform: (HabitState) -> HabitState): HabitState = withContext(Dispatchers.IO) {
+    suspend fun update(replaceDamaged: Boolean = false, eraseHistory: Boolean = false, stamp: Long = System.currentTimeMillis(), transform: (HabitState) -> HabitState): HabitState = withContext(Dispatchers.IO) {
         mutex.withLock {
             demand(!damaged || replaceDamaged, R.string.err_damaged_locked)
             val next = transform(mutableState.value)
             val json = BackupCodec.encode(next)
             demand(json.toByteArray().size <= BackupCodec.MAX_BYTES, R.string.err_space_full)
             val previous = prefs.getString("state", null)
-            val editor = prefs.edit().putString("state", json)
+            val editor = prefs.edit().putString("state", json).putLong("updated_at", stamp)
             if (eraseHistory) editor.remove("previous_good").remove("damaged_state")
             else if (previous != null) {
                 if (runCatching { BackupCodec.decode(previous) }.isSuccess) editor.putString("previous_good", previous)

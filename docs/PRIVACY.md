@@ -12,13 +12,15 @@ this repository.
 
 ## The short version
 
-Your habits, check-ins and journal entries never leave your device. Kimi has no server of its own,
-no analytics, no advertising and no tracking. The network is used for two things only: signing in,
-if you choose to create an account, and reporting crashes so the app can be fixed.
+**As a guest, nothing you write leaves your device.** If you sign in, your habits, check-ins and
+journal sync privately to your own account so they follow you between devices — stored where only
+you can read them. Kimi has no analytics, no advertising and no tracking.
 
 ## What stays on your device
 
-These are stored in Kimi's private app storage and are never uploaded anywhere:
+These are stored in Kimi's private app storage. **As a guest they are never uploaded anywhere.**
+If you sign in, everything except the last item is also synced to your account — see
+*Your synced space* below.
 
 - Your display name
 - Your habits, their schedules, icons, colours and reminder times
@@ -29,11 +31,9 @@ These are stored in Kimi's private app storage and are never uploaded anywhere:
 If you use an account, each account gets its own separate local space on the device, and guest use
 gets another. Signing out leaves that account's data on the device for next time.
 
-**An account is not a backup.** Signing in does not upload or sync anything — on a different phone,
-the same account starts empty. Use *Export my space* to move your data between devices.
-
-**Uninstalling Kimi, or clearing its storage in Android Settings, permanently deletes all of it.**
-There is no cloud copy. Export a backup first if you want to keep it.
+**As a guest there is no cloud copy.** Uninstalling Kimi, or clearing its storage in Android
+Settings, permanently deletes everything. Export a backup first if you want to keep it. If you are
+signed in, your synced space is restored when you sign in again.
 
 ## What leaves your device
 
@@ -56,6 +56,22 @@ You can use Kimi entirely as a guest. Nothing above applies if you never sign in
 Google's handling of this data is governed by the
 [Google Privacy Policy](https://policies.google.com/privacy) and the
 [Firebase terms](https://firebase.google.com/terms).
+
+### Your synced space
+
+When you are signed in, Kimi keeps a copy of your space — your name, habits, schedules, check-ins
+and saved reflections — in **Google Cloud Firestore**, in a single document belonging to your
+account. This is what lets your habits appear on a new phone.
+
+- **Only you can read it.** Security rules allow access to a document solely when the signed-in
+  account matches the document's owner. Every other read and write, authenticated or not, is
+  refused. The rules are in `firestore.rules` in this repository.
+- Unfinished journal drafts are **not** synced; they stay on the device where you typed them.
+- Deleting your account deletes this document.
+- Guest use never touches Firestore at all.
+
+If you would rather nothing was uploaded, use Kimi as a guest and move data yourself with
+*Export my space*.
 
 ### App integrity
 
@@ -81,15 +97,15 @@ Crash reporting is active in released builds only. Development builds never send
 
 ### Nothing else
 
-Beyond sign-in, app integrity and crash reporting, Kimi contains **no analytics, no advertising, no
-tracking of any kind and no other third-party SDKs.** Your habit and journal content is never
-transmitted, sold, shared or used for advertising or model training.
+Beyond sign-in, syncing your own space, app integrity and crash reporting, Kimi contains **no
+analytics, no advertising, no tracking of any kind and no other third-party SDKs.** Your habit and
+journal content is never sold, shared with anyone else, or used for advertising or model training.
 
 ## Permissions
 
 | Permission | Why |
 | --- | --- |
-| `INTERNET` | To reach Firebase Authentication when you sign in, and to send crash reports |
+| `INTERNET` | To sign in, to sync your space while signed in, and to send crash reports |
 | `POST_NOTIFICATIONS` | To show habit reminders. These are generated on your device; nothing is sent anywhere |
 | `RECEIVE_BOOT_COMPLETED` | To restore your reminder schedule after a restart |
 
@@ -111,7 +127,8 @@ an invalid file never overwrites your current data.
 
 - **Local data:** Settings → *Start with a clean slate*, or uninstall the app.
 - **Your account:** Settings → your account → *Delete my account*. This permanently deletes your
-  Firebase identity and that account's habits, check-ins, journal and drafts **on this device**.
+  Firebase identity, your synced space in Firestore, and that account's habits, check-ins, journal
+  and drafts on this device.
 
 Deleting an account cannot reach backups you exported earlier, or data on other devices where you
 were signed in. Delete those yourself.

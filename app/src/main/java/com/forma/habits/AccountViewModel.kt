@@ -132,6 +132,9 @@ class AccountViewModel(application: Application) : AndroidViewModel(application)
         } else googleCredential(context)
         // Reauthentication rejects a different Google account. Never sign in to it here.
         user.reauthenticate(credential).await()
+        // Before user.delete(): the Firestore rules require request.auth.uid to match, so the
+        // cloud copy is unreachable once the identity is gone.
+        runCatching { SpaceSync.deleteSpace(owner) }
         user.delete().await()
         try {
             HabitStore.get(getApplication(), owner).erase()

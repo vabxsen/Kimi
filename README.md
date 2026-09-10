@@ -56,7 +56,7 @@ Reminders use Android's inexact alarm API and can be delayed by battery manageme
 
 The user-facing policy is in [docs/PRIVACY.md](docs/PRIVACY.md); it needs a contact address filled in and a public URL before a Play listing.
 
-Firebase Authentication manages optional accounts; Internet access is used for authentication. Habits and journal data remain on the device, with a separate store and drafts for each Firebase UID and for guests. There is no cloud sync, analytics, or advertising. Release builds report crashes to Firebase Crashlytics; debug builds do not, and no habit or journal content is ever attached to a report. Stores serialize writes off the main thread and confirm the device save before reporting success. Each keeps one previous valid snapshot for recovery. A damaged save is preserved; invalid backup files never replace live data.
+Firebase Authentication manages optional accounts. Signed in, a space syncs to Firestore at `spaces/{uid}` and follows the user across devices; as a guest nothing leaves the phone. Each Firebase UID and the guest keep separate stores and drafts. There is no analytics or advertising. Release builds report crashes to Firebase Crashlytics; debug builds do not, and no habit or journal content is ever attached to a report. Stores serialize writes off the main thread and confirm the device save before reporting success. Each keeps one previous valid snapshot for recovery. A damaged save is preserved; invalid backup files never replace live data.
 
 ## Accounts
 

@@ -173,6 +173,54 @@ privacy card below the sign-in form where nobody deciding whether to sign in wou
 Verified on the emulator in both themes; 20 unit tests pass, lint 0 errors. No test depended on the
 replaced copy.
 
+### Sync — 2026-09-10
+
+Signing in now syncs a space to Firestore, so it follows the user across devices. Guest use is
+untouched and never leaves the phone.
+
+**Shape.** One document per user at `spaces/{uid}`, holding the same versioned JSON `BackupCodec`
+already produces plus an `updatedAt` stamp. Storing the whole space rather than exploding it into
+per-habit documents leaves the careful durable local store completely alone, and means only data the
+codec can validate ever travels. `HabitStore` now records when it last wrote, so two copies can be
+ordered.
+
+**Merging, not overwriting.** `mergeSpaces` reconciles entry by entry — habits by id, check-ins and
+reflections by date — with the more recently written side winning any collision. Whole-blob
+last-write-wins would have destroyed work: write a reflection on an offline phone, check a habit on a
+tablet, let the tablet sync last, and the reflection is gone. Eight unit tests cover this, including
+that exact scenario and that a merged space always survives a codec round trip.
+
+**Known cost, deliberately accepted:** removals are not tracked. A deleted habit, deleted reflection
+or undone check-in can be reintroduced by a device that never saw the removal, because an absent
+entry is indistinguishable from one that has not arrived. Tombstones would fix it and are a much
+larger change. Repeating a deletion is an annoyance; losing a journal entry is not, so the merge errs
+towards keeping things. `SyncMergeTest` pins this so it cannot drift silently.
+
+**Security rules** (`firestore.rules`) allow access to `spaces/{uid}` only when the signed-in uid
+matches, and deny everything else. Verified live against the deployed rules:
+
+| Caller | Result |
+| --- | --- |
+| The document's owner | Read succeeded |
+| A different signed-in account | `403 Missing or insufficient permissions` |
+| No authentication at all | `403 Missing or insufficient permissions` |
+
+**End-to-end**, on the emulator against the real project: created a disposable account, onboarded its
+space, confirmed the document appeared in Firestore with the right name and all five habits, then
+**wiped the app completely with `pm clear`** and signed in again. Name and habits came back — the
+new-phone case that previously lost everything. Both disposable accounts and their documents were
+deleted afterwards.
+
+Provisioning done as part of this: the Firestore API was enabled on `kimi-track` (it had never been
+used), the `(default)` database created in `asia-south1`, and the rules deployed.
+
+**Limits worth knowing.** Sync runs on app start, on resume, and after each change — there are no
+realtime listeners, so two devices open at once do not update each other instantly. Firestore caps a
+document at 1 MiB, so `SpaceSync` refuses to push a space over 900 KB and says so. The notification
+*Mark complete* action writes locally from a receiver and syncs on next app open rather than
+immediately. Instrumented tests are skipped by `SpaceSync` when the auth emulator is in use, so they
+never reach production Firestore.
+
 ### Not verified
 
 - Release signing, Play App Signing registration, and App Check enforcement — all require console access and a release keystore.

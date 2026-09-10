@@ -103,12 +103,11 @@ import android.app.Application
                     Text(stringResource(if (user != null) R.string.account_hero_signed_in else if (create) R.string.account_hero_create else R.string.account_hero_sign_in), style = MaterialTheme.typography.headlineLarge)
                     Text(if (user != null) user.email else stringResource(R.string.account_hero_body), color = Quiet)
                 }
-                // Stated before the decision, not buried under the form: an account is a separate
-                // local space, not a backup. The privacy card at the foot of this screen repeats it
-                // for people who are already signed in.
-                if (user == null) PlayCard(Yellow) {
+                // Stated before the decision rather than buried under the form: this is what an
+                // account actually gets you.
+                if (user == null) PlayCard(Mint) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        BubbleIcon(Icons.Rounded.CloudOff, Overlay)
+                        BubbleIcon(Icons.Rounded.CloudSync, Overlay)
                         Spacer(Modifier.width(12.dp))
                         Text(stringResource(R.string.account_no_sync_title), style = MaterialTheme.typography.titleMedium)
                     }

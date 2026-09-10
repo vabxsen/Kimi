@@ -37,6 +37,12 @@ class FormaViewModel(application: Application) : AndroidViewModel(application) {
         private set
     var pendingRestore by mutableStateOf<HabitState?>(null)
         private set
+    var syncing by mutableStateOf(false)
+        private set
+    var syncFailed by mutableStateOf(false)
+        private set
+    /** Sync exists only for a signed-in space; guests stay entirely local. */
+    val syncable get() = store.owner.isNotEmpty()
     val damaged get() = store.damaged
 
     init {
@@ -44,6 +50,43 @@ class FormaViewModel(application: Application) : AndroidViewModel(application) {
         store.recoveryNotice?.let { tell(text(it)) }
         viewModelScope.launch { store.state.collect { state = it } }
         viewModelScope.launch(Dispatchers.IO) { Reminders.reschedule(application, state, force = true, owner = store.owner) }
+        syncNow()
+    }
+
+    /**
+     * Pulls the account's copy, merges it with this device's, and writes the result back to both.
+     *
+     * Merging rather than overwriting is the whole point - see [mergeSpaces]. A failure here is
+     * never fatal: the local space is authoritative and usable offline, so a failed sync only sets
+     * a flag for the UI and is retried on the next change or resume.
+     */
+    fun syncNow() {
+        if (!syncable || syncing) return
+        syncing = true
+        viewModelScope.launch {
+            try {
+                val uid = store.owner
+                val local = store.state.value
+                val remote = SpaceSync.pull(uid)
+                val now = System.currentTimeMillis()
+                if (remote == null) {
+                    SpaceSync.push(uid, local, maxOf(store.updatedAt, now))
+                } else {
+                    val merged = mergeSpaces(local, store.updatedAt, remote.state, remote.updatedAt)
+                    if (merged != local) {
+                        // replaceDamaged, so a local space that failed to load can heal from the cloud.
+                        state = store.update(replaceDamaged = true, stamp = now) { merged }
+                        withContext(Dispatchers.IO) { Reminders.reschedule(getApplication(), state, owner = uid) }
+                    }
+                    if (merged != remote.state) SpaceSync.push(uid, merged, now)
+                }
+                syncFailed = false
+            } catch (e: Exception) {
+                syncFailed = true
+            } finally {
+                syncing = false
+            }
+        }
     }
 
     fun tell(message: String) { messages.trySend(message) }
@@ -51,10 +94,11 @@ class FormaViewModel(application: Application) : AndroidViewModel(application) {
         beginTask()
         viewModelScope.launch {
             try {
-                state = store.update(replaceDamaged, eraseHistory, transform)
+                state = store.update(replaceDamaged, eraseHistory, transform = transform)
                 onSaved()
                 tell(message)
                 withContext(Dispatchers.IO) { Reminders.reschedule(getApplication(), state, owner = store.owner) }
+                syncNow()
             } catch (e: Exception) {
                 tell(app.kimiMessage(e))
             } finally { endTask() }
@@ -64,6 +108,7 @@ class FormaViewModel(application: Application) : AndroidViewModel(application) {
         val now = LocalDate.now()
         if (today != now) { today = now; loadDraft(now) }
         viewModelScope.launch(Dispatchers.IO) { Reminders.reschedule(getApplication(), store.state.value, owner = store.owner) }
+        syncNow()
     }
     fun toggle(habit: Habit, date: LocalDate) {
         if (date.isAfter(LocalDate.now()) || !habit.isDue(date)) return

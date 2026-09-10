@@ -452,7 +452,7 @@ private val MoodIcons = listOf(Icons.Rounded.SentimentVeryDissatisfied, Icons.Ro
         dismissButton = { TextButton(onClick = { deleteDate = null }) { Text(stringResource(R.string.action_keep_it)) } }) }
 }
 
-@Composable fun SettingsScreen(state: HabitState, onRename: (String) -> Unit, onReset: () -> Unit, export: () -> Unit, restore: () -> Unit, damaged: Boolean, onSaveHabit: (Habit, () -> Unit) -> Unit, account: KimiAccount? = null, onAccount: () -> Unit = {}) {
+@Composable fun SettingsScreen(state: HabitState, onRename: (String) -> Unit, onReset: () -> Unit, export: () -> Unit, restore: () -> Unit, damaged: Boolean, onSaveHabit: (Habit, () -> Unit) -> Unit, account: KimiAccount? = null, onAccount: () -> Unit = {}, syncable: Boolean = false, syncing: Boolean = false, syncFailed: Boolean = false, onSync: () -> Unit = {}) {
     var name by rememberSaveable(state.name) { mutableStateOf(state.name) }
     var confirm by remember { mutableStateOf(false) }
     LazyColumn(contentPadding = PaddingValues(23.dp, 17.dp, 23.dp, 24.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
@@ -473,6 +473,7 @@ private val MoodIcons = listOf(Icons.Rounded.SentimentVeryDissatisfied, Icons.Ro
             }
         }
         item { AccountCard(account, onAccount) }
+        if (syncable) item { SyncCard(syncing, syncFailed, onSync) }
         item { AppearanceCard() }
         item {
             PlayCard(Mint) {
@@ -495,6 +496,30 @@ private val MoodIcons = listOf(Icons.Rounded.SentimentVeryDissatisfied, Icons.Ro
     }
     if (confirm) AlertDialog(onDismissRequest = { confirm = false }, title = { Text(stringResource(R.string.dialog_reset_title)) }, text = { Text(stringResource(R.string.dialog_reset_body)) },
         confirmButton = { TextButton(onClick = { onReset(); confirm = false }) { Text(stringResource(R.string.action_reset_confirm)) } }, dismissButton = { TextButton(onClick = { confirm = false }) { Text(stringResource(R.string.action_keep_progress)) } })
+}
+
+/** Only shown to a signed-in space; a guest space never leaves the device at all. */
+@Composable fun SyncCard(syncing: Boolean, failed: Boolean, onSync: () -> Unit) {
+    PlayCard(Mint) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            BubbleIcon(if (failed) Icons.Rounded.CloudOff else Icons.Rounded.CloudDone, Overlay)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.sync_title), style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.sync_body_on), color = Quiet, fontSize = 11.sp)
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        Text(stringResource(when {
+            syncing -> R.string.sync_state_working
+            failed -> R.string.sync_state_failed
+            else -> R.string.sync_state_done
+        }), style = MaterialTheme.typography.bodyMedium, color = if (failed) Danger else Quiet)
+        Spacer(Modifier.height(8.dp))
+        OutlinedButton(onClick = onSync, enabled = !syncing, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(15.dp)) {
+            Text(stringResource(R.string.action_sync_now))
+        }
+    }
 }
 
 /** Light, dark, or whatever the device is doing. Stored per device, never in a backup. */

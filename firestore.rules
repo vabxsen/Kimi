@@ -1,0 +1,18 @@
+rules_version = '2';
+
+// Kimi stores one document per signed-in user, holding that user's whole space.
+// Journal entries are personal, so the only acceptable rule is: you may touch your own
+// document and nothing else. Everything not matched below is denied by default, and the
+// final catch-all makes that explicit rather than implicit.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /spaces/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

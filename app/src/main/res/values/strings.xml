@@ -183,7 +183,7 @@
     <string name="settings_theme_light">Light</string>
     <string name="settings_theme_dark">Dark</string>
     <string name="privacy_title">Your world stays yours.</string>
-    <string name="settings_privacy_body">Your habits and journal stay on this device. Your account and guest spaces are separate. Cloud sync is not enabled.</string>
+    <string name="settings_privacy_body">Signed in, your habits and journal sync privately to your own account and no one else can read them. As a guest they never leave this device. Account and guest spaces stay separate either way.</string>
     <string name="settings_data_section">Your data</string>
     <string name="settings_data_caption">Keep a copy of your habits, check-ins, and reflections.</string>
     <string name="settings_damaged_notice">Your original save is protected. Restore a backup or reset to continue.</string>
@@ -208,7 +208,7 @@
     <string name="welcome_starters_title">A little help getting started</string>
     <string name="welcome_starters_body">Five gentle rituals to make your own. Your progress starts today.</string>
     <string name="welcome_busy">Making room for you…</string>
-    <string name="welcome_privacy">No account needed. Your habits and journal stay on this device.</string>
+    <string name="welcome_privacy">No account needed — as a guest, everything stays on this device. Sign in later to sync across devices.</string>
 
     <!-- Reminders -->
     <string name="reminder_toggle_title">A gentle nudge</string>
@@ -228,14 +228,14 @@
     <!-- Account -->
     <string name="account_card_title_signed_out">A space of your own</string>
     <string name="account_card_title_signed_in">Your Kimi account</string>
-    <string name="account_card_body">An account keeps your habits separate on this device. It doesn’t back them up.</string>
+    <string name="account_card_body">Sign in and your habits and journal follow you to every device.</string>
     <string name="account_screen_title">Your little account</string>
     <string name="account_hero_signed_in">You belong here.</string>
     <string name="account_hero_create">Let’s grow together.</string>
     <string name="account_hero_sign_in">Hello, you.</string>
     <string name="account_hero_body">Small steps. A space of your own.</string>
-    <string name="account_no_sync_title">An account won’t carry your habits over</string>
-    <string name="account_no_sync_body">Your habits and journal stay on this device — signing in never uploads or syncs them. On a new phone your account starts empty, so use “Export my space” in Settings to bring them with you.</string>
+    <string name="account_no_sync_title">Your habits travel with your account</string>
+    <string name="account_no_sync_body">Signing in keeps your habits, check-ins and journal in step across every device you use, and brings them back if you reinstall. Guest use stays on this device only.</string>
     <string name="account_form_create">Create your Kimi account</string>
     <string name="account_form_sign_in">Welcome back to Kimi</string>
     <string name="account_or_email">or continue with email</string>
@@ -247,7 +247,7 @@
     <string name="account_email_unverified">Email not verified yet</string>
     <string name="account_copy_title">Bring your little wins along.</string>
     <string name="account_copy_body">Copy this device’s guest habits and saved reflections into an empty account space. Your guest original stays safe.</string>
-    <string name="account_privacy_body">Firebase securely manages your account. Habits and journal entries stay on this device, separately for each account and guest. Cloud sync is not enabled. Export a backup before switching devices or uninstalling Kimi.</string>
+    <string name="account_privacy_body">Firebase securely manages your account, and your synced space is readable only by you. Guest data stays on this device and is never uploaded. Account and guest spaces remain separate. Export a backup if you want a copy you keep yourself.</string>
 
     <!-- Form fields -->
     <string name="field_password">Password</string>
@@ -255,6 +255,14 @@
     <string name="field_confirm_with_password">Confirm with password</string>
     <string name="field_account_name">Account name</string>
     <string name="field_email">Email address</string>
+
+    <!-- Sync -->
+    <string name="sync_title">Synced to your account</string>
+    <string name="sync_body_on">Your habits and journal are kept in step on every device you sign in to.</string>
+    <string name="sync_state_working">Syncing…</string>
+    <string name="sync_state_done">Everything is up to date</string>
+    <string name="sync_state_failed">Couldn’t sync just now. Kimi will try again.</string>
+    <string name="action_sync_now">Sync now</string>
 
     <!-- Actions -->
     <string name="action_new_habit">+ New habit</string>
@@ -355,6 +363,7 @@
     <string name="err_generic_save">That change could not be saved. Please try again.</string>
     <string name="err_collection_full">Your collection is full. Remove a habit before adding another.</string>
     <string name="err_damaged_locked">Restore a backup or reset in Settings before making changes.</string>
+    <string name="err_sync_too_large">Your space is too large to sync. Export a backup and remove some older entries.</string>
     <string name="err_space_full">Your space is full. Export a backup before removing older entries.</string>
     <string name="err_disk_write">Could not save to this device. Free some storage and try again.</string>
     <string name="err_erase_failed">The account was deleted, but local data could not be removed. Clear Kimi’s storage in Android Settings.</string>
