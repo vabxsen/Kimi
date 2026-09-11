@@ -263,10 +263,9 @@
     <string name="account_password_mismatch">Your passwords don’t match yet.</string>
     <string name="account_greeting">Lovely to see you, %1$s.</string>
     <string name="account_greeting_fallback">friend</string>
+    <string name="cd_email_verified">Verified</string>
     <string name="account_email_verified">Email verified</string>
     <string name="account_email_unverified">Email not verified yet</string>
-    <string name="account_copy_title">Bring your little wins along.</string>
-    <string name="account_copy_body">Copy this device’s guest habits and saved reflections into an empty account space. Your guest original stays safe.</string>
     <string name="account_privacy_body">Firebase securely manages your account, and your synced space is readable only by you. Guest data stays on this device and is never uploaded. Account and guest spaces remain separate. Export a backup if you want a copy you keep yourself.</string>
 
     <!-- Form fields -->
@@ -283,7 +282,6 @@
     <string name="action_edit">Edit</string>
     <string name="action_delete">Delete</string>
     <string name="action_cancel">Cancel</string>
-    <string name="action_not_now">Not now</string>
     <string name="action_stay_here">Stay here</string>
     <string name="action_keep_it">Keep it</string>
     <string name="action_delete_habit">Delete habit</string>
@@ -318,8 +316,6 @@
     <string name="action_refresh_account">Refresh account</string>
     <string name="action_save_account_name">Save account name</string>
     <string name="action_reset_password">Reset my password</string>
-    <string name="action_copy_guest">Copy guest progress</string>
-    <string name="action_copy_progress">Copy progress</string>
     <string name="action_sign_out">Sign out</string>
     <string name="action_sign_out_now">Sign out now</string>
     <string name="action_delete_account">Delete my account</string>
@@ -337,8 +333,6 @@
     <string name="dialog_reset_body">All habits, check-ins, and journal entries will be removed. Export a copy first if you want to keep them.</string>
     <string name="dialog_sign_out_title">See you soon?</string>
     <string name="dialog_sign_out_body">Your account’s progress stays on this device for your next sign-in. Kimi will open your separate guest space.</string>
-    <string name="dialog_copy_guest_title">Bring in your guest progress?</string>
-    <string name="dialog_copy_guest_body">This copies saved habits, check-ins and reflections only if your account space is empty. Unfinished journal drafts stay in your guest space.</string>
     <string name="dialog_delete_account_title">Let this account go?</string>
     <string name="dialog_delete_account_body">This permanently deletes your Firebase account and its habits, check-ins, journal and drafts on this device. Export a backup first. Guest data is kept.</string>
     <string name="dialog_delete_account_google">Confirm your Google account on the next screen.</string>
@@ -367,7 +361,6 @@
     <string name="msg_signed_out">Signed out. Your account’s local space is kept for your next sign-in.</string>
     <string name="msg_account_deleted">Your account and its local space have been deleted. Guest data is kept.</string>
     <string name="msg_account_deleted_partial">Your account was deleted, but local cleanup failed. Clear Kimi’s storage in Android Settings to remove the remaining device data. Export your guest space first.</string>
-    <string name="msg_guest_copied">Your guest habits and saved reflections were copied. The guest original is still safe.</string>
     <string name="notice_recovered">Your last safe save was recovered. The damaged copy has been kept.</string>
     <string name="notice_damaged">Your saved file could not be read. It has been kept intact. Restore a backup or reset your space in Settings.</string>
 
@@ -410,7 +403,6 @@
     <string name="err_invalid_email">Enter a valid email address first.</string>
     <string name="err_sign_in_first">Sign in first.</string>
     <string name="err_password_required">Enter your password to confirm.</string>
-    <string name="err_account_not_empty">This account already has progress. Export and restore a backup to replace it.</string>
     <string name="err_account_delete_cloud">Your cloud space could not be deleted, so your account was kept safe. Check your connection and try again.</string>
     <string name="err_auth_network">Can’t connect right now. Check your connection and try again.</string>
     <string name="err_auth_too_many">A few too many attempts. Please wait a little before trying again.</string>

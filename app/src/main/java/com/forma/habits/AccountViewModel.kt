@@ -202,28 +202,6 @@ class AccountViewModel(application: Application) : AndroidViewModel(application)
         }
         text(if (localCleanupFailed) R.string.msg_account_deleted_partial else R.string.msg_account_deleted)
     }
-    fun copyGuestSpace() = action {
-        val owner = auth.currentUser?.uid ?: throw KimiMessage(R.string.err_sign_in_first)
-        val guest = HabitStore.get(getApplication(), "").state.value
-        val target = HabitStore.get(getApplication(), owner)
-        demand(!target.damaged, R.string.err_damaged_locked)
-        val local = target.snapshot()
-        demand(local.state.contentIsEmpty(), R.string.err_account_not_empty)
-        val afterLocal = if (local.updatedAt == Long.MAX_VALUE) Long.MAX_VALUE else local.updatedAt + 1
-        val copyStamp = maxOf(System.currentTimeMillis(), afterLocal, 1L)
-        val proposed = guest.copy(onboarded = true).recordChangesFrom(local.state, copyStamp)
-        val copied = SpaceSync.createIfEmpty(owner, proposed, copyStamp)
-            ?: throw KimiMessage(R.string.err_account_not_empty)
-        if (target.replaceIfUnchanged(local, copied.state, copied.updatedAt) == null) {
-            // A notification action may have changed this device while the cloud transaction ran.
-            // Reconcile instead of overwriting that newer local work.
-            val current = target.snapshot()
-            val reconciled = SpaceSync.reconcile(owner, current.state, current.updatedAt)
-            target.replaceIfUnchanged(current, reconciled.state, reconciled.updatedAt)
-        }
-        withContext(Dispatchers.IO) { Reminders.reschedule(getApplication(), target.state.value, force = true, owner = owner) }
-        text(R.string.msg_guest_copied)
-    }
 }
 
 internal fun friendlyAuthError(context: Context, error: Exception): String = context.getString(when (error) {

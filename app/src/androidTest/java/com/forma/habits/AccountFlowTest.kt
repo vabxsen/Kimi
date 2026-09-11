@@ -101,11 +101,17 @@ class AccountFlowTest {
         val freshRemote = BackupCodec.decode(freshCloud.getString("state")!!)
         assertTrue(freshRemote.onboarded)
         assertTrue(freshRemote.contentIsEmpty())
-        compose.onNodeWithText("Copy guest progress").performScrollTo().performClick()
-        compose.onNodeWithText("Copy progress", substring = false).performClick()
+        // Give the account space something to lose, the way ordinary use would, then push it.
+        val accountStore = HabitStore.get(app, uid)
+        runBlocking {
+            accountStore.update { it.copy(habits = listOf(Habit(id = "guest", name = "Guest ritual", goal = "Stay private"))) }
+            val local = accountStore.snapshot()
+            val pushed = SpaceSync.reconcile(uid, local.state, local.updatedAt)
+            accountStore.replaceIfUnchanged(local, pushed.state, pushed.updatedAt)
+        }
         waitFor { HabitStore.get(app, uid).state.value.habits.size == 1 }
-        val cloudAfterCopy = runBlocking { firestore.collection("spaces").document(uid).get().await() }
-        assertEquals("Guest ritual", BackupCodec.decode(cloudAfterCopy.getString("state")!!).habits.single().name)
+        val cloudAfterPush = runBlocking { firestore.collection("spaces").document(uid).get().await() }
+        assertEquals("Guest ritual", BackupCodec.decode(cloudAfterPush.getString("state")!!).habits.single().name)
         compose.onNodeWithText("Sign out", substring = false).performScrollTo().performClick()
         compose.onNodeWithText("Sign out now").performClick()
         waitFor { auth.currentUser == null }

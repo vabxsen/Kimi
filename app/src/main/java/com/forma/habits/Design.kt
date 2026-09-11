@@ -48,6 +48,7 @@ data class KimiPalette(
     val purple: Color, val accent: Color, val onAccent: Color, val highlight: Color,
     val overlay: Color, val petal: Color, val danger: Color,
     val lavender: Color, val blue: Color, val yellow: Color, val mint: Color, val pink: Color, val peach: Color,
+    val verified: Color,
     val dark: Boolean
 ) {
     val tiles: List<Color> get() = listOf(lavender, blue, yellow, mint, pink, peach)
@@ -59,7 +60,8 @@ private val LightPalette = KimiPalette(
     onAccent = Color.White, highlight = Color(0xFFFFE696), overlay = Color.White.copy(alpha = .65f),
     petal = Color.White.copy(alpha = .85f), danger = Color(0xFF9C463A),
     lavender = Color(0xFFDCCFFF), blue = Color(0xFFBFE1F6), yellow = Color(0xFFFFDC70),
-    mint = Color(0xFFB8E3CD), pink = Color(0xFFF1C4D9), peach = Color(0xFFFFC9AB), dark = false
+    mint = Color(0xFFB8E3CD), pink = Color(0xFFF1C4D9), peach = Color(0xFFFFC9AB),
+    verified = Color(0xFF1D9BF0), dark = false
 )
 
 /** Same personality after dark: the tiles keep their hue, they just carry light text instead. */
@@ -69,7 +71,8 @@ private val DarkPalette = KimiPalette(
     onAccent = Color.White, highlight = Color(0xFFFFE696), overlay = Color.White.copy(alpha = .12f),
     petal = Color(0xFFE9B8D4), danger = Color(0xFFFF9E8F),
     lavender = Color(0xFF3A2F57), blue = Color(0xFF1E3A4C), yellow = Color(0xFF4A3A15),
-    mint = Color(0xFF1F4434), pink = Color(0xFF46243A), peach = Color(0xFF4E3020), dark = true
+    mint = Color(0xFF1F4434), pink = Color(0xFF46243A), peach = Color(0xFF4E3020),
+    verified = Color(0xFF4FB5F7), dark = true
 )
 
 val LocalKimiPalette = staticCompositionLocalOf { LightPalette }
@@ -92,6 +95,8 @@ val Peach: Color @Composable @ReadOnlyComposable get() = LocalKimiPalette.curren
 val Yellow: Color @Composable @ReadOnlyComposable get() = LocalKimiPalette.current.yellow
 val Pink: Color @Composable @ReadOnlyComposable get() = LocalKimiPalette.current.pink
 val Blue: Color @Composable @ReadOnlyComposable get() = LocalKimiPalette.current.blue
+/** The badge blue. Named apart from [Blue], which is a pale card tint, and from the `Verified` icon. */
+val VerifiedBlue: Color @Composable @ReadOnlyComposable get() = LocalKimiPalette.current.verified
 val TileColors: List<Color> @Composable @ReadOnlyComposable get() = LocalKimiPalette.current.tiles
 
 enum class ThemeMode { System, Light, Dark }

@@ -84,6 +84,21 @@ import android.app.Application
     }
 }
 
+/** The email line, with a badge once Firebase confirms the address. */
+@Composable fun EmailStatus(verified: Boolean) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            stringResource(if (verified) R.string.account_email_verified else R.string.account_email_unverified),
+            color = if (verified) Quiet else Accent
+        )
+        if (verified) {
+            Spacer(Modifier.width(6.dp))
+            Icon(Icons.Rounded.Verified, stringResource(R.string.cd_email_verified),
+                tint = VerifiedBlue, modifier = Modifier.size(18.dp))
+        }
+    }
+}
+
 @Composable fun AccountCard(account: KimiAccount?, onOpen: () -> Unit) {
     PlayCard(Lavender) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -121,7 +136,6 @@ import android.app.Application
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
     var delete by remember { mutableStateOf(false) }
-    var copyGuest by remember { mutableStateOf(false) }
     var signOut by remember { mutableStateOf(false) }
     LaunchedEffect(user?.uid, create) { password = ""; confirmPassword = ""; delete = false }
     Surface(color = Cream, modifier = Modifier.fillMaxSize()) {
@@ -195,7 +209,7 @@ import android.app.Application
                     PlayCard(Paper) {
                         Text(stringResource(R.string.account_greeting, user.name.ifBlank { stringResource(R.string.account_greeting_fallback) }), style = MaterialTheme.typography.titleMedium)
                         Spacer(Modifier.height(14.dp))
-                        Text(stringResource(if (user.verified) R.string.account_email_verified else R.string.account_email_unverified), color = if (user.verified) Quiet else Accent)
+                        EmailStatus(user.verified)
                         if (!user.verified) TextButton(enabled = !vm.busy, onClick = vm::verifyEmail) { Text(stringResource(R.string.action_send_verification)) }
                         TextButton(enabled = !vm.busy, onClick = vm::refresh) { Text(stringResource(R.string.action_refresh_account)) }
                         OutlinedTextField(name, { name = it.take(30) }, label = { Text(stringResource(R.string.field_account_name)) }, singleLine = true,
@@ -203,12 +217,6 @@ import android.app.Application
                         Spacer(Modifier.height(14.dp))
                         MainButton(stringResource(R.string.action_save_account_name), enabled = !vm.busy && name.isNotBlank() && name.trim() != user.name) { vm.updateName(name) }
                         if (user.passwordProvider) TextButton(enabled = !vm.busy, onClick = { vm.resetPassword(user.email) }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.action_reset_password)) }
-                    }
-                    PlayCard(Yellow) {
-                        Text(stringResource(R.string.account_copy_title), style = MaterialTheme.typography.titleMedium)
-                        Text(stringResource(R.string.account_copy_body), style = MaterialTheme.typography.bodyMedium)
-                        Spacer(Modifier.height(12.dp))
-                        OutlinedButton(enabled = !vm.busy, onClick = { copyGuest = true }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.action_copy_guest)) }
                     }
                     OutlinedButton(enabled = !vm.busy, onClick = { signOut = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp)) { Text(stringResource(R.string.action_sign_out)) }
                     TextButton(enabled = !vm.busy, onClick = { password = ""; delete = true }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.action_delete_account), color = Danger) }
@@ -225,10 +233,6 @@ import android.app.Application
         text = { Text(stringResource(R.string.dialog_sign_out_body)) },
         confirmButton = { TextButton(onClick = { signOut = false; vm.signOut() }) { Text(stringResource(R.string.action_sign_out_now)) } },
         dismissButton = { TextButton(onClick = { signOut = false }) { Text(stringResource(R.string.action_stay_here)) } })
-    if (copyGuest) AlertDialog(onDismissRequest = { copyGuest = false }, title = { Text(stringResource(R.string.dialog_copy_guest_title)) },
-        text = { Text(stringResource(R.string.dialog_copy_guest_body)) },
-        confirmButton = { TextButton(onClick = { copyGuest = false; vm.copyGuestSpace() }) { Text(stringResource(R.string.action_copy_progress)) } },
-        dismissButton = { TextButton(onClick = { copyGuest = false }) { Text(stringResource(R.string.action_not_now)) } })
     if (delete && user != null) AlertDialog(onDismissRequest = { if (!vm.busy) { delete = false; password = "" } },
         title = { Text(stringResource(R.string.dialog_delete_account_title)) },
         text = { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
