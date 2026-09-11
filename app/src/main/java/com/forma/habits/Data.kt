@@ -7,11 +7,13 @@ import java.util.UUID
 
 /** Stored daypart keys. They live in backups, so they stay stable English while the UI shows a localized label. */
 val Dayparts = listOf("Morning", "Afternoon", "Evening", "Anytime")
+const val MAX_DAILY_REMINDERS = 24
+const val MIN_REMINDER_INTERVAL_MINUTES = 15
 
 data class ScheduleChange(val from: LocalDate, val weekdays: Boolean)
 data class Habit(val id: String = UUID.randomUUID().toString(), val name: String, val goal: String,
     val icon: Int = 0, val color: Int = 0, val time: String = "Morning", val weekdays: Boolean = false,
-    val created: LocalDate = LocalDate.now(), val reminderMinutes: Int? = null,
+    val created: LocalDate = LocalDate.now(), val reminderMinutes: Int? = null, val reminderCount: Int = 1,
     val schedule: List<ScheduleChange> = emptyList())
 data class Reflection(val date: LocalDate, val mood: Int, val text: String)
 
@@ -71,13 +73,37 @@ fun HabitState.checked(id: String, date: LocalDate, completed: Boolean): HabitSt
     return copy(checks = if (next.isEmpty()) checks - date.toString() else checks + (date.toString() to next))
 }
 
-/** Local wall-clock time follows timezone changes and DST; completed days are skipped. */
+/**
+ * Produces distinct local wall-clock slots from the chosen start through the rest of the day.
+ * Keeping at least fifteen minutes between slots avoids bursty reminders and remains friendly to
+ * Android's idle-mode alarm batching, even at the user-selected maximum of 24 reminders.
+ */
+fun reminderStartLimit(count: Int): Int = if (count <= 1) 1439
+    else 1440 - count.coerceIn(1, MAX_DAILY_REMINDERS) * MIN_REMINDER_INTERVAL_MINUTES
+
+fun normalizedReminderStart(minutes: Int, count: Int): Int =
+    minutes.coerceIn(0, reminderStartLimit(count))
+
+fun dailyReminderMinutes(start: Int?, requestedCount: Int): List<Int> {
+    start ?: return emptyList()
+    val count = requestedCount.coerceIn(1, MAX_DAILY_REMINDERS)
+    val span = 1440 - start
+    return List(count) { index -> start + index * span / count }
+}
+
+fun Habit.dailyReminderMinutes(): List<Int> = dailyReminderMinutes(reminderMinutes, reminderCount)
+
+/** Local wall-clock times follow timezone changes and DST; completed days are skipped. */
 fun nextReminder(habit: Habit, state: HabitState, now: ZonedDateTime): ZonedDateTime? {
-    val minutes = habit.reminderMinutes ?: return null
+    val minutes = habit.dailyReminderMinutes()
+    if (minutes.isEmpty()) return null
     for (offset in 0L..8L) {
         val date = now.toLocalDate().plusDays(offset)
-        val trigger = date.atTime(minutes / 60, minutes % 60).atZone(now.zone)
-        if (trigger.isAfter(now) && habit.isDue(date) && !state.done(habit.id, date)) return trigger
+        if (!habit.isDue(date) || state.done(habit.id, date)) continue
+        minutes.forEach { slot ->
+            val trigger = date.atTime(slot / 60, slot % 60).atZone(now.zone)
+            if (trigger.isAfter(now)) return trigger
+        }
     }
     return null
 }

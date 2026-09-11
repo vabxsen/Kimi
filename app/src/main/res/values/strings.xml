@@ -13,7 +13,6 @@
     <!-- Content descriptions -->
     <string name="cd_mascot">Happy flower mascot</string>
     <string name="cd_open_settings">Open settings</string>
-    <string name="cd_open_journal">Open journal</string>
     <string name="cd_day">%1$s</string>
     <string name="cd_day_selected">%1$s, selected</string>
     <string name="cd_complete_habit">Complete %1$s</string>
@@ -118,7 +117,6 @@
     <string name="today_empty_title">Room for a new beginning</string>
     <string name="today_empty_body">Add a habit or try another time of day.</string>
     <string name="today_empty_first_body">Plant your first real habit and start tracking it today.</string>
-    <string name="today_journal_caption">Make a little space for your thoughts.</string>
     <string name="demo_footer_today">Sample habits &amp; check-ins · Make them your own</string>
 
     <!-- Habits -->
@@ -184,9 +182,6 @@
     <string name="settings_theme_light">Light</string>
     <string name="settings_theme_dark">Dark</string>
     <string name="privacy_title">Your world stays yours.</string>
-    <string name="settings_data_section">Your data</string>
-    <string name="settings_data_caption">Keep a copy of your habits, check-ins, and reflections.</string>
-    <string name="settings_damaged_notice">Your original save is protected. Restore a backup or reset to continue.</string>
     <string name="about_title">About</string>
     <string name="about_body">Made for small steps and fresh starts.</string>
     <string name="about_version_label">Version</string>
@@ -229,6 +224,12 @@
     <string name="reminder_toggle_title">A gentle nudge</string>
     <string name="reminder_toggle_body">Only on scheduled days, if it’s still undone.</string>
     <string name="reminder_time_button">Remind me around %1$s</string>
+    <string name="reminder_count_title">Notifications per day</string>
+    <string name="reminder_count_body">Choose from 1 to 24. Kimi spaces them from your selected start time through the rest of the day.</string>
+    <string name="reminder_count_option">%1$d notifications per day</string>
+    <string name="reminder_schedule_once">1 notification at %1$s</string>
+    <string name="reminder_schedule_many">%1$d notifications from %2$s to %3$s</string>
+    <string name="reminder_list_summary">%1$d× from %2$s</string>
     <string name="reminder_delay_notice">Android may delay a reminder to save battery.</string>
     <string name="reminder_notifications_off">Notifications are off. Enable them to receive your nudges.</string>
     <string name="reminders_card_title">A friendly little nudge</string>
@@ -261,6 +262,7 @@
     <string name="account_or_email">or continue with email</string>
     <string name="account_password_hint">At least 8 characters. Make it something only you know.</string>
     <string name="account_password_mismatch">Your passwords don’t match yet.</string>
+    <string name="account_add_password_body">Add a password for %1$s to sign in with either Google or email and password.</string>
     <string name="account_greeting">Lovely to see you, %1$s.</string>
     <string name="account_greeting_fallback">friend</string>
     <string name="cd_email_verified">Verified</string>
@@ -290,11 +292,6 @@
     <string name="action_save_changes">Save my changes</string>
     <string name="action_save_reflection">Keep this little moment</string>
     <string name="action_thats_me">That’s me!</string>
-    <string name="action_export">Export my space</string>
-    <string name="action_restore">Restore a backup</string>
-    <string name="action_reset">Start with a clean slate</string>
-    <string name="action_reset_confirm">Reset everything</string>
-    <string name="action_keep_progress">Keep my progress</string>
     <string name="action_restore_backup">Restore backup</string>
     <string name="action_keep_current_space">Keep current space</string>
     <string name="action_lets_grow">Start tracking my habits</string>
@@ -316,6 +313,8 @@
     <string name="action_refresh_account">Refresh account</string>
     <string name="action_save_account_name">Save account name</string>
     <string name="action_reset_password">Reset my password</string>
+    <string name="action_add_password">Add email &amp; password sign-in</string>
+    <string name="action_add_password_now">Add password</string>
     <string name="action_sign_out">Sign out</string>
     <string name="action_sign_out_now">Sign out now</string>
     <string name="action_delete_account">Delete my account</string>
@@ -329,10 +328,10 @@
     <string name="dialog_restore_body">This backup belongs to %1$s: %2$s, %3$s, and %4$s. Restoring replaces your current space. Export it first if you want to keep both.</string>
     <string name="dialog_delete_reflection_title">Delete this moment?</string>
     <string name="dialog_delete_reflection_body">This reflection will be removed from your journal.</string>
-    <string name="dialog_reset_title">Ready for a fresh start?</string>
-    <string name="dialog_reset_body">All habits, check-ins, and journal entries will be removed. Export a copy first if you want to keep them.</string>
     <string name="dialog_sign_out_title">See you soon?</string>
     <string name="dialog_sign_out_body">Your account’s progress stays on this device for your next sign-in. Kimi will open your separate guest space.</string>
+    <string name="dialog_add_password_title">Add another way to sign in?</string>
+    <string name="dialog_add_password_body">This password will be linked to your current Google account, %1$s. Your account and Kimi data stay the same.</string>
     <string name="dialog_delete_account_title">Let this account go?</string>
     <string name="dialog_delete_account_body">This permanently deletes your Firebase account and its habits, check-ins, journal and drafts on this device. Export a backup first. Guest data is kept.</string>
     <string name="dialog_delete_account_google">Confirm your Google account on the next screen.</string>
@@ -354,6 +353,7 @@
     <string name="msg_account_created">Your account is ready. You can verify your email below.</string>
     <string name="msg_account_created_no_name">Your account is ready. Your name could not be updated; try again below.</string>
     <string name="msg_reset_sent">If this email has a password account, a reset link is on its way. Check your inbox and spam folder.</string>
+    <string name="msg_password_added">Password sign-in is ready. You can now use Google or your email and password.</string>
     <string name="msg_verification_sent">Verification email sent. Open the link, then tap Refresh account.</string>
     <string name="msg_email_verified">Your email is verified.</string>
     <string name="msg_account_refreshed">Account refreshed.</string>
@@ -392,6 +392,8 @@
     <string name="err_habit_name">Give your habit a name and a short goal.</string>
     <string name="err_habit_style">Invalid habit style.</string>
     <string name="err_habit_reminder">Invalid reminder time.</string>
+    <string name="err_habit_reminder_count">Choose between 1 and 24 notifications per day.</string>
+    <string name="err_habit_reminder_spacing">Choose an earlier start time so Android can space every notification safely.</string>
     <string name="err_habit_schedule">Invalid schedule history.</string>
     <string name="err_reflection_invalid">A reflection needs a mood and some words.</string>
     <string name="err_name_length">Your name can be 1 to 30 characters.</string>
@@ -403,6 +405,8 @@
     <string name="err_invalid_email">Enter a valid email address first.</string>
     <string name="err_sign_in_first">Sign in first.</string>
     <string name="err_password_required">Enter your password to confirm.</string>
+    <string name="err_password_already_added">Password sign-in is already enabled for this account.</string>
+    <string name="err_google_email_missing">Google did not provide an email address for this account.</string>
     <string name="err_account_delete_cloud">Your cloud space could not be deleted, so your account was kept safe. Check your connection and try again.</string>
     <string name="err_auth_network">Can’t connect right now. Check your connection and try again.</string>
     <string name="err_auth_too_many">A few too many attempts. Please wait a little before trying again.</string>

@@ -13,6 +13,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.tasks.await
@@ -154,6 +155,40 @@ class AccountFlowTest {
         action { vm.emailSignIn(email, "New-kimi-password-42!") }
         assertEquals(email, vm.account!!.email)
         action { vm.deleteAccount(app, "New-kimi-password-42!") }
+        assertNull(auth.currentUser)
+    }
+
+    @Test fun googleAccountCanAddPasswordAndKeepTheSameIdentity() {
+        val googleToken = """{"sub":"google-${UUID.randomUUID()}","email":"$email","email_verified":true,"name":"Google tester"}"""
+        runBlocking {
+            auth.signInWithCredential(GoogleAuthProvider.getCredential(googleToken, null)).await()
+        }
+        waitFor { vm.account?.email == email && vm.account?.passwordProvider == false }
+        val uid = auth.currentUser!!.uid
+        // The mocked SDK sign-in bypasses AccountViewModel.googleSignIn(), so mirror the empty,
+        // onboarded account space that the real Google path initializes before opening Settings.
+        runBlocking {
+            HabitStore.get(app, uid).update(true, true) { HabitState(name = "Google tester", onboarded = true) }
+        }
+
+        openAccount("Manage account")
+        compose.onNodeWithText("Add email & password sign-in").performScrollTo().assertIsEnabled().performClick()
+        compose.onNodeWithText("This password will be linked to your current Google account, $email. Your account and Kimi data stay the same.")
+            .assertExists()
+        compose.onNodeWithText("Password", substring = false).performTextInput(password)
+        compose.onNodeWithText("Confirm password", substring = false).performTextInput(password)
+        compose.onNodeWithText("Add password").assertIsEnabled()
+        action { vm.addPassword(app, password) }
+        assertTrue(
+            "account=${vm.account}; providers=${auth.currentUser?.providerData?.map { it.providerId }}; message=${vm.message}",
+            vm.account?.passwordProvider == true
+        )
+        assertEquals(uid, auth.currentUser!!.uid)
+        action { vm.signOut() }
+        action { vm.emailSignIn(email, password) }
+        assertEquals(uid, auth.currentUser!!.uid)
+        assertTrue(vm.account!!.passwordProvider)
+        action { vm.deleteAccount(app, password) }
         assertNull(auth.currentUser)
     }
 

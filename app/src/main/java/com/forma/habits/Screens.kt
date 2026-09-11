@@ -17,7 +17,6 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -64,7 +63,7 @@ private val MonthLabel = DateTimeFormatter.ofPattern("MMMM yyyy")
     else -> stringResource(R.string.daypart_anytime)
 }
 
-@Composable fun TodayScreen(state: HabitState, onToggle: (Habit, LocalDate) -> Unit, onNew: () -> Unit, onJournal: () -> Unit) {
+@Composable fun TodayScreen(state: HabitState, onToggle: (Habit, LocalDate) -> Unit, onNew: () -> Unit) {
     val today = LocalToday.current
     val stats = rememberHabitStats(state, today)
     var dateString by rememberSaveable(today) { mutableStateOf(today.toString()) }
@@ -155,16 +154,6 @@ private val MonthLabel = DateTimeFormatter.ofPattern("MMMM yyyy")
                 EmptySpace(stringResource(R.string.today_empty_title), stringResource(
                     if (state.habits.isEmpty()) R.string.today_empty_first_body else R.string.today_empty_body))
                 if (state.habits.isEmpty()) MainButton(stringResource(R.string.action_plant_new_habit), onClick = onNew)
-            }
-        }
-        item {
-            val journalLabel = stringResource(R.string.cd_open_journal)
-            PlayCard(Yellow, Modifier.semantics { contentDescription = journalLabel }, onJournal) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    BubbleIcon(Icons.Rounded.EditNote, Overlay); Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) { Text(stringResource(R.string.journal_prompt), style = MaterialTheme.typography.titleMedium); Text(stringResource(R.string.today_journal_caption), fontSize = 11.sp, color = Quiet) }
-                    Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) { Icon(Icons.AutoMirrored.Rounded.ArrowForward, null) }
-                }
             }
         }
         if (state.demo) item { Text(stringResource(R.string.demo_footer_today), color = Quiet, fontSize = 10.sp, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) }
@@ -471,9 +460,8 @@ private val MoodIcons = listOf(Icons.Rounded.SentimentVeryDissatisfied, Icons.Ro
         dismissButton = { TextButton(onClick = { deleteDate = null }) { Text(stringResource(R.string.action_keep_it)) } }) }
 }
 
-@Composable fun SettingsScreen(state: HabitState, onRename: (String) -> Unit, onReset: () -> Unit, export: () -> Unit, restore: () -> Unit, damaged: Boolean, onSaveHabit: (Habit, () -> Unit) -> Unit, account: KimiAccount? = null, onAccount: () -> Unit = {}) {
+@Composable fun SettingsScreen(state: HabitState, onRename: (String) -> Unit, onSaveHabit: (Habit, () -> Unit) -> Unit, account: KimiAccount? = null, onAccount: () -> Unit = {}) {
     var name by rememberSaveable(state.name) { mutableStateOf(state.name) }
-    var confirm by remember { mutableStateOf(false) }
     var credits by remember { mutableStateOf(false) }
     LazyColumn(contentPadding = PaddingValues(23.dp, 17.dp, 23.dp, 24.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
         item { PageTitle(stringResource(R.string.settings_title), stringResource(R.string.settings_subtitle)) }
@@ -494,23 +482,11 @@ private val MoodIcons = listOf(Icons.Rounded.SentimentVeryDissatisfied, Icons.Ro
         }
         item { AccountCard(account, onAccount) }
         item { AppearanceCard() }
-        item {
-            PlayCard(Paper) {
-                SectionTitle(stringResource(R.string.settings_data_section))
-                Text(stringResource(R.string.settings_data_caption), fontSize = 12.sp, color = Quiet)
-                if (damaged) Text(stringResource(R.string.settings_damaged_notice), color = Accent)
-                Spacer(Modifier.height(14.dp)); OutlinedButton(onClick = export, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp), shape = RoundedCornerShape(15.dp)) { Icon(Icons.Rounded.IosShare, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.action_export)) }
-                OutlinedButton(onClick = restore, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp), shape = RoundedCornerShape(15.dp)) { Icon(Icons.Rounded.Restore, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.action_restore)) }
-                TextButton(onClick = { confirm = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text(stringResource(R.string.action_reset), color = Danger) }
-            }
-        }
         item { NotificationSettings(state.habits, onSaveHabit) }
         if (state.demo) item { Text(stringResource(R.string.demo_footer_settings), color = Quiet, fontSize = 11.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) }
         item { AboutCard { credits = true } }
     }
     if (credits) CreditsDialog { credits = false }
-    if (confirm) AlertDialog(onDismissRequest = { confirm = false }, title = { Text(stringResource(R.string.dialog_reset_title)) }, text = { Text(stringResource(R.string.dialog_reset_body)) },
-        confirmButton = { TextButton(onClick = { onReset(); confirm = false }) { Text(stringResource(R.string.action_reset_confirm)) } }, dismissButton = { TextButton(onClick = { confirm = false }) { Text(stringResource(R.string.action_keep_progress)) } })
 }
 
 /** Version is here so a bug report can name a build; credits are an obligation, not decoration. */
@@ -603,6 +579,8 @@ private val MoodIcons = listOf(Icons.Rounded.SentimentVeryDissatisfied, Icons.Ro
     var symbol by rememberSaveable(existing?.id) { mutableIntStateOf(existing?.icon ?: 0) }
     var time by rememberSaveable(existing?.id) { mutableStateOf(existing?.time ?: "Morning") }
     var weekdays by rememberSaveable(existing?.id) { mutableStateOf(existing?.weekdays ?: false) }
+    var reminderMinutes by rememberSaveable(existing?.id) { mutableStateOf(existing?.reminderMinutes) }
+    var reminderCount by rememberSaveable(existing?.id) { mutableIntStateOf(existing?.reminderCount ?: 1) }
     val goalFocus = remember { FocusRequester() }
     val focus = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
@@ -642,8 +620,15 @@ private val MoodIcons = listOf(Icons.Rounded.SentimentVeryDissatisfied, Icons.Ro
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Dayparts.forEach { t -> FilterChip(time == t, { time = t }, label = { Text(daypartLabel(t), fontSize = 11.sp) }, shape = CircleShape) }
         }
+        ReminderPicker(reminderMinutes, reminderCount) { nextMinutes, nextCount ->
+            reminderMinutes = nextMinutes
+            reminderCount = nextCount
+        }
         MainButton(stringResource(if (existing == null) R.string.action_create_habit else R.string.action_save_changes), enabled = !busy && name.isNotBlank() && goal.isNotBlank()) {
-            onSave((existing ?: Habit(name = name, goal = goal)).copy(name = name.trim(), goal = goal.trim(), color = color, icon = symbol, time = time, weekdays = weekdays))
+            onSave((existing ?: Habit(name = name, goal = goal)).copy(
+                name = name.trim(), goal = goal.trim(), color = color, icon = symbol, time = time,
+                weekdays = weekdays, reminderMinutes = reminderMinutes, reminderCount = reminderCount
+            ))
         }
         if (existing != null) TextButton(onClick = onDelete, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.action_delete_habit_full), color = Danger) }
     }

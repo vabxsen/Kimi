@@ -68,7 +68,6 @@ val LocalToday = compositionLocalOf { LocalDate.now() }
     val state = vm.state
     val savedPages = rememberSaveableStateHolder()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
-    val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { it?.let(vm::exportBackup) }
     val restore = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { it?.let(vm::readBackup) }
     DisposableEffect(lifecycle) {
         val observer = LifecycleEventObserver { _, event -> if (event == Lifecycle.Event.ON_RESUME) vm.refreshDate() }
@@ -119,14 +118,12 @@ val LocalToday = compositionLocalOf { LocalDate.now() }
         Box(Modifier.fillMaxSize().padding(padding)) {
             savedPages.SaveableStateProvider(page.name) {
             when (page) {
-                Page.Today -> TodayScreen(state, vm::toggle, { edit(null) }, { page = Page.Journal })
+                Page.Today -> TodayScreen(state, vm::toggle, { edit(null) })
                 Page.Habits -> HabitsScreen(state, { edit(null) }, { edit(it) })
                 Page.Calendar -> CalendarScreen(state, vm::toggle)
                 Page.Insights -> InsightsScreen(state)
                 Page.Journal -> JournalScreen(state, vm::reflect, vm::deleteReflection, vm.draftMood, vm.draftText, vm::updateDraft, vm.draftDate, vm::loadDraft, vm.draftDates())
-                Page.Settings -> SettingsScreen(state, vm::rename, vm::reset,
-                    { export.launch("Kimi-backup-${vm.today}.json") },
-                    { restore.launch(arrayOf("application/json", "text/*", "application/octet-stream")) }, vm.damaged, vm::saveHabit, account, onAccount)
+                Page.Settings -> SettingsScreen(state, vm::rename, vm::saveHabit, account, onAccount)
             }
             }
             if (vm.busy) LinearProgressIndicator(Modifier.fillMaxWidth().align(Alignment.TopCenter), color = Accent)

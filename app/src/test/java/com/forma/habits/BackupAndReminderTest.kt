@@ -10,7 +10,7 @@ class BackupAndReminderTest {
     private val monday = LocalDate.of(2026, 9, 7)
     private val habit = Habit("reading", "Read", "Ten pages", created = monday)
     @Test fun backupRoundTripRetainsAllDataAndHistory() {
-        val edited = habit.copy(weekdays = true, reminderMinutes = 540).editedFrom(habit, monday.plusDays(2))
+        val edited = habit.copy(weekdays = true, reminderMinutes = 540, reminderCount = 8).editedFrom(habit, monday.plusDays(2))
         val state = HabitState(listOf(edited), mapOf(monday.toString() to setOf(habit.id)),
             listOf(Reflection(monday, 4, "A lovely day 🌻\nSecond line")), "Vaibhav")
         assertEquals(state, BackupCodec.decode(BackupCodec.encode(state)))
@@ -26,6 +26,8 @@ class BackupAndReminderTest {
             BackupCodec.encode(HabitState(listOf(habit), mapOf(monday.toString() to setOf("unknown")))),
             BackupCodec.encode(HabitState(listOf(habit))).replace("\"version\": 3", "\"version\": 99"),
             BackupCodec.encode(HabitState(journal = listOf(Reflection(monday, 9, "Invalid")))),
+            BackupCodec.encode(HabitState(listOf(habit.copy(reminderMinutes = 540, reminderCount = 25)))),
+            BackupCodec.encode(HabitState(listOf(habit.copy(reminderMinutes = 1439, reminderCount = 24)))),
             BackupCodec.encode(HabitState()).replace("\"habitUpdates\": {}", "\"habitUpdates\": {\"ghost\": 1}")
         ).forEach { assertTrue("Accepted invalid input: $it", runCatching { BackupCodec.decode(it) }.isFailure) }
     }
@@ -69,6 +71,23 @@ class BackupAndReminderTest {
         val now = monday.atTime(9, 0).atZone(ZoneId.of("Asia/Kolkata"))
         assertEquals(monday.plusDays(1), nextReminder(h, HabitState(listOf(h)), now)?.toLocalDate())
         assertNull(nextReminder(h.copy(reminderMinutes = null), HabitState(), now))
+    }
+    @Test fun multipleDailyRemindersAreDistinctAndAdvanceWithinTheSameDay() {
+        val h = habit.copy(reminderMinutes = 540, reminderCount = 3)
+        assertEquals(listOf(540, 840, 1140), h.dailyReminderMinutes())
+        val state = HabitState(listOf(h))
+        val zone = ZoneId.of("Asia/Kolkata")
+        assertEquals(monday.atTime(14, 0).atZone(zone), nextReminder(h, state, monday.atTime(10, 0).atZone(zone)))
+        assertEquals(monday.plusDays(1).atTime(9, 0).atZone(zone), nextReminder(h, state, monday.atTime(20, 0).atZone(zone)))
+    }
+    @Test fun maximumReminderCountKeepsSafeSpacingAndNormalizesLateStarts() {
+        val start = normalizedReminderStart(23 * 60 + 59, MAX_DAILY_REMINDERS)
+        val slots = dailyReminderMinutes(start, MAX_DAILY_REMINDERS)
+        assertEquals(18 * 60, start)
+        assertEquals(MAX_DAILY_REMINDERS, slots.size)
+        assertEquals(slots.size, slots.distinct().size)
+        assertTrue(slots.zipWithNext().all { (a, b) -> b - a >= MIN_REMINDER_INTERVAL_MINUTES })
+        assertTrue(slots.last() <= 1439)
     }
     @Test fun daylightSavingGapResolvesToValidLocalTime() {
         val h = habit.copy(created = LocalDate.of(2026, 1, 1), reminderMinutes = 150)

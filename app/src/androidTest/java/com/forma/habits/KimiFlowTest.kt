@@ -61,6 +61,30 @@ class KimiFlowTest {
         assertTrue(store.state.value.checks.isEmpty())
     }
 
+    @Test fun habitEditorSavesMultipleDailyNotifications() {
+        android.os.ParcelFileDescriptor.AutoCloseInputStream(
+            InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(
+                "pm grant ${context.packageName} android.permission.POST_NOTIFICATIONS"
+            )
+        ).use { it.readBytes() }
+        compose.onNodeWithText("+ New habit").performClick()
+        compose.onNodeWithText("Habit name").performTextInput("Drink water")
+        compose.onNodeWithText("A small, specific goal").performTextInput("Stay hydrated")
+        compose.onNodeWithText("A small, specific goal").performImeAction()
+        compose.onNodeWithContentDescription("Habit reminder").performScrollTo().performClick()
+        compose.onNodeWithText("Notifications per day").performScrollTo()
+        compose.onNodeWithTag("reminder_count_picker").performScrollTo()
+        compose.onNodeWithTag("reminder_count_picker").performScrollToIndex(5)
+        compose.onNodeWithTag("reminder_count_6").performClick()
+        compose.onNodeWithTag("reminder_count_6").assertIsSelected()
+        compose.onNodeWithText("Let’s make it a habit").performScrollTo().performClick()
+        waitFor { store.state.value.habits.size == 1 }
+        val saved = store.state.value.habits.single()
+        assertEquals(6, saved.reminderCount)
+        assertEquals(9 * 60, saved.reminderMinutes)
+        assertEquals(6, saved.dailyReminderMinutes().size)
+    }
+
     @Test fun journalDraftSurvivesNavigationAndActivityRecreation() {
         compose.onNodeWithText("Journal", substring = false).performClick()
         compose.onNodeWithText("A thought worth keeping").performScrollTo().performTextInput("Found a tiny happy moment")
@@ -144,11 +168,20 @@ class KimiFlowTest {
         android.os.ParcelFileDescriptor.AutoCloseInputStream(InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand("pm grant ${context.packageName} android.permission.POST_NOTIFICATIONS")).use { it.readBytes() }
         waitFor { Reminders.allowed(context) }
         val time = java.time.LocalTime.now().plusMinutes(1)
-        val h = Habit(name = "Scheduled tiny win", goal = "A real Android alarm", reminderMinutes = time.hour * 60 + time.minute)
+        val start = time.hour * 60 + time.minute
+        val count = if (start <= reminderStartLimit(2)) 2 else 1
+        val h = Habit(name = "Scheduled tiny win", goal = "A real Android alarm", reminderMinutes = start, reminderCount = count)
         runBlocking { store.update { HabitState(listOf(h)) } }
         Reminders.reschedule(context, store.state.value, force = true)
+        val alarmPreferences = context.getSharedPreferences("kimi_alarms", 0)
+        val firstPlan = alarmPreferences.getString("planned:${h.id}", null)
         val manager = context.getSystemService(NotificationManager::class.java)
         compose.waitUntil(180000) { manager.activeNotifications.any { it.tag == h.id } }
+        if (count > 1) {
+            compose.waitUntil(10000) { alarmPreferences.getString("planned:${h.id}", null) != firstPlan }
+            val nextPlan = java.time.ZonedDateTime.parse(alarmPreferences.getString("planned:${h.id}", null))
+            assertEquals(h.dailyReminderMinutes()[1], nextPlan.hour * 60 + nextPlan.minute)
+        }
         val notification = manager.activeNotifications.first { it.tag == h.id }.notification
         notification.actions.first().actionIntent.send()
         waitFor { store.state.value.done(h.id, LocalDate.now()) }

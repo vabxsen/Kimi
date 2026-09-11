@@ -55,20 +55,24 @@ class AccountViewModel(application: Application) : AndroidViewModel(application)
      */
     var welcome by mutableStateOf<Welcome?>(null)
         private set
+    private var linkedPasswordUid: String? = null
     private val listener = FirebaseAuth.AuthStateListener { account = snapshot() }
     init { auth.addAuthStateListener(listener) }
     override fun onCleared() { auth.removeAuthStateListener(listener) }
-    private fun snapshot() = auth.currentUser?.let { user ->
-        KimiAccount(user.uid, user.email.orEmpty(), user.displayName.orEmpty(), user.isEmailVerified,
-            user.providerData.any { it.providerId == EmailAuthProvider.PROVIDER_ID })
+    private fun snapshot(user: FirebaseUser? = auth.currentUser) = user?.let {
+        KimiAccount(it.uid, it.email.orEmpty(), it.displayName.orEmpty(), it.isEmailVerified,
+            linkedPasswordUid == it.uid || it.providerData.any { data -> data.providerId == EmailAuthProvider.PROVIDER_ID })
     }
     fun clearMessage() { message = null; error = false }
     fun dismissWelcome() { welcome = null }
-    private fun action(block: suspend () -> String?) {
+    private fun action(refreshAccount: Boolean = true, block: suspend () -> String?) {
         if (busy) return
         busy = true; clearMessage()
         viewModelScope.launch {
-            try { message = block(); account = snapshot() }
+            try {
+                message = block()
+                if (refreshAccount) account = snapshot()
+            }
             catch (e: CancellationException) { throw e }
             catch (_: GetCredentialCancellationException) { /* Dismissing Google's sheet is not an error. */ }
             catch (e: Exception) { error = true; message = friendlyAuthError(app, e) }
@@ -143,6 +147,25 @@ class AccountViewModel(application: Application) : AndroidViewModel(application)
         try { auth.sendPasswordResetEmail(email.trim()).await() }
         catch (_: FirebaseAuthInvalidUserException) { /* Same response for unknown accounts. */ }
         text(R.string.msg_reset_sent)
+    }
+    fun addPassword(context: Context, password: String) = action(refreshAccount = false) {
+        val user = auth.currentUser ?: throw KimiMessage(R.string.err_sign_in_first)
+        demand(password.length >= 8, R.string.err_account_password_short)
+        demand(user.providerData.none { it.providerId == EmailAuthProvider.PROVIDER_ID }, R.string.err_password_already_added)
+        val email = user.email?.trim().orEmpty()
+        demand(android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches(), R.string.err_google_email_missing)
+        // updatePassword sets an email/password sign-in method on this existing Firebase user. It
+        // keeps the uid—and therefore the person's synced habits and journal—unchanged.
+        try {
+            user.updatePassword(password).await()
+        } catch (_: FirebaseAuthRecentLoginRequiredException) {
+            // A stale Google session needs proof of identity before this security-sensitive change.
+            user.reauthenticate(googleCredential(context)).await()
+            user.updatePassword(password).await()
+        }
+        linkedPasswordUid = user.uid
+        account = snapshot(user)
+        text(R.string.msg_password_added)
     }
     fun verifyEmail() = action {
         val user = auth.currentUser ?: throw KimiMessage(R.string.err_sign_in_first)

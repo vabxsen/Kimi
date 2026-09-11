@@ -13,7 +13,7 @@ object BackupCodec {
         put("habits", JSONArray().apply { state.habits.forEach { h -> put(JSONObject().apply {
             put("id", h.id); put("name", h.name); put("goal", h.goal); put("icon", h.icon); put("color", h.color)
             put("time", h.time); put("weekdays", h.weekdays); put("created", h.created.toString())
-            h.reminderMinutes?.let { put("reminderMinutes", it) }
+            h.reminderMinutes?.let { put("reminderMinutes", it); put("reminderCount", h.reminderCount) }
             put("schedule", JSONArray().apply { h.schedule.forEach { change -> put(JSONObject().apply {
                 put("from", change.from.toString()); put("weekdays", change.weekdays)
             }) } })
@@ -42,6 +42,7 @@ object BackupCodec {
                 icon = h.getInt("icon"), color = h.getInt("color"), time = h.getString("time"),
                 weekdays = h.getBoolean("weekdays"), created = date(h.getString("created")),
                 reminderMinutes = if (h.has("reminderMinutes")) h.getInt("reminderMinutes") else null,
+                reminderCount = h.optInt("reminderCount", 1),
                 schedule = h.optJSONArray("schedule")?.objects(5000)?.map {
                     ScheduleChange(date(it.getString("from")), it.getBoolean("weekdays"))
                 }.orEmpty()).also(::validateHabit)
@@ -84,6 +85,8 @@ object BackupCodec {
         demand(h.name.isNotBlank() && h.name.length <= 70 && h.goal.isNotBlank() && h.goal.length <= 80, R.string.err_habit_name)
         demand(h.icon in 0..7 && h.color in 0..5 && h.time in Dayparts, R.string.err_habit_style)
         demand(h.reminderMinutes == null || h.reminderMinutes in 0..1439, R.string.err_habit_reminder)
+        demand(h.reminderCount in 1..MAX_DAILY_REMINDERS, R.string.err_habit_reminder_count)
+        demand(h.reminderMinutes == null || h.reminderMinutes <= reminderStartLimit(h.reminderCount), R.string.err_habit_reminder_spacing)
         date(h.created.toString())
         demand(h.schedule.size <= 5000 && h.schedule.zipWithNext().all { (a, b) -> a.from < b.from }, R.string.err_habit_schedule)
         demand(h.schedule.all { it.from >= h.created && it.from.year in 1970..2200 }, R.string.err_habit_schedule)

@@ -10,6 +10,9 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -25,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.semantics.contentDescription
@@ -74,12 +78,13 @@ import java.time.format.DateTimeFormatter
     return allowed
 }
 
-@Composable fun ReminderPicker(minutes: Int?, onChange: (Int?) -> Unit) {
+@Composable fun ReminderPicker(minutes: Int?, count: Int, onChange: (Int?, Int) -> Unit) {
     val context = LocalContext.current
     val allowed = notificationAccess()
+    val safeCount = count.coerceIn(1, MAX_DAILY_REMINDERS)
     var permissionGranted by remember { mutableStateOf(allowed) }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { permissionGranted = it }
-    Column {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(stringResource(R.string.reminder_toggle_title), style = MaterialTheme.typography.titleMedium)
@@ -87,15 +92,49 @@ import java.time.format.DateTimeFormatter
             }
             val reminderLabel = stringResource(R.string.cd_reminder_switch)
             Switch(checked = minutes != null, onCheckedChange = { enabled ->
-                onChange(if (enabled) 9 * 60 else null)
+                onChange(if (enabled) normalizedReminderStart(9 * 60, safeCount) else null, safeCount)
                 if (enabled && !Reminders.allowed(context) && Build.VERSION.SDK_INT >= 33) permission.launch(Manifest.permission.POST_NOTIFICATIONS)
             }, modifier = Modifier.semantics { contentDescription = reminderLabel })
         }
         if (minutes != null) {
             val format = DateTimeFormatter.ofPattern(if (DateFormat.is24HourFormat(context)) "HH:mm" else "h:mm a")
             OutlinedButton(onClick = {
-                TimePickerDialog(context, { _, hour, minute -> onChange(hour * 60 + minute) }, minutes / 60, minutes % 60, DateFormat.is24HourFormat(context)).show()
+                TimePickerDialog(context, { _, hour, minute ->
+                    onChange(normalizedReminderStart(hour * 60 + minute, safeCount), safeCount)
+                }, minutes / 60, minutes % 60, DateFormat.is24HourFormat(context)).show()
             }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.reminder_time_button, LocalTime.of(minutes / 60, minutes % 60).format(format))) }
+            Text(stringResource(R.string.reminder_count_title), style = MaterialTheme.typography.titleSmall)
+            Text(stringResource(R.string.reminder_count_body), color = Quiet, fontSize = 11.sp)
+            val countList = remember { (1..MAX_DAILY_REMINDERS).toList() }
+            val countState = rememberLazyListState()
+            LaunchedEffect(safeCount) { countState.scrollToItem((safeCount - 3).coerceAtLeast(0)) }
+            LazyRow(
+                state = countState,
+                modifier = Modifier.fillMaxWidth().testTag("reminder_count_picker"),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(countList, key = { it }) { option ->
+                    val optionLabel = stringResource(R.string.reminder_count_option, option)
+                    FilterChip(
+                        selected = option == safeCount,
+                        onClick = { onChange(normalizedReminderStart(minutes, option), option) },
+                        label = { Text(option.toString()) },
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.heightIn(min = 48.dp).testTag("reminder_count_$option")
+                            .semantics { contentDescription = optionLabel }
+                    )
+                }
+            }
+            val slots = remember(minutes, safeCount) { dailyReminderMinutes(minutes, safeCount) }
+            val first = LocalTime.of(slots.first() / 60, slots.first() % 60).format(format)
+            val last = LocalTime.of(slots.last() / 60, slots.last() % 60).format(format)
+            Text(
+                if (safeCount == 1) stringResource(R.string.reminder_schedule_once, first)
+                else stringResource(R.string.reminder_schedule_many, safeCount, first, last),
+                color = Accent,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold
+            )
             Text(stringResource(R.string.reminder_delay_notice), color = Quiet, fontSize = 11.sp)
             if (!allowed && !permissionGranted) {
                 Text(stringResource(R.string.reminder_notifications_off), color = Accent, fontSize = 12.sp)
@@ -110,6 +149,7 @@ import java.time.format.DateTimeFormatter
     val allowed = notificationAccess()
     var editingId by rememberSaveable { mutableStateOf<String?>(null) }
     var minutes by rememberSaveable { mutableStateOf<Int?>(null) }
+    var count by rememberSaveable { mutableIntStateOf(1) }
     var saving by remember { mutableStateOf(false) }
     PlayCard(Yellow) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -120,19 +160,21 @@ import java.time.format.DateTimeFormatter
         Text(stringResource(if (allowed) R.string.reminders_on_body else R.string.reminders_off_body), color = Quiet, fontSize = 12.sp)
         TextButton(onClick = { context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)) }) { Text(stringResource(R.string.action_notification_settings), fontWeight = FontWeight.Bold) }
         habits.forEach { habit ->
-            TextButton(onClick = { editingId = habit.id; minutes = habit.reminderMinutes }, modifier = Modifier.fillMaxWidth()) {
+            TextButton(onClick = { editingId = habit.id; minutes = habit.reminderMinutes; count = habit.reminderCount }, modifier = Modifier.fillMaxWidth()) {
                 Text(habit.name, modifier = Modifier.weight(1f), color = Ink)
-                Spacer(Modifier.width(12.dp)); Text(habit.reminderMinutes?.let { LocalTime.of(it / 60, it % 60).toString() } ?: stringResource(R.string.reminder_off), color = Accent)
+                Spacer(Modifier.width(12.dp)); Text(habit.reminderMinutes?.let {
+                    stringResource(R.string.reminder_list_summary, habit.reminderCount, LocalTime.of(it / 60, it % 60).toString())
+                } ?: stringResource(R.string.reminder_off), color = Accent)
             }
         }
         if (habits.isEmpty()) Text(stringResource(R.string.reminders_empty), color = Quiet, fontSize = 12.sp)
     }
     habits.find { it.id == editingId }?.let { habit ->
         AlertDialog(onDismissRequest = { if (!saving) editingId = null }, title = { Text(habit.name) },
-            text = { Column(Modifier.verticalScroll(rememberScrollState())) { ReminderPicker(minutes) { minutes = it } } },
+            text = { Column(Modifier.verticalScroll(rememberScrollState())) { ReminderPicker(minutes, count) { nextMinutes, nextCount -> minutes = nextMinutes; count = nextCount } } },
             confirmButton = { TextButton(enabled = !saving, onClick = {
                 saving = true
-                onSave(habit.copy(reminderMinutes = minutes)) { saving = false; editingId = null }
+                onSave(habit.copy(reminderMinutes = minutes, reminderCount = count)) { saving = false; editingId = null }
             }) { Text(stringResource(R.string.action_save_reminder)) } },
             dismissButton = { TextButton(onClick = { saving = false; editingId = null }) { Text(stringResource(R.string.action_cancel)) } })
     }

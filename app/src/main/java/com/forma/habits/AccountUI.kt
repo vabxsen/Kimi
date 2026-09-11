@@ -137,7 +137,13 @@ import android.app.Application
     var confirmPassword by remember { mutableStateOf("") }
     var delete by remember { mutableStateOf(false) }
     var signOut by remember { mutableStateOf(false) }
-    LaunchedEffect(user?.uid, create) { password = ""; confirmPassword = ""; delete = false }
+    var addPassword by remember { mutableStateOf(false) }
+    LaunchedEffect(user?.uid, user?.passwordProvider, create) {
+        password = ""
+        confirmPassword = ""
+        delete = false
+        if (user?.passwordProvider == true) addPassword = false
+    }
     Surface(color = Cream, modifier = Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding()) {
             Row(Modifier.fillMaxWidth().padding(12.dp, 5.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -216,7 +222,21 @@ import android.app.Application
                             enabled = !vm.busy, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp))
                         Spacer(Modifier.height(14.dp))
                         MainButton(stringResource(R.string.action_save_account_name), enabled = !vm.busy && name.isNotBlank() && name.trim() != user.name) { vm.updateName(name) }
-                        if (user.passwordProvider) TextButton(enabled = !vm.busy, onClick = { vm.resetPassword(user.email) }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.action_reset_password)) }
+                        if (user.passwordProvider) {
+                            TextButton(enabled = !vm.busy, onClick = { vm.resetPassword(user.email) }, modifier = Modifier.fillMaxWidth()) {
+                                Text(stringResource(R.string.action_reset_password))
+                            }
+                        } else {
+                            Text(stringResource(R.string.account_add_password_body, user.email), style = MaterialTheme.typography.bodyMedium, color = Quiet)
+                            TextButton(enabled = !vm.busy, onClick = {
+                                password = ""
+                                confirmPassword = ""
+                                vm.clearMessage()
+                                addPassword = true
+                            }, modifier = Modifier.fillMaxWidth()) {
+                                Text(stringResource(R.string.action_add_password))
+                            }
+                        }
                     }
                     OutlinedButton(enabled = !vm.busy, onClick = { signOut = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp)) { Text(stringResource(R.string.action_sign_out)) }
                     TextButton(enabled = !vm.busy, onClick = { password = ""; delete = true }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.action_delete_account), color = Danger) }
@@ -233,6 +253,30 @@ import android.app.Application
         text = { Text(stringResource(R.string.dialog_sign_out_body)) },
         confirmButton = { TextButton(onClick = { signOut = false; vm.signOut() }) { Text(stringResource(R.string.action_sign_out_now)) } },
         dismissButton = { TextButton(onClick = { signOut = false }) { Text(stringResource(R.string.action_stay_here)) } })
+    if (addPassword && user != null && !user.passwordProvider) AlertDialog(
+        onDismissRequest = { if (!vm.busy) { addPassword = false; password = ""; confirmPassword = ""; vm.clearMessage() } },
+        title = { Text(stringResource(R.string.dialog_add_password_title)) },
+        text = { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(stringResource(R.string.dialog_add_password_body, user.email))
+            PasswordField(password, { password = it }, enabled = !vm.busy)
+            PasswordField(confirmPassword, { confirmPassword = it }, stringResource(R.string.field_confirm_password), !vm.busy)
+            Text(stringResource(R.string.account_password_hint), style = MaterialTheme.typography.bodySmall, color = Quiet)
+            if (confirmPassword.isNotEmpty() && confirmPassword != password) {
+                Text(stringResource(R.string.account_password_mismatch), color = MaterialTheme.colorScheme.error)
+            }
+            if (vm.error) vm.message?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        } },
+        confirmButton = { TextButton(
+            enabled = !vm.busy && password.length >= 8 && password == confirmPassword,
+            onClick = { vm.addPassword(context, password) }
+        ) { Text(stringResource(R.string.action_add_password_now)) } },
+        dismissButton = { TextButton(enabled = !vm.busy, onClick = {
+            addPassword = false
+            password = ""
+            confirmPassword = ""
+            vm.clearMessage()
+        }) { Text(stringResource(R.string.action_cancel)) } }
+    )
     if (delete && user != null) AlertDialog(onDismissRequest = { if (!vm.busy) { delete = false; password = "" } },
         title = { Text(stringResource(R.string.dialog_delete_account_title)) },
         text = { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
