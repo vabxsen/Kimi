@@ -1,12 +1,17 @@
 package com.forma.habits
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
@@ -26,7 +31,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -44,6 +52,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -51,6 +61,8 @@ import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.launch
+import kotlin.math.exp
+import kotlin.math.sin
 
 private val ShortDate = DateTimeFormatter.ofPattern("EEE, MMM d")
 private val MonthLabel = DateTimeFormatter.ofPattern("MMMM yyyy")
@@ -62,6 +74,10 @@ private val MonthLabel = DateTimeFormatter.ofPattern("MMMM yyyy")
     "Evening" -> stringResource(R.string.daypart_evening)
     else -> stringResource(R.string.daypart_anytime)
 }
+
+/** How far the Today strip scrolls either side of today. Older days live on the Calendar page. */
+private const val StripPastDays = 90L
+private const val StripFutureDays = 7L
 
 @Composable fun TodayScreen(state: HabitState, onToggle: (Habit, LocalDate) -> Unit, onNew: () -> Unit) {
     val today = LocalToday.current
@@ -121,18 +137,28 @@ private val MonthLabel = DateTimeFormatter.ofPattern("MMMM yyyy")
             }
         }
         item {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                val start = today.minusDays((today.dayOfWeek.value - 1).toLong())
-                repeat(7) { index ->
-                    val d = start.plusDays(index.toLong()); val selected = d == date
-                    val dayLabel = stringResource(if (selected) R.string.cd_day_selected else R.string.cd_day, d.format(ShortDate))
-                    Column(Modifier.weight(1f).clip(RoundedCornerShape(17.dp)).background(if (selected) Purple else Paper)
-                        .clickable(enabled = !d.isAfter(today), role = Role.Button) { dateString = d.toString() }
-                        .semantics { contentDescription = dayLabel }
-                        .padding(vertical = 9.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(d.dayOfWeek.name.take(1), fontSize = 10.sp, color = if (selected) OnAccent else Quiet)
-                        Spacer(Modifier.height(7.dp)); Text(d.dayOfMonth.toString(), fontSize = 17.sp, fontWeight = FontWeight.Bold, color = if (selected) OnAccent else if (d.isAfter(today)) Quiet.copy(alpha = .78f) else Ink)
-                        Spacer(Modifier.height(7.dp)); Box(Modifier.size(4.dp).background(if (selected) Highlight else Lavender, CircleShape))
+            // A scrolling strip rather than one fixed week, so recent days stay reachable without
+            // leaving Today. Cells keep the width they had when exactly seven filled the row, so
+            // the page looks unchanged until you actually drag it.
+            BoxWithConstraints {
+                val dayWidth = (maxWidth - 7.dp * 6) / 7
+                val strip = rememberLazyListState()
+                val centre = with(LocalDensity.current) { ((maxWidth - dayWidth) / 2).roundToPx() }
+                // Re-centres only when the day itself rolls over. Keying this on the selection
+                // instead would drag the strip back every time a past day was tapped.
+                LaunchedEffect(today, centre) { strip.scrollToItem(StripPastDays.toInt(), -centre) }
+                LazyRow(state = strip, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    items(StripPastDays.toInt() + StripFutureDays.toInt() + 1) { index ->
+                        val d = today.minusDays(StripPastDays - index); val selected = d == date
+                        val dayLabel = stringResource(if (selected) R.string.cd_day_selected else R.string.cd_day, d.format(ShortDate))
+                        Column(Modifier.width(dayWidth).clip(RoundedCornerShape(17.dp)).background(if (selected) Purple else Paper)
+                            .clickable(enabled = !d.isAfter(today), role = Role.Button) { dateString = d.toString() }
+                            .semantics { contentDescription = dayLabel }
+                            .padding(vertical = 9.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(d.dayOfWeek.name.take(1), fontSize = 10.sp, color = if (selected) OnAccent else Quiet)
+                            Spacer(Modifier.height(7.dp)); Text(d.dayOfMonth.toString(), fontSize = 17.sp, fontWeight = FontWeight.Bold, color = if (selected) OnAccent else if (d.isAfter(today)) Quiet.copy(alpha = .78f) else Ink)
+                            Spacer(Modifier.height(7.dp)); Box(Modifier.size(4.dp).background(if (selected) Highlight else Lavender, CircleShape))
+                        }
                     }
                 }
             }
@@ -461,8 +487,14 @@ private val MoodIcons = listOf(Icons.Rounded.SentimentVeryDissatisfied, Icons.Ro
 }
 
 @Composable fun SettingsScreen(state: HabitState, onRename: (String) -> Unit, onSaveHabit: (Habit, () -> Unit) -> Unit, account: KimiAccount? = null, onAccount: () -> Unit = {}) {
-    var name by rememberSaveable(state.name) { mutableStateOf(state.name) }
     var credits by remember { mutableStateOf(false) }
+    /**
+     * The name card sits in a LazyColumn item, and Compose disposes items that scroll out of the
+     * viewport - which the keyboard causes by resizing the window. Holding the flag here keeps edit
+     * mode alive across that, while plain `remember` still drops it on a process restart, so Kimi
+     * never reopens with a live field and the keyboard climbing over the page.
+     */
+    var editingName by remember(state.name) { mutableStateOf(false) }
     LazyColumn(contentPadding = PaddingValues(23.dp, 17.dp, 23.dp, 24.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
         item { PageTitle(stringResource(R.string.settings_title), stringResource(R.string.settings_subtitle)) }
         item {
@@ -473,13 +505,7 @@ private val MoodIcons = listOf(Icons.Rounded.SentimentVeryDissatisfied, Icons.Ro
                 }
             }
         }
-        item {
-            PlayCard(Paper) {
-                Text(stringResource(R.string.settings_name_question), style = MaterialTheme.typography.titleMedium)
-                Spacer(Modifier.height(12.dp)); OutlinedTextField(name, { name = it.take(30) }, label = { Text(stringResource(R.string.settings_name_label)) }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(15.dp))
-                Spacer(Modifier.height(14.dp)); MainButton(stringResource(R.string.action_thats_me), enabled = name.isNotBlank()) { onRename(name) }
-            }
-        }
+        item { NameCard(state.name, editingName, { editingName = it }, onRename) }
         item { AccountCard(account, onAccount) }
         item { AppearanceCard() }
         item { NotificationSettings(state.habits, onSaveHabit) }
@@ -488,6 +514,98 @@ private val MoodIcons = listOf(Icons.Rounded.SentimentVeryDissatisfied, Icons.Ro
         item { AboutCard { credits = true } }
     }
     if (credits) CreditsDialog { credits = false }
+}
+
+/** Wave train shape: stop count, how many crests fit the reach, and how fast they die behind the front. */
+private const val WaveStops = 64
+private const val WaveNumber = 24f
+private const val WaveDamping = 3.2f
+/**
+ * Fixed colours, not palette tokens: water looks like water in either theme.
+ *
+ * The crest is a pale cyan rather than white on purpose - a white highlight is invisible on the
+ * white card this ripple runs over, which left the whole effect reading as a haze. Tinting it means
+ * both halves of the wave carry, on Paper and after dark alike.
+ */
+private val WaterCrest = Color(0xFFCDEBFF)
+private val WaterShade = Color(0xFF3E6488)
+
+/**
+ * The name is displayed, not offered for editing, until the pencil is pressed - tapping the text
+ * itself used to raise the keyboard on a field nobody meant to change.
+ *
+ * [focusProperties] is what actually prevents that: `readOnly` alone still lets a field take focus
+ * and draw a caret. Once editing, the pencil becomes a tick, so there is always a way back out, and
+ * the ripple gives the press somewhere to land.
+ */
+@Composable fun NameCard(saved: String, editing: Boolean, onEditing: (Boolean) -> Unit, onRename: (String) -> Unit) {
+    // The draft stays saveable: LazyColumn keeps an item’s saveable state across disposal, so a
+    // half-typed name survives scrolling even though the item itself does not.
+    var name by rememberSaveable(saved) { mutableStateOf(saved) }
+    val focus = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
+    val scope = rememberCoroutineScope()
+    val drop = remember { Animatable(0f) }
+    val ready = name.isNotBlank() && name.trim() != saved
+    // Palette tokens are @Composable getters, so the ripple colour is read here rather than
+    // inside the draw lambda, which runs outside composition.
+    val ink = Accent
+    LaunchedEffect(editing) { if (editing) focus.requestFocus() else keyboard?.hide() }
+    fun commit() { if (name.isNotBlank()) { onRename(name); onEditing(false) } }
+    PlayCard(Paper) {
+        Text(stringResource(R.string.settings_name_question), style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(12.dp))
+        Box {
+            OutlinedTextField(name, { name = it.take(30) }, label = { Text(stringResource(R.string.settings_name_label)) },
+                modifier = Modifier.fillMaxWidth().focusRequester(focus).focusProperties { canFocus = editing },
+                singleLine = true, readOnly = !editing, shape = RoundedCornerShape(15.dp),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { commit() }),
+                trailingIcon = {
+                    IconButton(enabled = !editing || ready, onClick = {
+                        scope.launch { drop.snapTo(0f); drop.animateTo(1f, tween(1150, easing = LinearEasing)) }
+                        if (editing) commit() else onEditing(true)
+                    }) {
+                        Icon(if (editing) Icons.Rounded.Check else Icons.Rounded.Edit,
+                            stringResource(if (editing) R.string.cd_save_name else R.string.cd_edit_name),
+                            tint = if (!editing || ready) Accent else Quiet)
+                    }
+                })
+            // A drop landing under the pencil, drawn the way water actually reads: not rings, but a
+            // travelling wave train. One radial gradient carries the whole thing - each stop samples
+            // a damped sine behind the advancing front, so crests come out pale and troughs dark,
+            // which is what the eye reads as a rippling surface rather than an expanding outline.
+            //
+            // The front moves at a constant speed (water does not ease), and the amplitude decays
+            // both behind the front and over the life of the splash, so it dies away instead of
+            // stopping. Clipped to the field’s own shape, and drawn by a Spacer, which takes no
+            // touches of its own.
+            Canvas(Modifier.matchParentSize().clip(RoundedCornerShape(15.dp))) {
+                val t = drop.value
+                if (t <= 0f || t >= 1f) return@Canvas
+                val origin = Offset(size.width - 28.dp.toPx(), size.height / 2)
+                val reach = size.width * 1.15f
+                val front = t * reach
+                // Hold full strength while the wave crosses the field, then let it die away, rather
+                // than fading from the first frame - a splash does not start already spent.
+                val life = ((1f - t) / .45f).coerceIn(0f, 1f)
+                val stops = Array(WaveStops + 1) { step ->
+                    val p = step / WaveStops.toFloat()
+                    val behind = front - p * reach
+                    // Nothing has happened yet ahead of the front.
+                    val wave = if (behind <= 0f) 0f
+                    else sin(behind / reach * WaveNumber) * exp(-behind / reach * WaveDamping) * life
+                    p to if (wave >= 0f) WaterCrest.copy(alpha = (wave * .70f).coerceIn(0f, 1f))
+                    else WaterShade.copy(alpha = (-wave * .34f).coerceIn(0f, 1f))
+                }
+                drawCircle(Brush.radialGradient(*stops, center = origin, radius = reach), reach, origin)
+                // The impact itself: a bright bead that spreads and is gone within the first moments.
+                val splash = (t / .16f).coerceIn(0f, 1f)
+                if (splash < 1f) drawCircle(WaterCrest.copy(alpha = .75f * (1f - splash)),
+                    reach * .10f * splash, origin)
+            }
+        }
+    }
 }
 
 /** Version is here so a bug report can name a build; credits are an obligation, not decoration. */
@@ -514,34 +632,56 @@ private val MoodIcons = listOf(Icons.Rounded.SentimentVeryDissatisfied, Icons.Ro
 }
 
 /**
- * Kimi bundles Nunito, whose SIL Open Font License requires the licence and copyright to travel
- * with the font. The repository carries `Nunito-OFL.txt`, but nothing shipped inside the APK said
- * so until this screen existed.
+ * Built like [WelcomeDialog] rather than as a page of its own: a rounded Cream sheet, the mascot,
+ * and tinted [PlayCard]s, so Credits reads as part of Kimi instead of a settings screen borrowed
+ * from somewhere else.
+ *
+ * Per-library attributions were deliberately removed. Nunito ships under the SIL Open Font License
+ * and the AndroidX/Firebase/Material dependencies under Apache 2.0, both of which ask for the
+ * notice to travel with the binary - `Nunito-OFL.txt` and `LICENSE` carry it in the repository
+ * only. Restore a list here, or surface it another way, before that matters.
  */
 @Composable fun CreditsDialog(onDismiss: () -> Unit) {
-    val entries = listOf(
-        R.string.credits_kimi_name to R.string.credits_kimi_detail,
-        R.string.credits_nunito_name to R.string.credits_nunito_detail,
-        R.string.credits_icons_name to R.string.credits_icons_detail,
-        R.string.credits_androidx_name to R.string.credits_androidx_detail,
-        R.string.credits_firebase_name to R.string.credits_firebase_detail
-    )
+    val author = stringResource(R.string.credits_author_name)
+    val credit = stringResource(R.string.credits_author_line, author)
     Dialog(onDismissRequest = onDismiss) {
-        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(26.dp)).background(Cream).padding(24.dp)) {
+        Column(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(Cream)
+                .verticalScroll(rememberScrollState()).padding(22.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Flower(Modifier.size(84.dp))
+            Spacer(Modifier.height(12.dp))
             Text(stringResource(R.string.credits_title), style = MaterialTheme.typography.headlineMedium)
-            Spacer(Modifier.height(6.dp))
-            Text(stringResource(R.string.credits_intro), color = Quiet, style = MaterialTheme.typography.bodyMedium)
-            Spacer(Modifier.height(16.dp))
-            Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                entries.forEach { (name, detail) ->
-                    Column {
-                        Text(stringResource(name), style = MaterialTheme.typography.titleMedium, fontSize = 14.sp)
-                        Text(stringResource(detail), color = Quiet, style = MaterialTheme.typography.bodyMedium)
-                    }
-                }
+            Spacer(Modifier.height(4.dp))
+            Text(stringResource(R.string.credits_version, BuildConfig.VERSION_NAME), color = Quiet,
+                style = MaterialTheme.typography.bodyMedium)
+            Spacer(Modifier.height(18.dp))
+            PlayCard(Lavender) {
+                Text(buildAnnotatedString {
+                    val at = credit.indexOf(author)
+                    append(credit)
+                    if (at >= 0) addStyle(SpanStyle(fontWeight = FontWeight.Bold), at, at + author.length)
+                }, style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
+                Spacer(Modifier.height(6.dp))
+                Text(stringResource(R.string.credits_made_in), color = Quiet,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
             }
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(12.dp))
+            PlayCard(Mint) {
+                Text(stringResource(R.string.credits_open_source), style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
+                Spacer(Modifier.height(4.dp))
+                Text(stringResource(R.string.credits_open_source_body), color = Quiet,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
+            }
+            Spacer(Modifier.height(16.dp))
+            Text(stringResource(R.string.credits_copyright), color = Quiet, fontSize = 10.sp,
+                modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
+            Spacer(Modifier.height(16.dp))
             MainButton(stringResource(R.string.action_close), onClick = onDismiss)
         }
     }

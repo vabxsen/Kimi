@@ -13,6 +13,8 @@
     <!-- Content descriptions -->
     <string name="cd_mascot">Happy flower mascot</string>
     <string name="cd_open_settings">Open settings</string>
+    <string name="cd_edit_name">Edit your name</string>
+    <string name="cd_save_name">Save your name</string>
     <string name="cd_day">%1$s</string>
     <string name="cd_day_selected">%1$s, selected</string>
     <string name="cd_complete_habit">Complete %1$s</string>
@@ -207,17 +209,14 @@
     <string name="action_credits">Credits</string>
     <string name="action_close">Close</string>
     <string name="credits_title">Credits</string>
-    <string name="credits_intro">Kimi stands on other people’s work.</string>
-    <string name="credits_kimi_name">Kimi</string>
-    <string name="credits_kimi_detail">© 2026 Vaibhav Sen — MIT License</string>
-    <string name="credits_nunito_name">Nunito</string>
-    <string name="credits_nunito_detail">© 2014 The Nunito Project Authors — SIL Open Font License 1.1</string>
-    <string name="credits_icons_name">Material Icons</string>
-    <string name="credits_icons_detail">© Google — Apache License 2.0</string>
-    <string name="credits_androidx_name">Jetpack Compose and AndroidX</string>
-    <string name="credits_androidx_detail">© Google — Apache License 2.0</string>
-    <string name="credits_firebase_name">Firebase SDK for Android</string>
-    <string name="credits_firebase_detail">© Google — Apache License 2.0</string>
+    <string name="credits_version">Version %1$s</string>
+    <!-- The author’s name is substituted so it can be emphasised without splitting the sentence. -->
+    <string name="credits_author_line">Designed &amp; developed by %1$s</string>
+    <string name="credits_author_name">Vaibhav Sen</string>
+    <string name="credits_made_in">Made with ❤️ in India 🇮🇳</string>
+    <string name="credits_open_source">Open Source</string>
+    <string name="credits_open_source_body">Kimi is fully Open Source</string>
+    <string name="credits_copyright">© 2026 Kimi. All rights reserved.</string>
     <string name="demo_footer_settings">You’re exploring sample habits and check-ins. Reset for a fresh workspace.</string>
 
     <!-- Habit editor -->
@@ -308,7 +307,6 @@
     <string name="action_create_habit">Let’s make it a habit</string>
     <string name="action_save_changes">Save my changes</string>
     <string name="action_save_reflection">Keep this little moment</string>
-    <string name="action_thats_me">That’s me!</string>
     <string name="action_restore_backup">Restore backup</string>
     <string name="action_keep_current_space">Keep current space</string>
     <string name="action_lets_grow">Start tracking my habits</string>
