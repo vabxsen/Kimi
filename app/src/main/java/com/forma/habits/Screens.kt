@@ -33,8 +33,8 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -61,8 +61,6 @@ import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.launch
-import kotlin.math.exp
-import kotlin.math.sin
 
 private val ShortDate = DateTimeFormatter.ofPattern("EEE, MMM d")
 private val MonthLabel = DateTimeFormatter.ofPattern("MMMM yyyy")
@@ -196,7 +194,7 @@ private const val StripFutureDays = 7L
         .toggleable(value = checked, enabled = !date.isAfter(today), role = Role.Checkbox, onValueChange = {
             haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove); onToggle()
         }).semantics { contentDescription = toggleLabel }.padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
-        BubbleIcon(HabitSymbols[habit.icon.coerceIn(0, 7)], Overlay, size = 44)
+        BubbleIcon(HabitSymbols[habit.icon.coerceIn(HabitSymbols.indices)], Overlay, size = 44)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(habit.name, style = MaterialTheme.typography.titleMedium, fontSize = 14.sp)
@@ -226,7 +224,7 @@ private const val StripFutureDays = 7L
             val editLabel = stringResource(R.string.cd_edit_habit, h.name)
             PlayCard(TileColors[h.color.coerceIn(0, 5)], Modifier.semantics { contentDescription = editLabel }, { onEdit(h) }) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    BubbleIcon(HabitSymbols[h.icon.coerceIn(0, 7)], Overlay, size = 51)
+                    BubbleIcon(HabitSymbols[h.icon.coerceIn(HabitSymbols.indices)], Overlay, size = 51)
                     Spacer(Modifier.width(12.dp)); Column(Modifier.weight(1f)) { Text(h.name, style = MaterialTheme.typography.titleMedium); Text(h.goal, color = Quiet, fontSize = 11.sp) }
                     Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Edit, null, Modifier.size(21.dp)) }
                 }
@@ -385,7 +383,7 @@ private const val StripFutureDays = 7L
             val pct = summary.consistency[habit.id] ?: 0
             PlayCard(TileColors[habit.color.coerceIn(0, 5)]) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(HabitSymbols[habit.icon.coerceIn(0, 7)], null, Modifier.size(24.dp)); Spacer(Modifier.width(10.dp))
+                    Icon(HabitSymbols[habit.icon.coerceIn(HabitSymbols.indices)], null, Modifier.size(24.dp)); Spacer(Modifier.width(10.dp))
                     Text(habit.name, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, fontSize = 13.sp)
                     Text(stringResource(R.string.percent_value, pct), fontWeight = FontWeight.Bold)
                 }
@@ -516,10 +514,7 @@ private val MoodIcons = listOf(Icons.Rounded.SentimentVeryDissatisfied, Icons.Ro
     if (credits) CreditsDialog { credits = false }
 }
 
-/** Wave train shape: stop count, how many crests fit the reach, and how fast they die behind the front. */
-private const val WaveStops = 64
-private const val WaveNumber = 24f
-private const val WaveDamping = 3.2f
+private const val WaterRippleDurationMillis = 380
 /**
  * Fixed colours, not palette tokens: water looks like water in either theme.
  *
@@ -556,14 +551,48 @@ private val WaterShade = Color(0xFF3E6488)
         Text(stringResource(R.string.settings_name_question), style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(12.dp))
         Box {
+            // Keep the water inside the field and behind its content. The inset prevents the rings
+            // from painting over the outline, which previously made the effect look uncontained.
+            Canvas(Modifier.matchParentSize().padding(2.dp).clip(RoundedCornerShape(13.dp))) {
+                val t = drop.value
+                if (t <= 0f || t >= 1f) return@Canvas
+                val origin = Offset(size.width - 26.dp.toPx(), size.height / 2)
+                val reach = size.width * .42f
+                val fade = 1f - t
+                drawCircle(
+                    WaterCrest.copy(alpha = .14f * fade),
+                    radius = 8.dp.toPx() + reach * t,
+                    center = origin
+                )
+                repeat(3) { ring ->
+                    val delay = ring * .12f
+                    if (t <= delay) return@repeat
+                    val progress = ((t - delay) / (1f - delay)).coerceIn(0f, 1f)
+                    val alpha = .30f * (1f - progress) * (1f - progress)
+                    drawCircle(
+                        color = if (ring == 0) WaterShade.copy(alpha = alpha)
+                            else WaterCrest.copy(alpha = alpha * .9f),
+                        radius = 7.dp.toPx() + reach * progress,
+                        center = origin,
+                        style = Stroke(width = (1.8f - ring * .25f).dp.toPx())
+                    )
+                }
+            }
             OutlinedTextField(name, { name = it.take(30) }, label = { Text(stringResource(R.string.settings_name_label)) },
                 modifier = Modifier.fillMaxWidth().focusRequester(focus).focusProperties { canFocus = editing },
                 singleLine = true, readOnly = !editing, shape = RoundedCornerShape(15.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
+                    disabledContainerColor = Color.Transparent,
+                    errorContainerColor = Color.Transparent
+                ),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                 keyboardActions = KeyboardActions(onDone = { commit() }),
                 trailingIcon = {
                     IconButton(enabled = !editing || ready, onClick = {
-                        scope.launch { drop.snapTo(0f); drop.animateTo(1f, tween(1150, easing = LinearEasing)) }
+                        scope.launch { drop.snapTo(0f); drop.animateTo(1f,
+                            tween(WaterRippleDurationMillis, easing = LinearEasing)) }
                         if (editing) commit() else onEditing(true)
                     }) {
                         Icon(if (editing) Icons.Rounded.Check else Icons.Rounded.Edit,
@@ -571,39 +600,6 @@ private val WaterShade = Color(0xFF3E6488)
                             tint = if (!editing || ready) Accent else Quiet)
                     }
                 })
-            // A drop landing under the pencil, drawn the way water actually reads: not rings, but a
-            // travelling wave train. One radial gradient carries the whole thing - each stop samples
-            // a damped sine behind the advancing front, so crests come out pale and troughs dark,
-            // which is what the eye reads as a rippling surface rather than an expanding outline.
-            //
-            // The front moves at a constant speed (water does not ease), and the amplitude decays
-            // both behind the front and over the life of the splash, so it dies away instead of
-            // stopping. Clipped to the field’s own shape, and drawn by a Spacer, which takes no
-            // touches of its own.
-            Canvas(Modifier.matchParentSize().clip(RoundedCornerShape(15.dp))) {
-                val t = drop.value
-                if (t <= 0f || t >= 1f) return@Canvas
-                val origin = Offset(size.width - 28.dp.toPx(), size.height / 2)
-                val reach = size.width * 1.15f
-                val front = t * reach
-                // Hold full strength while the wave crosses the field, then let it die away, rather
-                // than fading from the first frame - a splash does not start already spent.
-                val life = ((1f - t) / .45f).coerceIn(0f, 1f)
-                val stops = Array(WaveStops + 1) { step ->
-                    val p = step / WaveStops.toFloat()
-                    val behind = front - p * reach
-                    // Nothing has happened yet ahead of the front.
-                    val wave = if (behind <= 0f) 0f
-                    else sin(behind / reach * WaveNumber) * exp(-behind / reach * WaveDamping) * life
-                    p to if (wave >= 0f) WaterCrest.copy(alpha = (wave * .70f).coerceIn(0f, 1f))
-                    else WaterShade.copy(alpha = (-wave * .34f).coerceIn(0f, 1f))
-                }
-                drawCircle(Brush.radialGradient(*stops, center = origin, radius = reach), reach, origin)
-                // The impact itself: a bright bead that spreads and is gone within the first moments.
-                val splash = (t / .16f).coerceIn(0f, 1f)
-                if (splash < 1f) drawCircle(WaterCrest.copy(alpha = .75f * (1f - splash)),
-                    reach * .10f * splash, origin)
-            }
         }
     }
 }
@@ -743,7 +739,13 @@ private val WaterShade = Color(0xFF3E6488)
             keyboardActions = KeyboardActions(onDone = { keyboard?.hide(); focus.clearFocus() }))
         Text(stringResource(R.string.editor_icon_section), style = MaterialTheme.typography.titleMedium)
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-            HabitSymbols.forEachIndexed { i, icon -> IconButton(onClick = { symbol = i }, modifier = Modifier.size(48.dp).clip(RoundedCornerShape(15.dp)).background(if (symbol == i) Purple else Paper)) { Icon(icon, stringResource(R.string.cd_habit_icon, i + 1), tint = if (symbol == i) OnAccent else Ink) } }
+            HabitSymbols.forEachIndexed { i, icon ->
+                val description = if (i == HabitSymbols.lastIndex) stringResource(R.string.cd_habit_icon_gaming)
+                    else stringResource(R.string.cd_habit_icon, i + 1)
+                IconButton(onClick = { symbol = i }, modifier = Modifier.size(48.dp).clip(RoundedCornerShape(15.dp)).background(if (symbol == i) Purple else Paper)) {
+                    Icon(icon, description, tint = if (symbol == i) OnAccent else Ink)
+                }
+            }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
             TileColors.forEachIndexed { i, c ->

@@ -123,7 +123,8 @@ object ThemeSetting {
 }
 
 val HabitSymbols = listOf(Icons.Rounded.SelfImprovement, Icons.Rounded.WaterDrop, Icons.AutoMirrored.Rounded.MenuBook,
-    Icons.AutoMirrored.Rounded.DirectionsWalk, Icons.Rounded.Bedtime, Icons.Rounded.FitnessCenter, Icons.Rounded.Brush, Icons.Rounded.Spa)
+    Icons.AutoMirrored.Rounded.DirectionsWalk, Icons.Rounded.Bedtime, Icons.Rounded.FitnessCenter, Icons.Rounded.Brush,
+    Icons.Rounded.Spa, Icons.Rounded.SportsEsports)
 private val RoundedFont = FontFamily(
     Font(R.font.nunito_regular, FontWeight.Normal),
     Font(R.font.nunito_extra_bold, FontWeight.Bold),

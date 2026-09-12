@@ -38,6 +38,7 @@
     </plurals>
     <string name="cd_close_editor">Close habit editor</string>
     <string name="cd_habit_icon">Habit icon %1$d</string>
+    <string name="cd_habit_icon_gaming">Gaming habit icon</string>
     <string name="cd_color">Color %1$d</string>
     <string name="cd_color_selected">Selected color %1$d</string>
     <string name="cd_starters_switch">Start with five suggested habits</string>

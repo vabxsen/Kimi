@@ -10,7 +10,7 @@ class BackupAndReminderTest {
     private val monday = LocalDate.of(2026, 9, 7)
     private val habit = Habit("reading", "Read", "Ten pages", created = monday)
     @Test fun backupRoundTripRetainsAllDataAndHistory() {
-        val edited = habit.copy(weekdays = true, reminderMinutes = 540, reminderCount = 8).editedFrom(habit, monday.plusDays(2))
+        val edited = habit.copy(icon = 8, weekdays = true, reminderMinutes = 540, reminderCount = 8).editedFrom(habit, monday.plusDays(2))
         val state = HabitState(listOf(edited), mapOf(monday.toString() to setOf(habit.id)),
             listOf(Reflection(monday, 4, "A lovely day 🌻\nSecond line")), "Vaibhav")
         assertEquals(state, BackupCodec.decode(BackupCodec.encode(state)))
@@ -23,6 +23,7 @@ class BackupAndReminderTest {
     @Test fun malformedBackupIsRejected() {
         listOf("{}", "garbage", BackupCodec.encode(HabitState(listOf(habit, habit))),
             BackupCodec.encode(HabitState(listOf(habit.copy(color = 100)))) ,
+            BackupCodec.encode(HabitState(listOf(habit.copy(icon = 9)))),
             BackupCodec.encode(HabitState(listOf(habit), mapOf(monday.toString() to setOf("unknown")))),
             BackupCodec.encode(HabitState(listOf(habit))).replace("\"version\": 3", "\"version\": 99"),
             BackupCodec.encode(HabitState(journal = listOf(Reflection(monday, 9, "Invalid")))),
