@@ -484,6 +484,7 @@ private val MoodIcons = listOf(Icons.Rounded.SentimentVeryDissatisfied, Icons.Ro
         item { AppearanceCard() }
         item { NotificationSettings(state.habits, onSaveHabit) }
         if (state.demo) item { Text(stringResource(R.string.demo_footer_settings), color = Quiet, fontSize = 11.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) }
+        item { UpdateCard() }
         item { AboutCard { credits = true } }
     }
     if (credits) CreditsDialog { credits = false }

@@ -181,7 +181,25 @@
     <string name="settings_theme_system">Automatic</string>
     <string name="settings_theme_light">Light</string>
     <string name="settings_theme_dark">Dark</string>
-    <string name="privacy_title">Your world stays yours.</string>
+    <!-- Updates -->
+    <string name="update_title">Keep Kimi fresh</string>
+    <string name="update_current">You’re on %1$s</string>
+    <string name="update_checking">Looking for something newer…</string>
+    <string name="update_up_to_date">You’re on the latest Kimi. Nothing to do.</string>
+    <string name="update_available">Kimi %1$s is ready for you</string>
+    <string name="update_downloading">Downloading… %1$d%%</string>
+    <string name="update_ready">Kimi %1$s is downloaded and ready to install.</string>
+    <string name="update_needs_permission">Android will ask you to let Kimi install apps first.</string>
+    <string name="update_source">Updates come from Kimi’s GitHub releases. Kimi only checks when you press the button.</string>
+    <string name="action_check_updates">Check for updates</string>
+    <string name="action_update_download">Download (%1$s MB)</string>
+    <string name="action_update_install">Install this update</string>
+    <string name="err_update_unavailable">Kimi couldn’t reach GitHub. Check your connection and try again.</string>
+    <string name="err_update_rate_limited">GitHub is asking Kimi to wait. Try again in a little while.</string>
+    <string name="err_update_unreadable">GitHub sent something Kimi didn’t understand.</string>
+    <string name="err_update_no_file">That release has no Android file to install.</string>
+    <string name="err_update_download">The download didn’t finish. Try again.</string>
+    <string name="err_update_signature">That file was signed with a different key, so Android can’t install it over this Kimi. Install it from GitHub by hand.</string>
     <string name="about_title">About</string>
     <string name="about_body">Made for small steps and fresh starts.</string>
     <string name="about_version_label">Version</string>
@@ -268,7 +286,6 @@
     <string name="cd_email_verified">Verified</string>
     <string name="account_email_verified">Email verified</string>
     <string name="account_email_unverified">Email not verified yet</string>
-    <string name="account_privacy_body">Firebase securely manages your account, and your synced space is readable only by you. Guest data stays on this device and is never uploaded. Account and guest spaces remain separate. Export a backup if you want a copy you keep yourself.</string>
 
     <!-- Form fields -->
     <string name="field_password">Password</string>
@@ -295,7 +312,7 @@
     <string name="action_restore_backup">Restore backup</string>
     <string name="action_keep_current_space">Keep current space</string>
     <string name="action_lets_grow">Start tracking my habits</string>
-    <string name="action_account_link">Your Kimi account · Sign in or manage</string>
+    <string name="action_account_link">Your Kimi account</string>
     <string name="action_restore_link">Already have a Kimi backup?</string>
     <string name="action_open_notification_settings">Open notification settings</string>
     <string name="action_notification_settings">Notification settings</string>

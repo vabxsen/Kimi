@@ -241,11 +241,6 @@ import android.app.Application
                     OutlinedButton(enabled = !vm.busy, onClick = { signOut = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp)) { Text(stringResource(R.string.action_sign_out)) }
                     TextButton(enabled = !vm.busy, onClick = { password = ""; delete = true }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.action_delete_account), color = Danger) }
                 }
-                PlayCard(Mint) {
-                    Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Rounded.Lock, null); Spacer(Modifier.width(10.dp)); Text(stringResource(R.string.privacy_title), style = MaterialTheme.typography.titleMedium) }
-                    Spacer(Modifier.height(10.dp))
-                    Text(stringResource(R.string.account_privacy_body), style = MaterialTheme.typography.bodyMedium)
-                }
             }
         }
     }

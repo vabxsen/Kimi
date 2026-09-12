@@ -95,9 +95,23 @@ custom keys, logs or user identifiers to reports, so nothing you have written ca
 
 Crash reporting is active in released builds only. Development builds never send anything.
 
+### Update checks (only when you ask)
+
+Kimi is distributed through GitHub Releases rather than an app store, so **Check for updates** in
+Settings asks GitHub for the latest release and can download it for you.
+
+This happens **only when you press that button**. Kimi never checks for updates on its own, not at
+startup and not in the background. When you do press it, GitHub receives the request as any website
+would: your IP address and the standard request headers. No habit, journal or account information
+is attached, and Kimi sends nothing that identifies you.
+
+Installing a downloaded update is handed to Android's own installer, which asks for your
+confirmation. Kimi never installs anything silently.
+
 ### Nothing else
 
-Beyond sign-in, syncing your own space, app integrity and crash reporting, Kimi contains **no
+Beyond sign-in, syncing your own space, app integrity, crash reporting and update checks you
+ask for, Kimi contains **no
 analytics, no advertising, no tracking of any kind and no other third-party SDKs.** Your habit and
 journal content is never sold, shared with anyone else, or used for advertising or model training.
 
@@ -108,6 +122,7 @@ journal content is never sold, shared with anyone else, or used for advertising 
 | `INTERNET` | To sign in, to sync your space while signed in, and to send crash reports |
 | `POST_NOTIFICATIONS` | To show habit reminders. These are generated on your device; nothing is sent anywhere |
 | `RECEIVE_BOOT_COMPLETED` | To restore your reminder schedule after a restart |
+| `REQUEST_INSTALL_PACKAGES` | To hand an update you downloaded to Android's installer. Android still asks you to confirm, and to allow Kimi as a source the first time |
 
 Kimi requests no access to contacts, location, camera, microphone, storage or any other sensitive
 permission.

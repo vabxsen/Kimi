@@ -154,7 +154,11 @@ private val RoundedFont = FontFamily(
         inverseSurface = palette.ink, inverseOnSurface = palette.surface,
         error = palette.danger
     )
-    CompositionLocalProvider(LocalKimiPalette provides palette) {
+    // Material only establishes a content colour inside a Surface. Kimi draws its first-run
+    // screen and its dialogs outside the Scaffold's Surface, so they inherited Material's
+    // default black and vanished against the dark palette. Anchoring it to the theme fixes
+    // every such surface at once, including any added later.
+    CompositionLocalProvider(LocalKimiPalette provides palette, LocalContentColor provides palette.ink) {
         MaterialTheme(
             colorScheme = colors,
             typography = base.copy(

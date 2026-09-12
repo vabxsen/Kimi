@@ -52,6 +52,29 @@ In Settings, scroll to **A friendly little nudge**, select a habit, enable **A g
 
 Reminders use Android's inexact alarm API and can be delayed by battery management. Kimi does not request special exact-alarm access. Force-stopping an Android app stops its alarms until you open it again. See [Android alarm behavior](https://developer.android.com/develop/background-work/services/alarms).
 
+## Updates
+
+Kimi ships from GitHub Releases, not a store, so **Settings → Keep Kimi fresh → Check for updates**
+asks `api.github.com` for the latest release of `vabxsen/Kimi`, compares its tag with the running
+`versionName`, and offers the release's `.apk` asset. The check is manual by design: nothing
+contacts GitHub unless the button is pressed, which is also why it is safe to describe in
+[docs/PRIVACY.md](docs/PRIVACY.md).
+
+The asset is matched by its `.apk` suffix rather than an exact file name, so renaming the file in a
+future release does not break updating for people already on an older build. Version comparison is
+numeric, so `v1.10.0` correctly beats `v1.9.0`; an unparseable tag is never treated as an upgrade.
+
+Downloads stream to the internal cache under a `.part` name and are only renamed once the whole
+asset has arrived, so a truncated file can never reach the installer. Before offering to install,
+Kimi compares the downloaded APK's signing certificate with the installed app's and refuses a
+mismatch with an explanation — **this matters because the published v1.0.0 asset was signed with a
+debug key**, so that build cannot be updated in place and must be reinstalled by hand.
+
+Installing uses `REQUEST_INSTALL_PACKAGES` and Android's package installer, which asks for
+confirmation and, the first time, for permission to treat Kimi as an install source. **Google Play
+restricts `REQUEST_INSTALL_PACKAGES` to app stores and file managers**, so shipping Kimi on Play
+would mean removing this feature or the permission.
+
 ## Data and backups
 
 The user-facing policy is in [docs/PRIVACY.md](docs/PRIVACY.md); it needs a contact address filled in and a public URL before a Play listing.
