@@ -143,10 +143,13 @@ class AccountViewModel(application: Application) : AndroidViewModel(application)
         }
     }
     fun resetPassword(email: String) = action {
-        demand(android.util.Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches(), R.string.err_invalid_email)
-        try { auth.sendPasswordResetEmail(email.trim()).await() }
+        val address = email.trim()
+        demand(android.util.Patterns.EMAIL_ADDRESS.matcher(address).matches(), R.string.err_invalid_email)
+        try { auth.sendPasswordResetEmail(address).await() }
         catch (_: FirebaseAuthInvalidUserException) { /* Same response for unknown accounts. */ }
-        text(R.string.msg_reset_sent)
+        // Only your own signed-in address gets the direct wording; for any other, it would reveal which emails have accounts.
+        if (address.equals(auth.currentUser?.email, ignoreCase = true)) text(R.string.msg_reset_sent_to_you, address)
+        else text(R.string.msg_reset_sent)
     }
     fun addPassword(context: Context, password: String) = action(refreshAccount = false) {
         val user = auth.currentUser ?: throw KimiMessage(R.string.err_sign_in_first)

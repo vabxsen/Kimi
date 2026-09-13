@@ -368,6 +368,7 @@
     <string name="msg_account_created">Your account is ready. You can verify your email below.</string>
     <string name="msg_account_created_no_name">Your account is ready. Your name could not be updated; try again below.</string>
     <string name="msg_reset_sent">If this email has a password account, a reset link is on its way. Check your inbox and spam folder.</string>
+    <string name="msg_reset_sent_to_you">A reset link is on its way to %1$s. Check your inbox and spam folder.</string>
     <string name="msg_password_added">Password sign-in is ready. You can now use Google or your email and password.</string>
     <string name="msg_verification_sent">Verification email sent. Open the link, then tap Refresh account.</string>
     <string name="msg_email_verified">Your email is verified.</string>

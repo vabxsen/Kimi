@@ -2,6 +2,8 @@ package com.forma.habits
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -138,6 +140,12 @@ import android.app.Application
     var delete by remember { mutableStateOf(false) }
     var signOut by remember { mutableStateOf(false) }
     var addPassword by remember { mutableStateOf(false) }
+    // Results land in a card near the top, often scrolled out of sight of the button that produced
+    // them, which made Forgot password? and Reset my password look like they did nothing.
+    val messageRequester = remember { BringIntoViewRequester() }
+    LaunchedEffect(vm.message) {
+        if (vm.message != null) { withFrameNanos { }; messageRequester.bringIntoView() }
+    }
     LaunchedEffect(user?.uid, user?.passwordProvider, create) {
         password = ""
         confirmPassword = ""
@@ -171,7 +179,7 @@ import android.app.Application
                     Text(stringResource(R.string.account_no_sync_body), style = MaterialTheme.typography.bodyMedium)
                 }
                 vm.message?.let { message ->
-                    PlayCard(if (vm.error) Peach else Mint) { Text(message, style = MaterialTheme.typography.bodyMedium) }
+                    PlayCard(if (vm.error) Peach else Mint, Modifier.bringIntoViewRequester(messageRequester)) { Text(message, style = MaterialTheme.typography.bodyMedium) }
                 }
                 if (user == null) {
                     PlayCard(Paper) {
