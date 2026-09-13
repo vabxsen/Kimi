@@ -58,6 +58,8 @@
     <string name="percent_value">%1$d%%</string>
     <!-- Shown instead of a percentage on a day with nothing scheduled. -->
     <string name="rest_marker">–</string>
+    <!-- Shown under a past or future day's habits on Today and Calendar, where rows can't be tapped. -->
+    <string name="checkins_today_only">Only today’s habits can be checked off or undone.</string>
 
     <!-- Counted phrases. English needs only one/other; other languages need more forms. -->
     <plurals name="streak_days">

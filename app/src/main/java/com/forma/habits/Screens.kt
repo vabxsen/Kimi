@@ -170,6 +170,10 @@ private const val StripFutureDays = 7L
         }
         item {
             SectionTitle(if (date == today) stringResource(R.string.today_section) else date.format(ShortDate), stringResource(R.string.action_new_habit), onNew)
+            if (date != today && state.due(date).isNotEmpty()) {
+                Text(stringResource(R.string.checkins_today_only), color = Quiet, fontSize = 11.sp)
+                Spacer(Modifier.height(10.dp))
+            }
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                 (listOf("All") + Dayparts).forEach { item ->
                     val label = if (item == "All") stringResource(R.string.filter_all) else daypartLabel(item)
@@ -198,7 +202,7 @@ private const val StripFutureDays = 7L
     val background by animateColorAsState(TileColors[habit.color.coerceIn(0, 5)], label = "habit color")
     val toggleLabel = stringResource(if (checked) R.string.cd_undo_habit else R.string.cd_complete_habit, habit.name)
     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(background)
-        .toggleable(value = checked, enabled = !date.isAfter(today), role = Role.Checkbox, onValueChange = {
+        .toggleable(value = checked, enabled = date == today, role = Role.Checkbox, onValueChange = {
             haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove); onToggle()
         }).semantics { contentDescription = toggleLabel }.padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
         BubbleIcon(HabitSymbols[habit.icon.coerceIn(HabitSymbols.indices)], Overlay, size = 44)
@@ -331,7 +335,10 @@ private const val StripFutureDays = 7L
                 }
             }
         }
-        item { SectionTitle(date.format(ShortDate), stringResource(R.string.action_today)) { monthString = YearMonth.from(today).toString(); dateString = today.toString() } }
+        item {
+            SectionTitle(date.format(ShortDate), stringResource(R.string.action_today)) { monthString = YearMonth.from(today).toString(); dateString = today.toString() }
+            if (date != today && state.due(date).isNotEmpty()) Text(stringResource(R.string.checkins_today_only), color = Quiet, fontSize = 11.sp)
+        }
         items(state.due(date), key = { it.id }) { HabitRow(it, state, date) { onToggle(it, date) } }
         if (state.due(date).isEmpty()) item { EmptySpace(stringResource(R.string.calendar_empty_title), stringResource(R.string.calendar_empty_body)) }
     }

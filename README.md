@@ -10,12 +10,14 @@ A colorful native habit tracker, built in Kotlin and Jetpack Compose. The approv
 
 On first launch, enter your name and choose five suggested rituals or an empty collection. Suggestions start with zero check-ins; progress is earned from the day you start.
 
-- **Today:** check and undo habits, choose a day in the current week, filter by time of day, see daily completion and current streaks.
+- **Today:** check and undo today's habits, look back at recent days, filter by time of day, see daily completion and current streaks.
 - **Habits:** search, create, edit, and delete habits. Choose a name, goal, icon, color, daypart, daily/weekday schedule, and daily goals. Reminders are managed in Settings.
-- **Calendar:** browse months and check or undo past scheduled days. Future check-ins are disabled.
+- **Calendar:** browse months and review any day's check-ins.
 - **Insights:** seven-day completion chart, weekly wins, current streaks, and consistency over the last 30 days. Days before creation and unscheduled days are excluded.
 - **Journal:** five moods, one saved reflection per date, editing and deletion. Drafts persist across navigation and process restarts. Unfinished older drafts can be reopened.
 - **Settings:** change your local display name, choose light/dark/automatic appearance, manage your Firebase account, export a JSON file, preview and restore a validated backup, manage notification access, or reset the current local space.
+
+Check-ins can only be added or undone on the day itself. Past and future days are read-only everywhere, including a reminder's **Mark complete** action tapped after midnight.
 
 The avatar opens Settings. The five bottom tabs retain their scrolling state. Android Back closes dialogs/sheets and returns other pages to Today.
 

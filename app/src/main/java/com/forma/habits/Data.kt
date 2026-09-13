@@ -65,9 +65,10 @@ fun Habit.editedFrom(previous: Habit, today: LocalDate): Habit {
     return copy(created = previous.created, schedule = history)
 }
 
-fun HabitState.checked(id: String, date: LocalDate, completed: Boolean): HabitState {
+/** Check-ins only change on the day itself; earlier and later days are read-only. */
+fun HabitState.checked(id: String, date: LocalDate, completed: Boolean, today: LocalDate = LocalDate.now()): HabitState {
     val habit = habits.find { it.id == id } ?: return this
-    if (date.isAfter(LocalDate.now()) || !habit.isDue(date)) return this
+    if (date != today || !habit.isDue(date)) return this
     val ids = checks[date.toString()].orEmpty()
     val next = if (completed) ids + id else ids - id
     return copy(checks = if (next.isEmpty()) checks - date.toString() else checks + (date.toString() to next))

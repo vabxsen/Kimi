@@ -97,14 +97,18 @@ class BackupAndReminderTest {
         assertTrue(reminder.isAfter(now))
         assertEquals(3, reminder.hour)
     }
-    @Test fun notificationCompletionIsIdempotentAndRejectsFutureDays() {
-        val date = LocalDate.now()
-        val h = habit.copy(created = date)
-        val state = HabitState(listOf(h))
-        val checked = state.checked(h.id, date, true)
-        assertEquals(checked, checked.checked(h.id, date, true))
-        assertEquals(state, state.checked(h.id, date.plusDays(1), true))
-        assertEquals(state, state.checked("missing", date, true))
-        assertEquals(state, checked.checked(h.id, date, false))
+    @Test fun checkInsAreIdempotentAndOnlyChangeToday() {
+        val today = monday.plusDays(2)
+        val state = HabitState(listOf(habit))
+        val checked = state.checked(habit.id, today, true, today)
+        assertEquals(checked, checked.checked(habit.id, today, true, today))
+        assertEquals(state, state.checked(habit.id, today.plusDays(1), true, today))
+        assertEquals(state, state.checked(habit.id, today.minusDays(1), true, today))
+        assertEquals(state, state.checked("missing", today, true, today))
+        assertEquals(state, checked.checked(habit.id, today, false, today))
+        // An earlier check-in can be neither undone nor added once its day has passed.
+        val yesterday = today.minusDays(1)
+        val history = HabitState(listOf(habit), mapOf(yesterday.toString() to setOf(habit.id)))
+        assertEquals(history, history.checked(habit.id, yesterday, false, today))
     }
 }

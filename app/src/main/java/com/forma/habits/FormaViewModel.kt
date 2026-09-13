@@ -133,7 +133,7 @@ class FormaViewModel(application: Application) : AndroidViewModel(application) {
         syncNow()
     }
     fun toggle(habit: Habit, date: LocalDate) {
-        if (date.isAfter(LocalDate.now()) || !habit.isDue(date)) return
+        if (date != LocalDate.now() || !habit.isDue(date)) return
         val wasDone = state.done(habit.id, date)
         change(text(if (wasDone) R.string.msg_unchecked else R.string.msg_checked)) {
             it.checked(habit.id, date, !it.done(habit.id, date))
