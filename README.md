@@ -6,14 +6,6 @@ A colorful native habit tracker, built in Kotlin and Jetpack Compose. The approv
 
 ![The six Kimi screens](docs/screenshots/overview.png)
 
-| Today | Habits | Calendar |
-| --- | --- | --- |
-| ![Today](docs/screenshots/today.png) | ![Habits](docs/screenshots/habits.png) | ![Calendar](docs/screenshots/calendar.png) |
-
-| Insights | Journal | Settings |
-| --- | --- | --- |
-| ![Insights](docs/screenshots/insights.png) | ![Journal](docs/screenshots/journal.png) | ![Settings](docs/screenshots/settings.png) |
-
 ## Using Kimi
 
 On first launch, enter your name and choose five suggested rituals or an empty collection. Suggestions start with zero check-ins; progress is earned from the day you start.
