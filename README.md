@@ -196,12 +196,15 @@ App integrity, not just your upload key, since Play re-signs the app.
 gradlew.bat assembleRelease
 ```
 
-R8 is enabled for release, which takes the APK from about 15.9 MB to 3.7 MB. Keep rules live in
-`app/proguard-rules.pro` and are deliberately tiny: `BackupCodec` names every JSON field explicitly
-and uses no reflection, so the model classes are safe to obfuscate. The one thing that does need
-keeping is `ThemeMode`, whose constant names are persisted and read back with `valueOf`.
+R8 is enabled for release. Switching it on took the APK from about 15.9 MB to 3.7 MB, and v1.0.7's
+minified APK is about 4.3 MB. Keep rules live in `app/proguard-rules.pro` and are deliberately
+tiny: `BackupCodec` names every JSON field explicitly and uses no reflection, so the model classes
+are safe to obfuscate. The one thing that does need keeping is `ThemeMode`, whose constant names
+are persisted and read back with `valueOf`.
 
-**`versionCode` is still 1.** Bump it for every upload; Play rejects a repeat.
+**Bump `versionCode` and `versionName` together for every release**, in `app/build.gradle.kts`.
+Android will not install a lower `versionCode` over a higher one, Play rejects a repeated code, and
+Kimi's update check compares the release tag with `versionName`.
 
 ## Source map
 
