@@ -36,7 +36,6 @@ class KimiFlowTest {
         compose.onNodeWithText("Let’s make it a habit").performScrollTo().performClick()
         waitFor { store.state.value.habits.size == 1 }
         compose.waitForIdle()
-        waitFor { compose.onAllNodesWithText("Your habit is saved. Make it work for you.").fetchSemanticsNodes().isEmpty() }
         compose.onNodeWithContentDescription("Complete Practice guitar").performScrollTo().performClick()
         waitFor { store.state.value.count(LocalDate.now()) == 1 }
         assertTrue(store.state.value.done(store.state.value.habits.single().id, LocalDate.now()))

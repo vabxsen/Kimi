@@ -110,13 +110,14 @@ class FormaViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun tell(message: String) { messages.trySend(message) }
-    private fun change(message: String, replaceDamaged: Boolean = false, eraseHistory: Boolean = false, onSaved: () -> Unit = {}, transform: (HabitState) -> HabitState) {
+    /** A null [message] saves quietly; failures are still reported. */
+    private fun change(message: String?, replaceDamaged: Boolean = false, eraseHistory: Boolean = false, onSaved: () -> Unit = {}, transform: (HabitState) -> HabitState) {
         beginTask()
         viewModelScope.launch {
             try {
                 state = store.update(replaceDamaged, eraseHistory, transform = transform)
                 onSaved()
-                tell(message)
+                message?.let(::tell)
                 withContext(Dispatchers.IO) { Reminders.reschedule(getApplication(), state, owner = store.owner) }
                 syncNow()
             } catch (e: CancellationException) {
@@ -134,13 +135,12 @@ class FormaViewModel(application: Application) : AndroidViewModel(application) {
     }
     fun toggle(habit: Habit, date: LocalDate) {
         if (date != LocalDate.now() || !habit.isDue(date)) return
-        val wasDone = state.done(habit.id, date)
-        change(text(if (wasDone) R.string.msg_unchecked else R.string.msg_checked)) {
-            it.checked(habit.id, date, !it.done(habit.id, date))
-        }
+        // The row's own tick is the confirmation, so a tap needs no snackbar.
+        change(null) { it.checked(habit.id, date, !it.done(habit.id, date)) }
     }
     fun saveHabit(habit: Habit, onSaved: () -> Unit) {
-        change(text(R.string.msg_habit_saved), onSaved = onSaved) { current ->
+        // The editor closing is the confirmation.
+        change(null, onSaved = onSaved) { current ->
             val old = current.habits.find { it.id == habit.id }
             demand(old != null || current.habits.size < 500, R.string.err_collection_full)
             val saved = if (old == null) habit.copy(created = LocalDate.now()) else habit.editedFrom(old, LocalDate.now())
