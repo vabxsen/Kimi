@@ -1,5 +1,46 @@
 # Kimi verification
 
+## v1.0.7 — 2026-09-13
+
+A sync retry loop and the Settings name field. Releases v1.0.2 to v1.0.6 were not logged here; their
+GitHub release notes describe what changed.
+
+**Result: CI (`assembleDebug testDebugUnitTest lintDebug`) passed, and a signed `assembleRelease` was
+built and checked. Nothing in this pass was run on an emulator or a device.**
+
+### What changed
+
+- **Sync retry loop.** A device that had not yet pulled another device's edit could still move its
+  own revision past the cloud's - saving a habit without changing it was enough. Reconciling then
+  handed back the cloud copy at its older revision, `HabitStore.replaceIfUnchanged` refused it, and
+  `FormaViewModel` retried the same reconcile back to back for as long as the device stayed online.
+  `SpaceSync.reconcile` now writes the merged space whenever the device's revision is ahead
+  (`mustUploadMerge` in `Sync.kt`), and a save whose bytes match what is stored no longer advances
+  the revision.
+- **Name field.** The pencil puts the caret after the last letter (the draft is now a
+  `TextFieldValue`), the tick always closes the field and saves only a real change, and the tick is a
+  stroked vector about one and a half times the weight of Material's check.
+
+### Verified
+
+| Check | Result |
+| --- | --- |
+| GitHub Actions on `bdf8037` | `assembleDebug testDebugUnitTest lintDebug` passed, including the new `SyncMergeTest` stale-device case |
+| `gradlew.bat assembleRelease` on this machine (Temurin JDK 17.0.20.1, Gradle 8.14.5, platform 36, build-tools 35.0.0) | Succeeded, including R8 and `lintVitalRelease` |
+| `aapt2 dump badging` | `com.forma.habits`, versionCode 8, versionName 1.0.7, targetSdk 36 |
+| `apksigner verify --print-certs` | Verified with APK Signature Scheme v2; one signer, `CN=Kimi`, certificate SHA-1 `F7:11:9B:38:D8:13:B5:CC:8D:48:5A:02:47:AD:0F:EB:BF:3B:97:4E` - the release certificate registered in `google-services.json` |
+| Published asset | `Kimi-v1.0.7.apk`, 4,522,963 bytes, SHA-256 `832216aa7d8449b478f4ba486dfd2605d8fb9ab1679af1338932fe75a84cda24`, matching the digest GitHub reports |
+
+### Not verified
+
+- The name field on an emulator or device: the caret position, the tick closing the field, and the
+  tick's weight.
+- The new `AccountFlowTest` assertion that a stale device never gets back an older revision. It needs
+  an emulator and the Firebase emulators, and was not run.
+- Two real devices syncing with the fix in place, and installing v1.0.7 over v1.0.6.
+
+---
+
 ## Maintenance pass — 2026-09-10
 
 Dark theme, string externalization, Firebase App Check, derived-stat caching, rest-day copy, CI and README screenshots.
@@ -123,7 +164,8 @@ mascot. The old orphaned `drawable/ic_launcher.xml` was deleted.
 `docs/PRIVACY.md` was written to match the app's verified behaviour — local-only habit and journal
 storage, Firebase Authentication as the only network dependency, App Check/Play Integrity, the three
 declared permissions, and what account deletion can and cannot reach. **It still needs a contact
-address and a public URL before a Play listing.**
+address and a public URL before a Play listing.** It has since been updated for Crashlytics, sync and
+the update check.
 
 Verified: `assembleDebug testDebugUnitTest lintDebug assembleRelease` all pass, 20 unit tests, lint
 0 errors with only the pre-existing dependency-update and Compose advisories remaining.
@@ -158,6 +200,8 @@ collecting in release. The privacy policy and README were updated, since both pr
 Kimi contained no crash reporting.
 
 ### Sign-in honesty — 2026-09-10
+
+*Superseded the same day by Sync, below.*
 
 Kimi has a full authentication stack but no sync: an account is a separate local space, so the same
 account on a new phone starts empty. The Settings entry point said **"A little more connected."**,
@@ -223,7 +267,7 @@ they never reach production data.
 
 ### Not verified
 
-- Release signing, Play App Signing registration, and App Check enforcement — all require console access and a release keystore.
+- Play App Signing registration and App Check enforcement. Kimi ships from GitHub Releases rather than Play, and enforcement was deliberately left off. Release signing itself was set up later the same day; see the v1.0.1 notes at the end of this file.
 - Real Google sign-in consent and real verification/reset email delivery.
 - No physical device test was performed.
 

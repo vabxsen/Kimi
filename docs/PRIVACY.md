@@ -1,6 +1,6 @@
 # Kimi privacy policy
 
-**Last updated: 10 September 2026**
+**Last updated: 12 September 2026**
 
 Kimi is a habit tracker and journal for Android. This policy describes exactly what the app does
 with your information. It is written to match the app's actual behaviour, which you can verify in
