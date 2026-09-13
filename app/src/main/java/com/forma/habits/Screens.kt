@@ -33,8 +33,13 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -51,8 +56,10 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -526,6 +533,20 @@ private val WaterCrest = Color(0xFFCDEBFF)
 private val WaterShade = Color(0xFF3E6488)
 
 /**
+ * Material's check comes in one fixed, fairly light weight. This one is a stroke, so the tick that
+ * saves a name can be a little bolder. Its colour is only a placeholder: [Icon] tints it.
+ */
+private val BoldCheck = ImageVector.Builder(
+    name = "BoldCheck", defaultWidth = 24.dp, defaultHeight = 24.dp, viewportWidth = 24f, viewportHeight = 24f
+).apply {
+    path(stroke = SolidColor(Color.Black), strokeLineWidth = 3f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
+        moveTo(5f, 12.5f)
+        lineTo(9.5f, 17f)
+        lineTo(19f, 7.5f)
+    }
+}.build()
+
+/**
  * The name is displayed, not offered for editing, until the pencil is pressed - tapping the text
  * itself used to raise the keyboard on a field nobody meant to change.
  *
@@ -535,18 +556,24 @@ private val WaterShade = Color(0xFF3E6488)
  */
 @Composable fun NameCard(saved: String, editing: Boolean, onEditing: (Boolean) -> Unit, onRename: (String) -> Unit) {
     // The draft stays saveable: LazyColumn keeps an item’s saveable state across disposal, so a
-    // half-typed name survives scrolling even though the item itself does not.
-    var name by rememberSaveable(saved) { mutableStateOf(saved) }
+    // half-typed name survives scrolling even though the item itself does not. It is a
+    // TextFieldValue rather than a String so the caret position is Kimi's to set, and survives too.
+    var name by rememberSaveable(saved, stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue(saved)) }
     val focus = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     val scope = rememberCoroutineScope()
     val drop = remember { Animatable(0f) }
-    val ready = name.isNotBlank() && name.trim() != saved
     // Palette tokens are @Composable getters, so the ripple colour is read here rather than
     // inside the draw lambda, which runs outside composition.
     val ink = Accent
     LaunchedEffect(editing) { if (editing) focus.requestFocus() else keyboard?.hide() }
-    fun commit() { if (name.isNotBlank()) { onRename(name); onEditing(false) } }
+    // The tick always closes the field. Only a real change is saved: a blank or untouched name goes
+    // back to the saved one, instead of leaving a dead button or announcing a rename to the same name.
+    fun commit() {
+        val typed = name.text.trim()
+        if (typed.isNotEmpty() && typed != saved) onRename(typed) else { name = TextFieldValue(saved) }
+        onEditing(false)
+    }
     PlayCard(Paper) {
         Text(stringResource(R.string.settings_name_question), style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(12.dp))
@@ -578,7 +605,7 @@ private val WaterShade = Color(0xFF3E6488)
                     )
                 }
             }
-            OutlinedTextField(name, { name = it.take(30) }, label = { Text(stringResource(R.string.settings_name_label)) },
+            OutlinedTextField(name, { name = it.copy(text = it.text.take(30)) }, label = { Text(stringResource(R.string.settings_name_label)) },
                 modifier = Modifier.fillMaxWidth().focusRequester(focus).focusProperties { canFocus = editing },
                 singleLine = true, readOnly = !editing, shape = RoundedCornerShape(15.dp),
                 colors = OutlinedTextFieldDefaults.colors(
@@ -590,14 +617,19 @@ private val WaterShade = Color(0xFF3E6488)
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                 keyboardActions = KeyboardActions(onDone = { commit() }),
                 trailingIcon = {
-                    IconButton(enabled = !editing || ready, onClick = {
+                    IconButton(onClick = {
                         scope.launch { drop.snapTo(0f); drop.animateTo(1f,
                             tween(WaterRippleDurationMillis, easing = LinearEasing)) }
-                        if (editing) commit() else onEditing(true)
+                        if (editing) commit() else {
+                            // A field focused from code keeps its selection, which starts at 0, so the
+                            // caret would sit before the first letter. Editing a name starts at its end.
+                            name = name.copy(selection = TextRange(name.text.length))
+                            onEditing(true)
+                        }
                     }) {
-                        Icon(if (editing) Icons.Rounded.Check else Icons.Rounded.Edit,
+                        Icon(if (editing) BoldCheck else Icons.Rounded.Edit,
                             stringResource(if (editing) R.string.cd_save_name else R.string.cd_edit_name),
-                            tint = if (!editing || ready) Accent else Quiet)
+                            tint = Accent)
                     }
                 })
         }
