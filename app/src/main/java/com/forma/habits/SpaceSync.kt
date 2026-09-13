@@ -66,8 +66,7 @@ object SpaceSync {
                 val snapshot = transaction.get(ref)
                 val remote = decodedRemote(snapshot.getString("state"), snapshot.getLong("updatedAt"))
                 val merged = remote?.let { mergeSpaces(state, updatedAt, it.state, it.updatedAt) } ?: state
-                val shouldWrite = remote == null || merged != remote.state || (merged == state && updatedAt > remote.updatedAt)
-                if (!shouldWrite) remote else {
+                if (remote != null && !mustUploadMerge(merged, updatedAt, remote.state, remote.updatedAt)) remote else {
                     val revision = nextRevision(updatedAt, remote?.updatedAt ?: 0L)
                     val json = BackupCodec.encode(merged)
                     demand(json.toByteArray(Charsets.UTF_8).size <= MAX_BYTES, R.string.err_sync_too_large)

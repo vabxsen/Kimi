@@ -44,7 +44,12 @@ class HabitStore private constructor(context: Context, val owner: String) {
             val previousRevision = updatedAt
             val current = mutableState.value.withBaselineRevisions(previousRevision)
             val revision = monotonicStamp(stamp, previousRevision)
-            persist(transform(current).recordChangesFrom(current, revision), revision, eraseHistory)
+            val next = transform(current).recordChangesFrom(current, revision)
+            val json = BackupCodec.encode(next)
+            // A save that changes nothing keeps its revision: moving it forward anyway would make this
+            // device look newer than a cloud copy it has not pulled yet.
+            if (!eraseHistory && json == prefs.getString("state", null)) return@withLock mutableState.value
+            persist(next, revision, eraseHistory, json)
         }
     }
 
@@ -62,8 +67,7 @@ class HabitStore private constructor(context: Context, val owner: String) {
         return maxOf(1L, requested, afterCurrent)
     }
 
-    private fun persist(next: HabitState, stamp: Long, eraseHistory: Boolean): HabitState {
-        val json = BackupCodec.encode(next)
+    private fun persist(next: HabitState, stamp: Long, eraseHistory: Boolean, json: String = BackupCodec.encode(next)): HabitState {
         demand(json.toByteArray(Charsets.UTF_8).size <= BackupCodec.MAX_BYTES, R.string.err_space_full)
         val previous = prefs.getString("state", null)
         val editor = prefs.edit().putString("state", json).putLong("updated_at", stamp)

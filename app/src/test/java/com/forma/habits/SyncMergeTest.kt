@@ -127,4 +127,20 @@ class SyncMergeTest {
         )
         assertEquals(state, mergeSpaces(state, 100, state, 200))
     }
+
+    @Test fun aDeviceAheadOfTheCloudWritesBackEvenWhenTheCloudHasEverything() {
+        // The phone synced, then the tablet added a habit. Before pulling it, the phone's revision
+        // moved past the cloud's without the phone adding anything the cloud lacks.
+        val synced = HabitState(listOf(reading)).recordChangesFrom(HabitState(), 100)
+        val cloud = synced.copy(habits = listOf(reading, walking)).recordChangesFrom(synced, 200)
+        val merged = mergeSpaces(synced, localAt = 300, remote = cloud, remoteAt = 200)
+        assertEquals(cloud, merged)
+        // The phone would refuse the cloud's older revision. Handing it back unwritten is what made
+        // sync retry the same reconcile forever.
+        assertTrue(mustUploadMerge(merged, localAt = 300, remote = cloud, remoteAt = 200))
+
+        // A device that is simply behind adopts the cloud's copy without writing.
+        val behind = mergeSpaces(synced, localAt = 100, remote = cloud, remoteAt = 200)
+        assertFalse(mustUploadMerge(behind, localAt = 100, remote = cloud, remoteAt = 200))
+    }
 }

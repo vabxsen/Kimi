@@ -169,3 +169,13 @@ fun mergeSpaces(local: HabitState, localAt: Long, remote: HabitState, remoteAt: 
         )
     )
 }
+
+/**
+ * Whether a reconcile has to write [merged] to the cloud instead of adopting the cloud's copy as is.
+ *
+ * It has to whenever this device's revision is ahead of the cloud's, even when the cloud already holds
+ * exactly the merged space: [HabitStore.replaceIfUnchanged] never moves a store back to an older
+ * revision, so it would refuse the cloud's copy and the same reconcile would be retried forever.
+ */
+internal fun mustUploadMerge(merged: HabitState, localAt: Long, remote: HabitState, remoteAt: Long): Boolean =
+    merged != remote || localAt > remoteAt

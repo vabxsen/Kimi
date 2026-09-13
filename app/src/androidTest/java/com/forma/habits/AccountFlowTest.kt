@@ -251,6 +251,9 @@ class AccountFlowTest {
         val staleDevice = SpaceSync.reconcile(uid, phone, afterDelete.updatedAt + 1)
         assertNull(staleDevice.state.habits.find { it.id == walking.id })
         assertEquals(afterDelete.state.sync.habitDeletions[walking.id], staleDevice.state.sync.habitDeletions[walking.id])
+        // The stale device was ahead of the cloud, so what comes back must not be older than its own
+        // revision: its store would refuse that, and sync would retry the same reconcile forever.
+        assertTrue(staleDevice.updatedAt >= afterDelete.updatedAt + 1)
 
         val emptied = staleDevice.state.copy(habits = emptyList(), checks = emptyMap(), journal = emptyList())
             .recordChangesFrom(staleDevice.state, staleDevice.updatedAt + 1)
