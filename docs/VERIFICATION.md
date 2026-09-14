@@ -1,5 +1,55 @@
 # Kimi verification
 
+## v1.0.8 — 2026-09-14
+
+Check-ins limited to the current day, no snackbar for habit check-ins and saves, and password reset
+results brought into view.
+
+**Result: CI (`assembleDebug testDebugUnitTest lintDebug`) passed, and a signed `assembleRelease` was
+built, checked and published. Nothing in this pass was run on an emulator or a device.**
+
+### What changed
+
+- **Today-only check-ins.** `HabitState.checked` refused only future dates, so the Today strip and the
+  Calendar could add or undo a check-in on any past day. It now refuses every date except today (a
+  `today` parameter keeps it testable), `FormaViewModel.toggle` applies the same rule, and `HabitRow`
+  is toggleable only on today. A past or future day with habits shows `checkins_today_only` under its
+  title. A reminder's Mark complete goes through `checked` as well, so one tapped after midnight no
+  longer lands on the previous day. Synced and restored check-ins never pass through `checked` and
+  are unaffected.
+- **No snackbar for check-ins and saves.** `change()` accepts a null message, and `toggle` and
+  `saveHabit` pass none. Failures still reach the snackbar. `msg_checked`, `msg_unchecked` and
+  `msg_habit_saved` were removed, along with `KimiFlowTest`'s wait for the saved snackbar to clear.
+- **Password reset feedback.** The account screen shows every result in a card above the forms, so
+  after scrolling down to Reset my password or Forgot password? the confirmation or error appeared off
+  screen and the button looked dead. The card now brings itself into view with a
+  `BringIntoViewRequester`. Resetting the signed-in account's own address names that address; any
+  other address keeps the non-committal wording, so the form cannot reveal which emails have accounts.
+
+### Verified
+
+| Check | Result |
+| --- | --- |
+| GitHub Actions on `3b2e399` and `320b20e` | `assembleDebug testDebugUnitTest lintDebug` passed |
+| `gradlew.bat testDebugUnitTest assembleDebug compileDebugAndroidTestKotlin lintDebug` on this machine (Zulu JDK 21.0.12, platform 36) | 41 unit tests passed, including the rewritten `checkInsAreIdempotentAndOnlyChangeToday`; the instrumented tests compile; lint passed |
+| `gradlew.bat assembleRelease` | Succeeded, including R8, `lintVitalRelease` and `uploadCrashlyticsMappingFileRelease` |
+| `aapt2 dump badging` | `com.forma.habits`, versionCode 9, versionName 1.0.8, targetSdk 36 |
+| `apksigner verify --print-certs` | Verified with APK Signature Scheme v2; one signer, `CN=Kimi`, certificate SHA-1 `F7:11:9B:38:D8:13:B5:CC:8D:48:5A:02:47:AD:0F:EB:BF:3B:97:4E` |
+| Published asset | `Kimi-v1.0.8.apk`, 4,522,595 bytes, SHA-256 `3618fc7debec4de3eaa3d90c5d6326122bcd7170563e393807dca8779a4886c7`, matching the digest GitHub reports. Downloaded back from the release and byte-identical to the build; `releases/latest` returns `v1.0.8` |
+| API key restriction, probed against `accounts:signUp` with a malformed email so nothing could be created | Release certificate `F7:11…` and original debug certificate `4A:75…`: `INVALID_EMAIL`, so both pass. This machine's debug certificate `A0:77:AB:80:0B:BA:72:33:5F:11:1E:E6:CB:36:AE:DD:21:F1:F8:AC`, and no Android headers: blocked |
+
+### Not verified
+
+- Any of the three changes on an emulator or device: past-day rows ignoring taps, the hint line, the
+  missing snackbar, and the account screen scrolling to the reset message.
+- `KimiFlowTest` and `AccountFlowTest`. This machine has no emulator, system image or Node.js for the
+  Firebase emulators.
+- A reset email actually arriving, and installing v1.0.8 over v1.0.7.
+- The minute after midnight. The UI's idea of today refreshes once a minute, so yesterday's rows can
+  look tappable briefly while `toggle` already refuses them.
+
+---
+
 ## v1.0.7 — 2026-09-13
 
 A sync retry loop and the Settings name field. Releases v1.0.2 to v1.0.6 were not logged here; their
