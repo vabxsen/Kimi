@@ -1,14 +1,13 @@
-<!--
-  Themed-icon layer for Android 13+. The system flattens this to one wallpaper-derived
-  colour, so it carries the mascot silhouette only - face details would vanish into the
-  fill. Kept in step with the foreground's scale and centring.
--->
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp" android:height="108dp"
-    android:viewportWidth="108" android:viewportHeight="108">
-    <group android:pivotX="54" android:pivotY="54"
-        android:scaleX="0.75" android:scaleY="0.75"
-        android:translateX="-2.25" android:translateY="4.5">
-        <path android:fillColor="#000000" android:pathData="M54,18a16,16 0,0 1,16 16a16,16 0,1 1,16 28a16,16 0,1 1,-32 16a16,16 0,1 1,-26 -22a16,16 0,1 1,10 -22a16,16 0,0 1,16 -16"/>
-    </group>
-</vector>
+<!-- Android 13+ themed icons use the approved flower's complete alpha silhouette. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:width="76dp"
+        android:height="76dp"
+        android:gravity="center">
+        <bitmap
+            android:src="@drawable/kimi_launcher_foreground"
+            android:gravity="fill"
+            android:filter="true"
+            android:tint="#000000" />
+    </item>
+</layer-list>
