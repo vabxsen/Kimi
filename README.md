@@ -31,10 +31,6 @@ streaks have always excluded these days; now the per-day visuals agree with them
 
 Kimi ships a full dark theme. **Settings → How Kimi looks** offers Automatic, Light and Dark; Automatic follows the device.
 
-| Today | Insights | Settings |
-| --- | --- | --- |
-| ![Today in dark mode](docs/screenshots/today-dark.png) | ![Insights in dark mode](docs/screenshots/insights-dark.png) | ![Settings in dark mode](docs/screenshots/settings-dark.png) |
-
 The choice is stored per device, outside the per-account spaces, so it is never included in a backup and never changes when you switch accounts. The launch window, status bar and navigation bar icons all follow the same choice.
 
 All user-facing text lives in `app/src/main/res/values/strings.xml`, so the app can be translated by adding a `values-<locale>` folder. Habit dayparts are stored as stable English keys and only their on-screen labels are translated, so a backup stays readable in any language. Calendar column headings come from the device locale.
