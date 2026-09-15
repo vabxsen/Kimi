@@ -1,238 +1,281 @@
-# Kimi for Android
+# 🌼 Kimi
+
+<div align="center">
+
+**Small steps. A space of your own.**
+
+A joyful, privacy-conscious habit tracker for Android, built entirely with Kotlin and Jetpack Compose.
 
 [![Android CI](https://github.com/vabxsen/Kimi/actions/workflows/android.yml/badge.svg)](https://github.com/vabxsen/Kimi/actions/workflows/android.yml)
+[![Latest release](https://img.shields.io/github/v/release/vabxsen/Kimi?display_name=tag&sort=semver)](https://github.com/vabxsen/Kimi/releases/latest)
+[![Android 8.0+](https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white)](https://developer.android.com/about/versions/oreo)
+[![Kotlin](https://img.shields.io/badge/Kotlin-Jetpack_Compose-7F52FF?logo=kotlin&logoColor=white)](https://developer.android.com/compose)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-A colorful native habit tracker, built in Kotlin and Jetpack Compose. The approved six-screen design supplies the colors, Nunito typography, rounded cards, icons, spacing, and Canvas flower mascot. There is no WebView.
+[Download the latest APK](https://github.com/vabxsen/Kimi/releases/latest) · [Privacy](docs/PRIVACY.md) · [Verification](docs/VERIFICATION.md)
 
-![The six Kimi screens](docs/screenshots/overview.png)
+</div>
 
-## Using Kimi
+![A preview of the Kimi Android app](docs/screenshots/overview.png)
 
-On first launch, enter your name and choose five suggested rituals or an empty collection. Suggestions start with zero check-ins; progress is earned from the day you start.
+## 🌱 About Kimi
 
-- **Today:** check and undo today's habits, look back at recent days, filter by time of day, see daily completion and current streaks.
-- **Habits:** search, create, edit, and delete habits. Choose a name, goal, icon, color, daypart, daily/weekday schedule, and daily goals. Reminders are managed in Settings.
-- **Calendar:** browse months and review any day's check-ins.
-- **Insights:** seven-day completion chart, weekly wins, current streaks, and consistency over the last 30 days. Days before creation and unscheduled days are excluded.
-- **Journal:** five moods, one saved reflection per date, editing and deletion. Drafts persist across navigation and process restarts. Unfinished older drafts can be reopened.
-- **Settings:** change your local display name, choose light/dark/automatic appearance, manage your Firebase account, export a JSON file, preview and restore a validated backup, manage notification access, or reset the current local space.
+Kimi makes habit tracking feel encouraging instead of demanding. Create small rituals, check in each day, reflect in a private journal, and understand your progress without being punished for rest days.
 
-Check-ins can only be added or undone on the day itself. Past and future days are read-only everywhere, including a reminder's **Mark complete** action tapped after midnight.
+The app is fully native—there is no WebView—and its interface includes light and dark themes, friendly visuals, Nunito typography, rounded components, and Kimi's flower mascot.
 
-The avatar opens Settings. The five bottom tabs retain their scrolling state. Android Back closes dialogs/sheets and returns other pages to Today.
+> **Rest days are not failures.** Days with nothing scheduled are excluded from streaks and consistency calculations, and appear as rest days throughout the app.
 
-A day with nothing scheduled is a rest day, not a failure. Kimi never draws one as a zero:
-Today says "Rest day", the seven-day chart shows a dash and a flat marker, the calendar leaves
-the cell unfilled with a muted number (see the **Rest day** legend entry), and a habit's week
-strip leaves days it was never due on blank instead of marking them missed. Consistency and
-streaks have always excluded these days; now the per-day visuals agree with them.
+## ✨ Features
 
-## Appearance
-
-Kimi ships a full dark theme. **Settings → How Kimi looks** offers Automatic, Light and Dark; Automatic follows the device.
-
-The choice is stored per device, outside the per-account spaces, so it is never included in a backup and never changes when you switch accounts. The launch window, status bar and navigation bar icons all follow the same choice.
-
-All user-facing text lives in `app/src/main/res/values/strings.xml`, so the app can be translated by adding a `values-<locale>` folder. Habit dayparts are stored as stable English keys and only their on-screen labels are translated, so a backup stays readable in any language. Calendar column headings come from the device locale.
-
-Habit goals are descriptive targets with one completion check per scheduled day. Schedule edits apply from the day of the edit; earlier schedules and statistics are retained. Deleting a habit also deletes its check-ins. Reset removes habits, history, reflections, drafts, and internal recovery copies.
-
-## Reminders
-
-In Settings, scroll to **A friendly little nudge**, select a habit, enable **A gentle nudge**, allow Android notifications, and choose a local time. Kimi reminds you only on scheduled days that remain incomplete. A notification opens Kimi and includes an idempotent **Mark complete** action. Schedules are refreshed after reboot, app updates, clock/timezone changes, and relevant data changes.
-
-Reminders use Android's inexact alarm API and can be delayed by battery management. Kimi does not request special exact-alarm access. Force-stopping an Android app stops its alarms until you open it again. See [Android alarm behavior](https://developer.android.com/develop/background-work/services/alarms).
-
-## Updates
-
-Kimi ships from GitHub Releases, not a store, so **Settings → Keep Kimi fresh → Check for updates**
-asks `api.github.com` for the latest release of `vabxsen/Kimi`, compares its tag with the running
-`versionName`, and offers the release's `.apk` asset. The check is manual by design: nothing
-contacts GitHub unless the button is pressed, which is also why it is safe to describe in
-[docs/PRIVACY.md](docs/PRIVACY.md).
-
-The asset is matched by its `.apk` suffix rather than an exact file name, so renaming the file in a
-future release does not break updating for people already on an older build. Version comparison is
-numeric, so `v1.10.0` correctly beats `v1.9.0`; an unparseable tag is never treated as an upgrade.
-
-Downloads stream to the internal cache under a `.part` name and are only renamed once the whole
-asset has arrived, so a truncated file can never reach the installer. Before offering to install,
-Kimi compares the downloaded APK's signing certificate with the installed app's and refuses a
-mismatch with an explanation — **this matters because the published v1.0.0 asset was signed with a
-debug key**, so that build cannot be updated in place and must be reinstalled by hand.
-
-Installing uses `REQUEST_INSTALL_PACKAGES` and Android's package installer, which asks for
-confirmation and, the first time, for permission to treat Kimi as an install source. **Google Play
-restricts `REQUEST_INSTALL_PACKAGES` to app stores and file managers**, so shipping Kimi on Play
-would mean removing this feature or the permission.
-
-## Data and backups
-
-The user-facing policy is in [docs/PRIVACY.md](docs/PRIVACY.md); it needs a contact address filled in and a public URL before a Play listing.
-
-Firebase Authentication manages optional accounts. Signed in, a space syncs to Firestore at `spaces/{uid}` and follows the user across devices; as a guest nothing leaves the phone. Each Firebase UID and the guest keep separate stores and drafts. There is no analytics or advertising. Release builds report crashes to Firebase Crashlytics; debug builds do not, and no habit or journal content is ever attached to a report. Stores serialize writes off the main thread and confirm the device save before reporting success. Each keeps one previous valid snapshot for recovery. A damaged save is preserved; invalid backup files never replace live data.
-
-## Accounts
-
-Open the avatar, then **Sign in to Kimi** in Settings. First-run setup also has an account link. Google sign-in uses Android Credential Manager. Email accounts support creation, sign-in, verification emails, password recovery, account-name updates, sign-out and account deletion with fresh password/Google reauthentication. Passwords are transient form values; Firebase manages its session tokens, and neither is included in backups.
-
-Guest progress remains intact when signing in. Each account starts with its own local space, and guest progress is never folded into it. Signing out returns to guest mode and preserves account data for the next sign-in. Deleting an account removes its Firebase identity and local habits, history, journal, drafts and recovery copies on this device. Previously exported files and data on other devices are not remotely erased. Reminders only run for the active space, and old notification actions cannot update another account.
-
-The connected project is **kimi-track**, Android app **1:952471890795:android:c6a437cf29cae1b7a13a2e**, package **com.forma.habits**. The existing `com.kimi.app` registration was preserved. `app/google-services.json` contains public Firebase client configuration, not administrative credentials. Google and email/password providers are enabled. The release certificate that has signed every GitHub release since v1.0.1 is registered, and so is the debug certificate of the computer that built the original debug APK. A build signed with any other key, including the default debug key on a different computer, must have its fingerprint registered first; see [Release signing](#release-signing).
-
-### API key restriction
-
-The Android API key (`Android key (auto created by Firebase)` in Google Cloud console → APIs and services → Credentials) is restricted to **Android apps**, allowing only:
-
-| Package | SHA-1 certificate fingerprint |
+| Area | What you can do |
 | --- | --- |
-| `com.forma.habits` | `F7:11:9B:38:D8:13:B5:CC:8D:48:5A:02:47:AD:0F:EB:BF:3B:97:4E` (release, `CN=Kimi`) |
-| `com.forma.habits` | `4A:75:73:0F:0D:79:34:52:86:6F:17:D6:ED:5D:DF:83:FF:A4:FF:D1` (debug, from the computer that built the original debug APK) |
+| ☀️ **Today** | Check off today's habits, undo check-ins, filter by time of day, and review daily progress and streaks. |
+| 🌿 **Habits** | Create, search, edit, and delete rituals with custom icons, colors, schedules, dayparts, and goals. |
+| 📅 **Calendar** | Browse previous and upcoming months, then review the habits completed on any date. |
+| 📊 **Insights** | See seven-day completion, weekly wins, current streaks, and 30-day consistency. |
+| 📖 **Journal** | Record a mood and one private reflection per day, with resilient draft recovery. |
+| ⚙️ **Settings** | Choose a theme, manage reminders and accounts, export or restore data, and check for updates. |
 
-Both were confirmed live on 14 September 2026 with the malformed-email probe described in
-[docs/VERIFICATION.md](docs/VERIFICATION.md). A debug key that is not listed is blocked, so a debug
-build from any other computer cannot sign in, sync or reset a password until its SHA-1 is added.
+Additional details:
 
-This closes the practical abuse route for a public client config: a script calling `identitytoolkit.googleapis.com` with the key and no Android headers now gets `403 API_KEY_ANDROID_APP_BLOCKED`, so the key alone can no longer be used to farm accounts or trigger verification and password-reset emails. The separate *Browser key* is untouched.
+- Five suggested starter rituals or a completely blank space.
+- Automatic, light, and dark appearance modes.
+- Optional habit reminders on scheduled, incomplete days.
+- Local JSON export with validation and preview before restore.
+- Optional Firebase account sync across devices.
+- Email/password and Google sign-in.
+- Manual, certificate-verified updates from GitHub Releases.
+- Localized date and calendar labels, with all app copy stored in Android resources.
 
-**Any new signing key means adding its SHA-1 to this list first, or every Firebase call from builds signed with it will fail.** That includes the Play App Signing certificate when distributing through Play. Changes take up to five minutes to propagate.
+## 📱 Download and install
 
-This is weaker than App Check — the package and certificate headers are supplied by the caller and can be forged by someone determined, where Play Integrity is cryptographic — so it is a stopgap that raises the cost of casual abuse, not a replacement for enforcement.
+Kimi supports **Android 8.0 (API 26) and newer**.
 
-### Crash reporting
+1. Open the [latest GitHub release](https://github.com/vabxsen/Kimi/releases/latest).
+2. Download the attached `.apk` file.
+3. Allow your browser or file manager to install unknown apps if Android asks.
+4. Open the APK and confirm the installation.
 
-Release builds send crashes to **Firebase Crashlytics**; debug builds send nothing. That split is a
-manifest value (`firebase_crashlytics_collection_enabled`) driven by a per-build-type placeholder in
-`app/build.gradle.kts`, **not** a runtime call — Crashlytics starts from its own `ContentProvider`
-before `Application.onCreate`, so a setter in `KimiApp` runs too late to stop the first collection.
+After installation, use **Settings → Keep Kimi fresh → Check for updates** to check manually for newer releases. Kimi does not contact GitHub in the background.
 
-Because R8 is on, the Crashlytics Gradle plugin uploads the mapping file for release builds
-(`uploadCrashlyticsMappingFileRelease`), and `proguard-rules.pro` keeps `SourceFile` and
-`LineNumberTable`. Without both, every report would be unreadable.
+> **Upgrading from v1.0.0?** That release used a debug signing key and cannot be updated in place. Export your data, uninstall v1.0.0, and install the latest release manually.
 
-Kimi attaches no custom keys, logs or user identifiers to reports, so no habit or journal content
-can reach a crash report. See [docs/PRIVACY.md](docs/PRIVACY.md).
+## 🔔 Reminders
 
-### App Check
+Open **Settings → A friendly little nudge**, choose a habit, enable **A gentle nudge**, grant notification permission, and select a local time.
 
-Because the client configuration is public and this repository is public, the project API key is not a secret. Firebase App Check is what keeps that key from being useful to anyone else: `KimiApp` installs the Play Integrity provider in release builds and the debug provider in debug builds, so Firebase can tell a genuine install of Kimi from a script hitting the sign-up endpoint.
+Kimi only reminds you when a habit is scheduled and still incomplete. Notifications include a safe **Mark complete** action, while reminders are refreshed after reboots, app updates, timezone changes, and relevant habit changes.
 
-The client half is done. **Enforcement is a server-side switch** in Firebase console → App Check → Authentication, and it is deliberately left off. Before turning it on:
+Android may delay inexact alarms because of battery management, and force-stopping Kimi disables reminders until the app is opened again. Kimi does not request exact-alarm access. Learn more in the [Android alarm documentation](https://developer.android.com/develop/background-work/services/alarms).
 
-1. Make sure every certificate that signs builds people actually use is registered in App Check. The release certificate already is; a Play listing would add the Play App Signing certificate.
-2. For local debug builds, copy the debug token that Logcat prints at startup (`DebugAppCheckProvider`) into App Check → Manage debug tokens.
-3. Watch the App Check metrics until verified requests dominate.
-4. Only then enable enforcement — turning it on early will lock out existing installs.
+## 🔒 Privacy and data
 
-App Check initialization is wrapped so that a provider failure can never stop Kimi from starting; while enforcement is off, unattested requests still succeed.
+Kimi is designed to work without an account:
 
-Auth provider configuration is in `firebase.json`. To intentionally update those providers, use `npx -y firebase-tools@latest deploy --only auth --project kimi-track`. Do not deploy the `demo-kimi-auth` test project or unrelated services.
+- **Guest mode stays on your device.** Habits, check-ins, reflections, and drafts remain local.
+- **Accounts are optional.** Signing in enables Firebase Authentication and Firestore sync.
+- **Spaces stay separate.** Guest data and each signed-in account have independent data stores.
+- **No ads or analytics.** Kimi does not include advertising or behavioral analytics.
+- **Crash reports are limited.** Release builds use Firebase Crashlytics, but never attach habit or journal content; debug builds do not report crashes.
+- **Backups are readable.** Exports are JSON files containing personal data, so save them somewhere you trust.
 
-**Export my space** uses Android's document picker to save your name, habits, schedules, check-ins, and saved reflections. **Restore a backup** validates the file and displays its contents' counts before asking to replace the current space. Unsaved journal drafts are local and are not included in exports. The versioned JSON format accepts the earlier Kimi/Forma preview backups. Limit: 8 MB, 500 habits, 10,000 characters per reflection.
+See the complete [Privacy Policy](docs/PRIVACY.md) for data handling details.
 
-Exports contain readable personal data. Choose a storage location you trust. Uninstalling the app or clearing Android app data removes the local workspace, so export first. See [Android document access](https://developer.android.com/training/data-storage/shared/documents-files).
+## 🎨 Thoughtful behavior
 
-## Build and install
+- Check-ins can only be changed on the current day; past and future dates are read-only.
+- Schedule edits apply from the edit date onward, preserving historical statistics.
+- Deleting a habit also deletes its check-ins.
+- Resetting a space removes its habits, history, reflections, drafts, and recovery copies.
+- Appearance is stored per device and is not included in backups or switched with accounts.
+- Bottom navigation retains screen state, and Android Back closes transient UI before returning to Today.
 
-Requires Android SDK 36, JDK 17 or newer, and Android 8.0+ on the device. Open this folder in Android Studio, or create `local.properties` with your SDK path and run:
+## 🛠️ Build from source
+
+### Requirements
+
+- Android Studio with Android SDK 36
+- JDK 17 or newer
+- An Android 8.0+ device or emulator
+
+Clone the repository and run:
+
+```powershell
+git clone https://github.com/vabxsen/Kimi.git
+cd Kimi
+.\gradlew.bat assembleDebug
+```
+
+The debug APK is generated under:
 
 ```text
-gradlew.bat assembleDebug testDebugUnitTest lintDebug
+app/build/outputs/apk/debug/
+```
+
+You can also open the repository directly in Android Studio and run the `app` configuration.
+
+> Firebase restricts Android clients by package name and signing certificate. A debug build created on a new computer needs that machine's debug SHA-1 registered before account, sync, and password-reset features will work.
+
+## 🧪 Test and verify
+
+Run the same checks used by CI:
+
+```powershell
+.\gradlew.bat assembleDebug testDebugUnitTest lintDebug
+```
+
+For connected tests, start the Firebase emulators, then run the instrumentation suite on a dedicated Android emulator:
+
+```powershell
 npx -y firebase-tools@latest emulators:start --only auth,firestore --project demo-kimi-auth
-# In another terminal, with an Android emulator running:
-gradlew.bat connectedDebugAndroidTest
+
+# In another terminal
+.\gradlew.bat connectedDebugAndroidTest
 ```
 
-The connected tests use a dedicated emulator and replace its Kimi test data. A debug build is signed with the debug key of whichever computer built it, and Firebase blocks that key unless its SHA-1 is on the [API key allow list](#api-key-restriction). To test accounts, sync or password reset, use a release-signed build. Every APK on GitHub Releases is signed with the release key; see [Release signing](#release-signing). The application ID remains `com.forma.habits` to allow updates over the earlier Kimi preview without losing its data; the launcher name is Kimi.
+Connected tests replace the Kimi test data on the selected emulator. See [docs/VERIFICATION.md](docs/VERIFICATION.md) for the broader verification record.
 
-## Release signing
+## 🧱 Technology
 
-The build reads release signing material from `keystore.properties` at the repository root, or from
-`KIMI_*` environment variables if that file is absent. Both are gitignored, and neither the keystore
-nor its passwords ever enter the repository. With nothing supplied, `assembleRelease` still succeeds
-and simply produces `app-release-unsigned.apk` after printing a warning, so a fresh clone and CI keep
-working without any secrets.
+| Layer | Technology |
+| --- | --- |
+| Language | Kotlin |
+| UI | Jetpack Compose and Material 3 |
+| Architecture | ViewModels, coroutines, immutable UI state, and local stores |
+| Authentication | Firebase Authentication and Android Credential Manager |
+| Sync | Cloud Firestore |
+| Reliability | Validated JSON backups and previous-snapshot recovery |
+| Background work | Android alarms, receivers, and notifications |
+| Quality | JUnit, Compose UI tests, Android Lint, and GitHub Actions |
+| Minimum Android version | Android 8.0 / API 26 |
 
-**1. Create the keystore.** Run this yourself and choose your own passwords — this key is the single
-most critical secret in the project. Losing it means you can never publish an update to an app
-already on Play under it; leaking it lets someone ship a build signed as you. Back it up somewhere
-durable and private.
+## 🗂️ Project structure
 
-```text
-keytool -genkeypair -v -keystore kimi-release.jks -alias kimi -keyalg RSA -keysize 4096 -validity 10000 -storetype PKCS12
+| Path | Responsibility |
+| --- | --- |
+| `MainActivity.kt` | App scaffold, navigation, lifecycle handling, and document pickers |
+| `Design.kt` | Themes, palettes, typography, and reusable UI components |
+| `Screens.kt` | Main product screens and the habit editor |
+| `AccountUI.kt` | Account and authentication screens |
+| `AccountViewModel.kt` | Authentication, Credential Manager, and account lifecycle |
+| `FormaViewModel.kt` | User operations, drafts, backups, and sync scheduling |
+| `Data.kt` / `Stats.kt` | Habit rules, schedules, streaks, and consistency |
+| `HabitStore.kt` | Durable local persistence and recovery |
+| `BackupCodec.kt` | Versioned JSON serialization, migration, and validation |
+| `Sync.kt` / `SpaceSync.kt` | Per-entry merge logic and Firestore synchronization |
+| `Reminders.kt` | Alarm scheduling, receivers, and notification actions |
+| `Updates.kt` / `UpdateUI.kt` | Secure GitHub release checks and update UI |
+| `src/test` | Unit tests for core domain behavior |
+| `src/androidTest` | End-to-end Compose, storage, notification, and account flows |
+
+<details>
+<summary><strong>☁️ Firebase and App Check notes</strong></summary>
+
+Kimi uses the Firebase project `kimi-track` and the Android package `com.forma.habits`.
+
+- Google and email/password authentication providers are enabled.
+- The Android API key is restricted by package and certificate.
+- Release builds install the Play Integrity App Check provider.
+- Debug builds install the App Check debug provider.
+- App Check enforcement must only be enabled after all production certificates and required debug tokens are registered and verified in Firebase metrics.
+- A Play Store release would also require the Play App Signing certificate to be registered.
+
+The public `app/google-services.json` contains client configuration, not administrative credentials. API key restrictions and App Check provide complementary safeguards; neither makes client configuration secret.
+
+Provider configuration lives in `firebase.json`. Intentional changes can be deployed with:
+
+```powershell
+npx -y firebase-tools@latest deploy --only auth --project kimi-track
 ```
 
-10000 days is about 27 years; Play requires a key valid well past 2033. Keep `kimi-release.jks` at
-the repository root, or anywhere else and point `storeFile` at it.
+Do not deploy unrelated services or the `demo-kimi-auth` test project.
 
-**2. Create `keystore.properties`** next to `keystore.properties.example`, using the same keys:
+</details>
 
-```text
-storeFile=kimi-release.jks
-storePassword=<your store password>
-keyAlias=kimi
-keyPassword=<your key password>
-```
+<details>
+<summary><strong>🔐 Release signing</strong></summary>
 
-For CI, set `KIMI_KEYSTORE_FILE`, `KIMI_KEYSTORE_PASSWORD`, `KIMI_KEY_ALIAS` and `KIMI_KEY_PASSWORD`
-from repository secrets instead, and decode the keystore into place before the build step.
+Release signing values are loaded from a gitignored `keystore.properties` file or from `KIMI_*` environment variables. Without signing material, `assembleRelease` produces an unsigned APK and prints a warning.
 
-**3. Register the new fingerprint in three places.** Read it with:
+1. Create and securely back up a release keystore:
 
-```text
-keytool -list -v -keystore kimi-release.jks -alias kimi
-```
+   ```powershell
+   keytool -genkeypair -v -keystore kimi-release.jks -alias kimi -keyalg RSA -keysize 4096 -validity 10000 -storetype PKCS12
+   ```
 
-Then add the SHA-1 to each of these, or the release build will fail in ways that look unrelated:
+2. Copy `keystore.properties.example` to `keystore.properties` and provide:
 
-| Where | Why | Symptom if skipped |
-| --- | --- | --- |
-| Google Cloud console → Credentials → Android key | The key is restricted to an allow list (see [API key restriction](#api-key-restriction)) | All auth fails with `403 API_KEY_ANDROID_APP_BLOCKED` |
-| Firebase console → Project settings → your Android app → SHA certificate fingerprints | Google Sign-In matches the OAuth client by certificate | Google sign-in fails, email sign-in still works |
-| Firebase console → App Check → Play Integrity | Only needed when enforcement is eventually turned on | Attestation fails once enforcement is on |
+   ```properties
+   storeFile=kimi-release.jks
+   storePassword=<your store password>
+   keyAlias=kimi
+   keyPassword=<your key password>
+   ```
 
-If you publish through Play, use the **Play App Signing** certificate from Play Console → Setup →
-App integrity, not just your upload key, since Play re-signs the app.
+3. Register the signing certificate's SHA-1 in:
 
-**4. Build.**
+   - Google Cloud API key restrictions
+   - Firebase Android app certificate fingerprints
+   - Firebase App Check / Play Integrity
 
-```text
-gradlew.bat assembleRelease
-```
+4. Increment `versionCode` and `versionName` together in `app/build.gradle.kts`.
 
-R8 is enabled for release. Switching it on took the APK from about 15.9 MB to 3.7 MB, and v1.0.8's
-minified APK is about 4.3 MB. Keep rules live in `app/proguard-rules.pro` and are deliberately
-tiny: `BackupCodec` names every JSON field explicitly and uses no reflection, so the model classes
-are safe to obfuscate. The one thing that does need keeping is `ThemeMode`, whose constant names
-are persisted and read back with `valueOf`.
+5. Build the release:
 
-**Bump `versionCode` and `versionName` together for every release**, in `app/build.gradle.kts`.
-Android will not install a lower `versionCode` over a higher one, Play rejects a repeated code, and
-Kimi's update check compares the release tag with `versionName`.
+   ```powershell
+   .\gradlew.bat assembleRelease
+   ```
 
-## Source map
+Keep the keystore and passwords out of version control. Losing the release key prevents future updates; exposing it allows someone else to sign builds as Kimi.
 
-- `MainActivity.kt`: native app scaffold, navigation, lifecycle/date refresh, document pickers.
-- `AccountUI.kt`: matching account screens and isolated session navigation.
-- `AccountViewModel.kt`: Firebase authentication, Credential Manager, account lifecycle and a new account's first empty space.
-- `Design.kt`: the light and dark palettes, appearance preference, and shared native components.
-- `Screens.kt`: the six screens and habit editor.
-- `SetupAndRemindersUI.kt`: first-run setup and notification controls.
-- `Data.kt`: models, due dates, streaks, schedule history, next reminder calculation.
-- `Stats.kt`: per-state snapshots of streaks and consistency, so a streak is walked once instead of once per row drawn.
-- `Errors.kt`: failures that carry a string resource id, keeping validation translatable without a `Context`.
-- `KimiApp.kt`: Firebase App Check installation and appearance preference loading.
-- `src/debug` and `src/release` each define `appCheckProviderFactory()`: the debug provider is a
-  `debugImplementation` dependency and does not exist in a release build, so the choice cannot live in `src/main`.
-- `BackupCodec.kt`: versioned serialization, migration, and validation.
-- `HabitStore.kt`: serialized durable local storage and recovery.
-- `Sync.kt`: per-entry revisions and tombstones, and the entry-by-entry merge of two spaces.
-- `SpaceSync.kt`: one Firestore document per signed-in user at `spaces/{uid}`, holding the whole space as backup JSON.
-- `FormaViewModel.kt`: user operations, draft persistence, backup read/write, and sync scheduling.
-- `Reminders.kt`: alarm scheduling, boot/time receivers, notifications and actions.
-- `Updates.kt`: the manual GitHub Releases check, version comparison, download and signing-certificate check.
-- `UpdateUI.kt`: the Settings update card and its states.
-- `src/test`: statistics, schedule changes, backup validation, reminder calculations, check-in rules, sync merging and update checks.
-- `src/androidTest`: real Compose habit/journal flows, Android storage round-trip, notification action, and account flows against the Firebase emulators.
+</details>
 
-Nunito is bundled under its SIL Open Font License in `Nunito-OFL.txt`.
+<details>
+<summary><strong>📦 Update security</strong></summary>
+
+Kimi's updater:
+
+- Checks the latest `vabxsen/Kimi` GitHub release only when requested.
+- Compares semantic numeric versions.
+- Streams downloads to an internal temporary file.
+- Exposes an APK to Android only after the download completes.
+- Verifies that the APK signing certificate matches the installed app.
+- Uses Android's package installer for final user confirmation.
+
+Because this flow needs `REQUEST_INSTALL_PACKAGES`, it is appropriate for GitHub distribution. A Google Play release would need to remove the self-update feature or permission to comply with Play policy.
+
+</details>
+
+## 📚 Documentation
+
+| Document | Description |
+| --- | --- |
+| [Privacy Policy](docs/PRIVACY.md) | User-facing data collection, storage, and sharing details |
+| [Verification](docs/VERIFICATION.md) | Test coverage, manual checks, and release verification |
+| [License](LICENSE) | MIT license terms |
+| [Nunito license](Nunito-OFL.txt) | SIL Open Font License for the bundled Nunito typeface |
+
+## 🤝 Contributing
+
+Issues and pull requests are welcome.
+
+1. Fork the repository and create a focused branch.
+2. Keep changes consistent with the existing Compose architecture and visual language.
+3. Add or update tests for behavioral changes.
+4. Run the build, unit tests, and lint before opening a pull request.
+5. Explain the user-facing impact and include screenshots for UI changes.
+
+Please avoid committing Firebase administrative credentials, keystores, passwords, generated APKs, or local configuration files.
+
+## 📄 License
+
+Kimi is available under the [MIT License](LICENSE).
+
+---
+
+<div align="center">
+
+Made with care for small steps and happier routines. 🌼
+
+</div>
