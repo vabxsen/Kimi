@@ -1,5 +1,6 @@
 package com.forma.habits
 
+import android.annotation.SuppressLint
 import android.app.Application
 import android.content.Context
 import android.content.MutableContextWrapper
@@ -25,8 +26,9 @@ import kotlinx.coroutines.tasks.await
 internal object AccountSession {
     // Tests use a named Firebase app connected to the local Auth emulator.
     internal var testAuth: FirebaseAuth? = null
+    internal var testOwner: String? = null
     val auth: FirebaseAuth get() = testAuth ?: FirebaseAuth.getInstance()
-    val owner: String get() = auth.currentUser?.uid.orEmpty()
+    val owner: String get() = testOwner ?: auth.currentUser?.uid.orEmpty()
     fun preferenceName(base: String, owner: String = this.owner): String =
         if (owner.isEmpty()) base else base + "_" + java.security.MessageDigest.getInstance("SHA-256")
             .digest(owner.toByteArray()).joinToString("") { "%02x".format(it) }
@@ -124,7 +126,7 @@ class AccountViewModel(application: Application) : AndroidViewModel(application)
         if (!before.state.contentIsEmpty() || before.updatedAt == Long.MAX_VALUE) return
         val fallback = user.email?.substringBefore('@').orEmpty()
         val accountName = preferredName.trim().ifBlank { fallback }.take(30).ifBlank { HabitState().name }
-        val revision = maxOf(System.currentTimeMillis(), before.updatedAt + 1, 1L)
+        val revision = maxOf(before.updatedAt + 1, 1L)
         val local = target.replaceIfUnchanged(before, HabitState(name = accountName, onboarded = true), revision)
             ?: return
         // Local tracking remains usable offline. FormaViewModel will retry this upload on resume.
@@ -196,6 +198,7 @@ class AccountViewModel(application: Application) : AndroidViewModel(application)
         clearCredentials()
         text(R.string.msg_signed_out)
     }
+    @SuppressLint("UseKtx") // Account deletion must detect a failed synchronous local wipe.
     fun deleteAccount(context: Context, password: String) = action {
         val user = auth.currentUser ?: throw KimiMessage(R.string.err_sign_in_first)
         val owner = user.uid

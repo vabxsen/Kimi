@@ -70,7 +70,7 @@ android {
             // R8 renames everything, so without the mapping file every crash report would be
             // unreadable. proguard-rules.pro keeps SourceFile/LineNumberTable for the same reason.
             configure<com.google.firebase.crashlytics.buildtools.gradle.CrashlyticsExtension> {
-                mappingFileUploadEnabled = true
+                mappingFileUploadEnabled = canSignRelease
             }
             signingConfig = if (canSignRelease) signingConfigs.getByName("release") else null
         }

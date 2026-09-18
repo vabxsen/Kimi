@@ -10,6 +10,7 @@ internal fun HabitState.recordChangesFrom(previous: HabitState, at: Long): Habit
     val checkDeletions = metadata.checkDeletions.toMutableMap()
     val reflectionUpdates = metadata.reflectionUpdates.toMutableMap()
     val reflectionDeletions = metadata.reflectionDeletions.toMutableMap()
+    val nameUpdatedAt = if (name != previous.name) at else metadata.nameUpdatedAt
 
     fun <T> record(
         before: Map<String, T>,
@@ -34,6 +35,7 @@ internal fun HabitState.recordChangesFrom(previous: HabitState, at: Long): Habit
     record(previous.journal.associateBy { it.date.toString() }, journal.associateBy { it.date.toString() }, reflectionUpdates, reflectionDeletions)
 
     return copy(sync = SyncMetadata(
+        nameUpdatedAt,
         habitUpdates, habitDeletions,
         checkUpdates, checkDeletions,
         reflectionUpdates, reflectionDeletions
@@ -49,7 +51,11 @@ internal fun HabitState.withBaselineRevisions(at: Long): HabitState {
     checkEntries().keys.forEach { if (it !in sync.checkDeletions) checks.putIfAbsent(it, at) }
     val reflections = sync.reflectionUpdates.toMutableMap()
     journal.forEach { if (it.date.toString() !in sync.reflectionDeletions) reflections.putIfAbsent(it.date.toString(), at) }
-    return copy(sync = sync.copy(habitUpdates = habits, checkUpdates = checks, reflectionUpdates = reflections))
+    return copy(sync = sync.copy(
+        habitUpdates = habits,
+        checkUpdates = checks,
+        reflectionUpdates = reflections
+    ))
 }
 
 private fun HabitState.checkEntries(): Map<String, Boolean> = checks.flatMap { (date, ids) ->
@@ -62,6 +68,23 @@ private data class MergedEntries<T>(
     val updates: Map<String, Long>,
     val deletions: Map<String, Long>
 )
+
+private data class MergedName(val value: String, val updatedAt: Long)
+
+/** An explicit name edit always beats a legacy whole-space timestamp from an unrelated write. */
+private fun mergeName(local: HabitState, localAt: Long, remote: HabitState, remoteAt: Long): MergedName {
+    val localExplicit = local.sync.nameUpdatedAt > 0
+    val remoteExplicit = remote.sync.nameUpdatedAt > 0
+    val chooseRemote = when {
+        local.name == remote.name -> remote.sync.nameUpdatedAt > local.sync.nameUpdatedAt
+        localExplicit && !remoteExplicit -> false
+        remoteExplicit && !localExplicit -> true
+        localExplicit && remoteExplicit -> remote.sync.nameUpdatedAt >= local.sync.nameUpdatedAt
+        else -> remoteAt >= localAt
+    }
+    val winner = if (chooseRemote) remote else local
+    return MergedName(winner.name, winner.sync.nameUpdatedAt)
+}
 
 private fun <T> event(value: T?, updatedAt: Long?, deletedAt: Long?, fallbackAt: Long): EntryEvent<T>? {
     val presentAt = if (value != null) updatedAt ?: fallbackAt else Long.MIN_VALUE
@@ -122,6 +145,7 @@ fun mergeSpaces(local: HabitState, localAt: Long, remote: HabitState, remoteAt: 
     val remoteIsNewer = remoteAt >= localAt
     val newer = if (remoteIsNewer) remote else local
     val older = if (remoteIsNewer) local else remote
+    val name = mergeName(local, localAt, remote, remoteAt)
 
     val habits = mergeEntries(
         local.habits.associateBy { it.id }, local.sync.habitUpdates, local.sync.habitDeletions, localAt,
@@ -156,10 +180,11 @@ fun mergeSpaces(local: HabitState, localAt: Long, remote: HabitState, remoteAt: 
         habits = habits.values.values.sortedBy { habitOrder[it.id] ?: Int.MAX_VALUE },
         checks = groupedChecks,
         journal = reflections.values.values.sortedBy { it.date },
-        name = newer.name,
+        name = name.value,
         demo = newer.demo,
         onboarded = newer.onboarded || older.onboarded,
         sync = SyncMetadata(
+            nameUpdatedAt = name.updatedAt,
             habitUpdates = habits.updates,
             habitDeletions = habits.deletions,
             checkUpdates = checkUpdates,

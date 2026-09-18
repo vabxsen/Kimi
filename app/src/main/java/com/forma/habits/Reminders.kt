@@ -7,9 +7,10 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.edit
+import androidx.core.net.toUri
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -33,7 +34,7 @@ object Reminders {
     }
     private fun pending(context: Context, id: String, action: String, date: String = "", owner: String = AccountSession.owner, planned: String = ""): PendingIntent = PendingIntent.getBroadcast(
         context, 0, Intent(context, ReminderReceiver::class.java).apply {
-            this.action = action; data = Uri.parse("kimi://habit/$id/${if (action == DONE) "done/$date" else "remind"}").buildUpon().appendQueryParameter("owner", owner).build()
+            this.action = action; data = "kimi://habit/$id/${if (action == DONE) "done/$date" else "remind"}".toUri().buildUpon().appendQueryParameter("owner", owner).build()
             putExtra("habitId", id); putExtra("date", date); putExtra("owner", owner); putExtra("planned", planned)
         }, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 
@@ -48,35 +49,37 @@ object Reminders {
         if (switched) {
             old.forEach { alarms.cancel(pending(context, it, FIRE, owner = previousOwner)) }
             NotificationManagerCompat.from(context).cancelAll()
-            prefs.edit().clear().apply()
+            prefs.edit { clear() }
         }
         val active = state.habits.filter { it.dailyReminderMinutes().isNotEmpty() }.map { it.id }.toSet()
-        val editor = prefs.edit().putStringSet("ids", active).putString("owner", owner)
         val now = ZonedDateTime.now()
         val enabled = allowed(context)
-        (old + active).forEach { id ->
-            val habit = state.habits.find { it.id == id }
-            val previous = prefs.getString("planned:$id", null)?.let { runCatching { ZonedDateTime.parse(it) }.getOrNull() }
-            var next = habit?.let { nextReminder(it, state, now) }
-            // An inexact alarm may still be waiting after its requested time. Do not cancel
-            // that pending delivery just because the user opened the app in the meantime.
-            if (habit != null && previous != null && previous.toLocalDate() == now.toLocalDate() &&
-                previous.zone == now.zone && prefs.getInt("minute:$id", -1) == habit.reminderMinutes &&
-                prefs.getInt("count:$id", 1) == habit.reminderCount &&
-                habit.isDue(now.toLocalDate()) && !state.done(id, now.toLocalDate()) &&
-                prefs.getString("delivered:$id", null) != previous.toString()) next = previous
-            if (!enabled || id !in active) next = null
-            if (force || switched || next != previous) {
-                alarms.cancel(pending(context, id, FIRE, owner = owner))
-                if (next != null) alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next.toInstant().toEpochMilli(), pending(context, id, FIRE, next.toLocalDate().toString(), owner, next.toString()))
+        prefs.edit {
+            putStringSet("ids", active)
+            putString("owner", owner)
+            (old + active).forEach { id ->
+                val habit = state.habits.find { it.id == id }
+                val previous = prefs.getString("planned:$id", null)?.let { runCatching { ZonedDateTime.parse(it) }.getOrNull() }
+                var next = habit?.let { nextReminder(it, state, now) }
+                // An inexact alarm may still be waiting after its requested time. Do not cancel
+                // that pending delivery just because the user opened the app in the meantime.
+                if (habit != null && previous != null && previous.toLocalDate() == now.toLocalDate() &&
+                    previous.zone == now.zone && prefs.getInt("minute:$id", -1) == habit.reminderMinutes &&
+                    prefs.getInt("count:$id", 1) == habit.reminderCount &&
+                    habit.isDue(now.toLocalDate()) && !state.done(id, now.toLocalDate()) &&
+                    prefs.getString("delivered:$id", null) != previous.toString()) next = previous
+                if (!enabled || id !in active) next = null
+                if (force || switched || next != previous) {
+                    alarms.cancel(pending(context, id, FIRE, owner = owner))
+                    if (next != null) alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next.toInstant().toEpochMilli(), pending(context, id, FIRE, next.toLocalDate().toString(), owner, next.toString()))
+                }
+                if (next == null) remove("planned:$id") else putString("planned:$id", next.toString())
+                putInt("minute:$id", habit?.reminderMinutes ?: -1)
+                putInt("count:$id", habit?.reminderCount ?: 1)
+                if (id !in active || state.done(id, now.toLocalDate())) NotificationManagerCompat.from(context).cancel(id, 1)
+                if (id !in active) remove("delivered:$id").remove("minute:$id").remove("count:$id")
             }
-            if (next == null) editor.remove("planned:$id") else editor.putString("planned:$id", next.toString())
-            editor.putInt("minute:$id", habit?.reminderMinutes ?: -1)
-            editor.putInt("count:$id", habit?.reminderCount ?: 1)
-            if (id !in active || state.done(id, now.toLocalDate())) NotificationManagerCompat.from(context).cancel(id, 1)
-            if (id !in active) editor.remove("delivered:$id").remove("minute:$id").remove("count:$id")
         }
-        editor.apply()
     }
 
     @Suppress("MissingPermission")
@@ -114,8 +117,9 @@ class ReminderReceiver : BroadcastReceiver() {
                         NotificationManagerCompat.from(context).cancel(id, 1)
                     }
                     Reminders.FIRE -> {
-                        if (id != null && date != null) context.getSharedPreferences("kimi_alarms", 0).edit()
-                            .putString("delivered:$id", planned?.toString() ?: date.toString()).apply()
+                        if (id != null && date != null) context.getSharedPreferences("kimi_alarms", 0).edit {
+                            putString("delivered:$id", planned?.toString() ?: date.toString())
+                        }
                         val state = store.state.value
                         val habit = state.habits.find { it.id == id }
                         val plannedMinute = planned?.let { it.hour * 60 + it.minute }

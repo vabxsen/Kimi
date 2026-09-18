@@ -178,8 +178,7 @@ private val RoundedFont = FontFamily(
     // The mascot is a fixed illustration, not themed UI: a dark face on the orange centre reads
     // correctly on light and dark alike, whereas the theme ink would invert it after dark.
     val face = Color(0xFF33283E)
-    val label = stringResource(R.string.cd_mascot)
-    Canvas(modifier.semantics { contentDescription = label }) {
+    Canvas(modifier) {
         val unit = size.minDimension
         val center = Offset(size.width / 2, size.height / 2)
         for (i in 0..5) {

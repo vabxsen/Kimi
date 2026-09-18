@@ -22,6 +22,7 @@ data class Reflection(val date: LocalDate, val mood: Int, val text: String)
  * updated/deleted pair, so removals and undone check-ins cannot be resurrected by an older device.
  */
 data class SyncMetadata(
+    val nameUpdatedAt: Long = 0L,
     val habitUpdates: Map<String, Long> = emptyMap(),
     val habitDeletions: Map<String, Long> = emptyMap(),
     val checkUpdates: Map<String, Long> = emptyMap(),
@@ -55,7 +56,6 @@ fun HabitState.streak(habit: Habit, today: LocalDate = LocalDate.now()): Int {
     }
     return count
 }
-
 /** Schedule edits take effect today without rewriting the days already tracked. */
 fun Habit.editedFrom(previous: Habit, today: LocalDate): Habit {
     val history = if (weekdays == previous.weekdays) previous.schedule else {
@@ -64,7 +64,6 @@ fun Habit.editedFrom(previous: Habit, today: LocalDate): Habit {
     }
     return copy(created = previous.created, schedule = history)
 }
-
 /** Check-ins only change on the day itself; earlier and later days are read-only. */
 fun HabitState.checked(id: String, date: LocalDate, completed: Boolean, today: LocalDate = LocalDate.now()): HabitState {
     val habit = habits.find { it.id == id } ?: return this
@@ -108,19 +107,3 @@ fun nextReminder(habit: Habit, state: HabitState, now: ZonedDateTime): ZonedDate
     }
     return null
 }
-
-/**
- * Seed habits become the user's own data the moment they are created, so the caller passes in
- * copy from resources; the defaults keep this callable from JVM tests without a Context.
- */
-fun starterHabits(
-    today: LocalDate = LocalDate.now(),
-    names: List<String> = listOf("A little headspace", "Sip, sip, hooray!", "One more chapter", "Get your happy steps", "Less scroll, more soul"),
-    goals: List<String> = listOf("Meditate for 10 minutes", "Drink 8 glasses of water", "Read for 20 minutes", "Walk for 30 minutes", "Unplug 30 minutes before bed")
-) = listOf(
-    Habit("breathe", names[0], goals[0], 0, 0),
-    Habit("water", names[1], goals[1], 1, 1, "Anytime"),
-    Habit("read", names[2], goals[2], 2, 2, "Evening"),
-    Habit("move", names[3], goals[3], 3, 3, "Afternoon"),
-    Habit("sleep", names[4], goals[4], 4, 4, "Evening")
-).map { it.copy(created = today) }

@@ -11,7 +11,6 @@
     <string name="nav_journal">Journal</string>
 
     <!-- Content descriptions -->
-    <string name="cd_mascot">Happy flower mascot</string>
     <string name="cd_open_settings">Open settings</string>
     <string name="cd_edit_name">Edit your name</string>
     <string name="cd_save_name">Save your name</string>
@@ -37,11 +36,8 @@
         <item quantity="other">Last seven days: %1$d of %2$d scheduled days done</item>
     </plurals>
     <string name="cd_close_editor">Close habit editor</string>
-    <string name="cd_habit_icon">Habit icon %1$d</string>
-    <string name="cd_habit_icon_gaming">Gaming habit icon</string>
     <string name="cd_color">Color %1$d</string>
     <string name="cd_color_selected">Selected color %1$d</string>
-    <string name="cd_starters_switch">Start with five suggested habits</string>
     <string name="cd_reminder_switch">Habit reminder</string>
     <string name="cd_back_to_kimi">Back to Kimi</string>
     <string name="cd_show_password">Show password</string>
@@ -87,20 +83,16 @@
         <item>Amazing</item>
     </string-array>
 
-    <!-- Seed habits offered on first run. These are copied into the user's own data. -->
-    <string-array name="starter_names">
-        <item>A little headspace</item>
-        <item>Sip, sip, hooray!</item>
-        <item>One more chapter</item>
-        <item>Get your happy steps</item>
-        <item>Less scroll, more soul</item>
-    </string-array>
-    <string-array name="starter_goals">
-        <item>Meditate for 10 minutes</item>
-        <item>Drink 8 glasses of water</item>
-        <item>Read for 20 minutes</item>
-        <item>Walk for 30 minutes</item>
-        <item>Unplug 30 minutes before bed</item>
+    <string-array name="habit_icon_names">
+        <item>Meditation</item>
+        <item>Hydration</item>
+        <item>Reading</item>
+        <item>Walking</item>
+        <item>Sleep</item>
+        <item>Fitness</item>
+        <item>Creativity</item>
+        <item>Wellness</item>
+        <item>Gaming</item>
     </string-array>
 
     <!-- Today -->
@@ -171,7 +163,7 @@
     <string name="journal_prompt">How’s your heart today?</string>
     <string name="journal_field_label">A thought worth keeping</string>
     <string name="journal_field_placeholder">A tiny win, a happy accident, a thing you’re grateful for…</string>
-    <string name="journal_privacy">Just for you. Saved privately on this device.</string>
+    <string name="journal_privacy">Just for you. Saved in your private Kimi space.</string>
     <string name="journal_history_section">Pages from your story</string>
 
     <!-- Settings -->
@@ -186,6 +178,17 @@
     <string name="settings_theme_system">Automatic</string>
     <string name="settings_theme_light">Light</string>
     <string name="settings_theme_dark">Dark</string>
+    <string name="syncing_title">Syncing your space…</string>
+    <string name="syncing_body">Your latest changes are on their way.</string>
+    <string name="synced_title">Your space is synced</string>
+    <string name="synced_body">Your account copy is up to date.</string>
+    <string name="sync_failed_title">Couldn’t sync</string>
+    <string name="sync_failed_body">Everything is saved on this device. Retry when you’re back online.</string>
+    <string name="err_sync_failed">Everything is saved on this device, but Kimi couldn’t sync it. Check your connection and retry.</string>
+    <string name="data_title">Your data</string>
+    <string name="data_body">Keep a portable copy, restore a backup, or start fresh.</string>
+    <string name="recovery_needed_title">Recovery needed</string>
+    <string name="recovery_needed_body">Kimi couldn’t read this space. Restore a backup or reset it to keep using the app.</string>
     <!-- Updates -->
     <string name="update_title">Keep Kimi fresh</string>
     <string name="update_current">You’re on %1$s</string>
@@ -204,12 +207,15 @@
     <string name="err_update_unreadable">GitHub sent something Kimi didn’t understand.</string>
     <string name="err_update_no_file">That release has no Android file to install.</string>
     <string name="err_update_download">The download didn’t finish. Try again.</string>
+    <string name="err_update_too_large">That update is unexpectedly large, so Kimi refused to download it.</string>
     <string name="err_update_signature">That file was signed with a different key, so Android can’t install it over this Kimi. Install it from GitHub by hand.</string>
     <string name="about_title">About</string>
     <string name="about_body">Made for small steps and fresh starts.</string>
     <string name="about_version_label">Version</string>
     <string name="about_version_value">%1$s (%2$d)</string>
     <string name="action_credits">Credits</string>
+    <string name="action_open_source_licenses">Open-source licenses</string>
+    <string name="action_privacy_policy">Privacy policy</string>
     <string name="action_close">Close</string>
     <string name="credits_title">Credits</string>
     <string name="credits_version">Version %1$s</string>
@@ -219,6 +225,7 @@
     <string name="credits_made_in">Made with ❤️ in India 🇮🇳</string>
     <string name="credits_open_source">Open Source</string>
     <string name="credits_open_source_body">Kimi is fully Open Source</string>
+    <string name="open_source_licenses_title">Open-source notices</string>
     <string name="credits_copyright">© 2026 Kimi. All rights reserved.</string>
     <string name="demo_footer_settings">You’re exploring sample habits and check-ins. Reset for a fresh workspace.</string>
 
@@ -246,10 +253,19 @@
     <string name="reminder_time_button">Remind me around %1$s</string>
     <string name="reminder_count_title">Notifications per day</string>
     <string name="reminder_count_body">Choose from 1 to 24. Kimi spaces them from your selected start time through the rest of the day.</string>
-    <string name="reminder_count_option">%1$d notifications per day</string>
+    <plurals name="reminder_count_option">
+        <item quantity="one">%1$d notification per day</item>
+        <item quantity="other">%1$d notifications per day</item>
+    </plurals>
     <string name="reminder_schedule_once">1 notification at %1$s</string>
-    <string name="reminder_schedule_many">%1$d notifications from %2$s to %3$s</string>
-    <string name="reminder_list_summary">%1$d× from %2$s</string>
+    <plurals name="reminder_schedule_many">
+        <item quantity="one">%1$d notification from %2$s to %3$s</item>
+        <item quantity="other">%1$d notifications from %2$s to %3$s</item>
+    </plurals>
+    <plurals name="reminder_list_summary">
+        <item quantity="one">%1$d× from %2$s</item>
+        <item quantity="other">%1$d× from %2$s</item>
+    </plurals>
     <string name="reminder_delay_notice">Android may delay a reminder to save battery.</string>
     <string name="reminder_notifications_off">Notifications are off. Enable them to receive your nudges.</string>
     <string name="reminders_card_title">A friendly little nudge</string>
@@ -311,6 +327,10 @@
     <string name="action_save_changes">Save my changes</string>
     <string name="action_save_reflection">Keep this little moment</string>
     <string name="action_restore_backup">Restore backup</string>
+    <string name="action_export_space">Export my space</string>
+    <string name="action_reset_space">Start with a clean space</string>
+    <string name="action_reset_confirm">Reset this space</string>
+    <string name="action_retry_sync">Retry sync</string>
     <string name="action_keep_current_space">Keep current space</string>
     <string name="action_lets_grow">Start tracking my habits</string>
     <string name="action_account_link">Your Kimi account</string>
@@ -344,6 +364,8 @@
     <string name="dialog_delete_habit_body">This removes the habit and its check-in history. There’s always room for a new beginning.</string>
     <string name="dialog_restore_title">Bring your space back?</string>
     <string name="dialog_restore_body">This backup belongs to %1$s: %2$s, %3$s, and %4$s. Restoring replaces your current space. Export it first if you want to keep both.</string>
+    <string name="dialog_reset_title">Start over?</string>
+    <string name="dialog_reset_body">This permanently removes the habits, check-ins, reflections, drafts, and recovery copies in this space. Export first if you may want them later.</string>
     <string name="dialog_delete_reflection_title">Delete this moment?</string>
     <string name="dialog_delete_reflection_body">This reflection will be removed from your journal.</string>
     <string name="dialog_sign_out_title">See you soon?</string>
@@ -363,8 +385,6 @@
     <string name="msg_welcome">Welcome to your little happy place!</string>
     <string name="msg_backup_saved">Your Kimi backup is saved.</string>
     <string name="msg_restored">Your space is restored. Welcome back!</string>
-    <string name="msg_signed_in">Welcome back. Your little space is ready.</string>
-    <string name="msg_google_signed_in">You’re in. Welcome to Kimi!</string>
     <string name="msg_account_created">Your account is ready. You can verify your email below.</string>
     <string name="msg_account_created_no_name">Your account is ready. Your name could not be updated; try again below.</string>
     <string name="msg_reset_sent">If this email has a password account, a reset link is on its way. Check your inbox and spam folder.</string>

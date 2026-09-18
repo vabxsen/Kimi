@@ -1,14 +1,10 @@
 # Kimi privacy policy
 
-**Last updated: 12 September 2026**
+**Last updated: 18 September 2026**
 
 Kimi is a habit tracker and journal for Android. This policy describes exactly what the app does
 with your information. It is written to match the app's actual behaviour, which you can verify in
 this repository.
-
-> **Before publishing:** replace `[CONTACT EMAIL]` below with an address you are willing to make
-> public, and confirm the "Last updated" date. Play requires a publicly reachable URL for this
-> policy — GitHub Pages or the raw file URL both work.
 
 ## The short version
 
@@ -25,7 +21,8 @@ If you sign in, everything except the last item is also synced to your account �
 - Your display name
 - Your habits, their schedules, icons, colours and reminder times
 - Every check-in
-- Your journal reflections and moods, including unfinished drafts
+- Your saved journal reflections and moods
+- Unfinished journal drafts, which always remain on this device
 - Your light/dark appearance preference
 
 If you use an account, each account gets its own separate local space on the device, and guest use
@@ -112,7 +109,7 @@ confirmation. Kimi never installs anything silently.
 
 Beyond sign-in, syncing your own space, app integrity, crash reporting and update checks you
 ask for, Kimi contains **no
-analytics, no advertising, no tracking of any kind and no other third-party SDKs.** Your habit and
+analytics, no advertising, no tracking of any kind and no other data-collection SDKs.** Your habit and
 journal content is never sold, shared with anyone else, or used for advertising or model training.
 
 ## Permissions
@@ -123,6 +120,9 @@ journal content is never sold, shared with anyone else, or used for advertising 
 | `POST_NOTIFICATIONS` | To show habit reminders. These are generated on your device; nothing is sent anywhere |
 | `RECEIVE_BOOT_COMPLETED` | To restore your reminder schedule after a restart |
 | `REQUEST_INSTALL_PACKAGES` | To hand an update you downloaded to Android's installer. Android still asks you to confirm, and to allow Kimi as a source the first time |
+| `ACCESS_NETWORK_STATE` | Lets Kimi retry a failed sync when connectivity returns; Firebase and Google Play services also use it to understand whether a network connection is available |
+| `USE_BIOMETRIC` / `USE_FINGERPRINT` | Added by Android Credential Manager so your device can protect saved sign-in credentials with its normal authentication UI |
+| `READ_GSERVICES` | Added by Google Play services to read Google service configuration on the device |
 
 Kimi requests no access to contacts, location, camera, microphone, storage or any other sensitive
 permission.
@@ -140,7 +140,7 @@ an invalid file never overwrites your current data.
 
 ## Deleting your data
 
-- **Local data:** Settings → *Start with a clean slate*, or uninstall the app.
+- **Local data:** Settings → *Start with a clean space*, or uninstall the app.
 - **Your account:** Settings → your account → *Delete my account*. This permanently deletes your
   Firebase identity, your synced space in Firestore, and that account's habits, check-ins, journal
   and drafts on this device.
@@ -160,4 +160,5 @@ be visible in this repository's history.
 
 ## Contact
 
-Questions about this policy or your data: **[CONTACT EMAIL]**
+Questions about this policy or your data can be submitted through the
+[Kimi GitHub issue tracker](https://github.com/vabxsen/Kimi/issues).

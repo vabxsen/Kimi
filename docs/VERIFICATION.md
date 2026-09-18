@@ -1,5 +1,30 @@
 # Kimi verification
 
+## v1.0.9 hardening pass — 2026-09-18
+
+Recovery, sync conflict handling, updater validation, save-failure states, privacy/licensing,
+accessibility, and CI coverage were hardened after the full application audit.
+
+**Result: the debug and signed/minified release variants build successfully. All 45 JVM tests pass,
+the instrumentation-test APK compiles, and debug/release lint report 0 errors.**
+
+### Verified
+
+| Check | Result |
+| --- | --- |
+| `assembleDebug testDebugUnitTest lintDebug assembleDebugAndroidTest`, plus `assembleRelease lintRelease` | Passed on the final source tree |
+| JVM tests | 45 passed, 0 failed, 0 skipped |
+| Android lint | Debug and release: 0 errors; 16 informational warnings about the SDK/dependency versions intentionally retained for AGP 8.13 / compile SDK 36 compatibility |
+| Release APK | R8/minification and packaging passed; package `com.forma.habits`, versionCode 10, versionName 1.0.9, minSdk 26, targetSdk 36 |
+| APK signature | `apksigner` verified one APK Signature Scheme v2 signer, `CN=Kimi`; certificate SHA-256 `A5466183C5714F0EE88DAE5498BB52239C6D8668B6BFD9649773A7F781B8F843` |
+| Current local release digest | SHA-256 `482776E209DFCC22DA986DCA8D98FA35EB8404811168DC57384367AA9F8F1474` |
+
+The remaining device flows are compiled and are now scheduled in CI with Android and Firebase
+emulators, but this local pass did not execute them because no emulator is available. Firebase App
+Check enforcement is also a server-side rollout decision and was not changed by this source pass.
+
+---
+
 ## v1.0.8 — 2026-09-14
 
 Check-ins limited to the current day, no snackbar for habit check-ins and saves, and password reset

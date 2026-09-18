@@ -1,7 +1,10 @@
 package com.forma.habits
 
 import android.app.Application
+import android.net.ConnectivityManager
+import android.net.Network
 import android.net.Uri
+import androidx.core.content.edit
 import androidx.compose.runtime.*
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -44,8 +47,16 @@ class FormaViewModel(application: Application) : AndroidViewModel(application) {
         private set
     var syncFailed by mutableStateOf(false)
         private set
+    var syncError by mutableStateOf<String?>(null)
+        private set
     private var syncRequested = false
     private var syncJob: Job? = null
+    private val connectivity = application.getSystemService(ConnectivityManager::class.java)
+    private val networkCallback = object : ConnectivityManager.NetworkCallback() {
+        override fun onAvailable(network: Network) {
+            viewModelScope.launch { if (syncFailed) syncNow() }
+        }
+    }
     /** Sync exists only for a signed-in space; guests stay entirely local. */
     val syncable get() = store.owner.isNotEmpty()
     val damaged get() = store.damaged
@@ -55,7 +66,13 @@ class FormaViewModel(application: Application) : AndroidViewModel(application) {
         store.recoveryNotice?.let { tell(text(it)) }
         viewModelScope.launch { store.state.drop(1).collect { state = it; syncNow() } }
         viewModelScope.launch(Dispatchers.IO) { Reminders.reschedule(application, state, force = true, owner = store.owner) }
+        if (syncable) runCatching { connectivity.registerDefaultNetworkCallback(networkCallback) }
         syncNow()
+    }
+
+    override fun onCleared() {
+        if (syncable) runCatching { connectivity.unregisterNetworkCallback(networkCallback) }
+        super.onCleared()
     }
 
     /**
@@ -63,7 +80,7 @@ class FormaViewModel(application: Application) : AndroidViewModel(application) {
      *
      * Merging rather than overwriting is the whole point - see [mergeSpaces]. A failure here is
      * never fatal: the local space is authoritative and usable offline, so a failed sync only sets
-     * a flag for the UI and is retried on the next change or resume.
+     * a flag for the UI and is retried when connectivity returns, on the next change, or on resume.
      */
     fun syncNow() {
         if (!syncable) return
@@ -77,10 +94,12 @@ class FormaViewModel(application: Application) : AndroidViewModel(application) {
                     try {
                         reconcileOnce()
                         syncFailed = false
+                        syncError = null
                     } catch (e: CancellationException) {
                         throw e
-                    } catch (_: Exception) {
+                    } catch (error: Exception) {
                         syncFailed = true
+                        syncError = app.kimiMessage(error, R.string.err_sync_failed)
                     }
                 } while (syncRequested)
             } finally {
@@ -111,18 +130,19 @@ class FormaViewModel(application: Application) : AndroidViewModel(application) {
 
     fun tell(message: String) { messages.trySend(message) }
     /** A null [message] saves quietly; failures are still reported. */
-    private fun change(message: String?, replaceDamaged: Boolean = false, eraseHistory: Boolean = false, onSaved: () -> Unit = {}, transform: (HabitState) -> HabitState) {
+    private fun change(message: String?, replaceDamaged: Boolean = false, eraseHistory: Boolean = false, onComplete: (Boolean) -> Unit = {}, transform: (HabitState) -> HabitState) {
         beginTask()
         viewModelScope.launch {
             try {
                 state = store.update(replaceDamaged, eraseHistory, transform = transform)
-                onSaved()
+                onComplete(true)
                 message?.let(::tell)
                 withContext(Dispatchers.IO) { Reminders.reschedule(getApplication(), state, owner = store.owner) }
                 syncNow()
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
+                onComplete(false)
                 tell(app.kimiMessage(e))
             } finally { endTask() }
         }
@@ -138,9 +158,9 @@ class FormaViewModel(application: Application) : AndroidViewModel(application) {
         // The row's own tick is the confirmation, so a tap needs no snackbar.
         change(null) { it.checked(habit.id, date, !it.done(habit.id, date)) }
     }
-    fun saveHabit(habit: Habit, onSaved: () -> Unit) {
+    fun saveHabit(habit: Habit, onComplete: (Boolean) -> Unit) {
         // The editor closing is the confirmation.
-        change(null, onSaved = onSaved) { current ->
+        change(null, onComplete = onComplete) { current ->
             val old = current.habits.find { it.id == habit.id }
             demand(old != null || current.habits.size < 500, R.string.err_collection_full)
             val saved = if (old == null) habit.copy(created = LocalDate.now()) else habit.editedFrom(old, LocalDate.now())
@@ -148,37 +168,39 @@ class FormaViewModel(application: Application) : AndroidViewModel(application) {
             current.copy(habits = if (old != null) current.habits.map { if (it.id == saved.id) saved else it } else current.habits + saved)
         }
     }
-    fun deleteHabit(id: String, onSaved: () -> Unit = {}) = change(text(R.string.msg_habit_removed), onSaved = onSaved) {
+    fun deleteHabit(id: String, onSaved: () -> Unit = {}) = change(text(R.string.msg_habit_removed), onComplete = { if (it) onSaved() }) {
         it.copy(habits = it.habits.filterNot { h -> h.id == id }, checks = it.checks.mapValues { entry -> entry.value - id }.filterValues { ids -> ids.isNotEmpty() })
     }
     fun reflect(mood: Int, text: String) {
         val date = draftDate
-        change(text(R.string.msg_reflection_saved), onSaved = {
-            if (draftDate == date && draftMood == mood && draftText == text) draftPrefs.edit().remove(date.toString()).apply()
+        change(text(R.string.msg_reflection_saved), onComplete = { saved ->
+            if (saved && draftDate == date && draftMood == mood && draftText == text) draftPrefs.edit { remove(date.toString()) }
         }) {
             demand(mood in 0..4 && text.isNotBlank() && text.length <= 10000, R.string.err_reflection_invalid)
             it.copy(journal = it.journal.filterNot { e -> e.date == date } + Reflection(date, mood, text.trim()))
         }
     }
-    fun deleteReflection(date: LocalDate) = change(text(R.string.msg_reflection_deleted), onSaved = {
-        draftPrefs.edit().remove(date.toString()).apply()
-        if (date == draftDate) { draftMood = 2; draftText = "" }
+    fun deleteReflection(date: LocalDate) = change(text(R.string.msg_reflection_deleted), onComplete = { saved ->
+        if (saved) {
+            draftPrefs.edit { remove(date.toString()) }
+            if (date == draftDate) { draftMood = 2; draftText = "" }
+        }
     }) { it.copy(journal = it.journal.filterNot { e -> e.date == date }) }
-    fun rename(name: String) = change(text(R.string.msg_renamed, name.trim())) {
+    fun rename(name: String, onComplete: (Boolean) -> Unit = {}) = change(text(R.string.msg_renamed, name.trim()), onComplete = onComplete) {
         demand(name.isNotBlank() && name.trim().length <= 30, R.string.err_name_length)
         it.copy(name = name.trim())
     }
-    fun reset() = change(text(R.string.msg_reset), replaceDamaged = true, eraseHistory = true, onSaved = {
-        draftPrefs.edit().clear().apply(); loadDraft(today)
+    fun reset() = change(text(R.string.msg_reset), replaceDamaged = true, eraseHistory = true, onComplete = { saved ->
+        if (saved) { draftPrefs.edit { clear() }; loadDraft(today) }
     }) { HabitState(name = it.name) }
-    fun start(name: String, onStarted: () -> Unit = {}) = change(text(R.string.msg_welcome), onSaved = onStarted) {
+    fun start(name: String, onStarted: () -> Unit = {}) = change(text(R.string.msg_welcome), onComplete = { if (it) onStarted() }) {
         demand(name.isNotBlank() && name.trim().length <= 30, R.string.err_name_length)
         HabitState(name = name.trim(), onboarded = true)
     }
 
     fun updateDraft(mood: Int, text: String) {
         draftMood = mood.coerceIn(0, 4); draftText = text.take(10000)
-        draftPrefs.edit().putString(draftDate.toString(), JSONObject().put("mood", draftMood).put("text", draftText).toString()).apply()
+        draftPrefs.edit { putString(draftDate.toString(), JSONObject().put("mood", draftMood).put("text", draftText).toString()) }
     }
     fun loadDraft(date: LocalDate) {
         draftDate = date
@@ -236,8 +258,8 @@ class FormaViewModel(application: Application) : AndroidViewModel(application) {
     fun cancelRestore() { pendingRestore = null }
     fun confirmRestore() {
         val restored = pendingRestore ?: return
-        change(text(R.string.msg_restored), replaceDamaged = true, onSaved = {
-            pendingRestore = null; draftPrefs.edit().clear().apply(); loadDraft(today)
+        change(text(R.string.msg_restored), replaceDamaged = true, onComplete = { saved ->
+            if (saved) { pendingRestore = null; draftPrefs.edit { clear() }; loadDraft(today) }
         }) { restored }
     }
 }

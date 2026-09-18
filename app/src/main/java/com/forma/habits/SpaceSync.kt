@@ -49,7 +49,7 @@ object SpaceSync {
 
     private fun nextRevision(a: Long, b: Long): Long {
         fun after(value: Long) = if (value == Long.MAX_VALUE) Long.MAX_VALUE else value + 1
-        return maxOf(System.currentTimeMillis(), after(a), after(b), 1L)
+        return maxOf(after(a), after(b), 1L)
     }
 
     /**

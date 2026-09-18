@@ -30,6 +30,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -78,12 +79,18 @@ import java.time.format.DateTimeFormatter
     return allowed
 }
 
+@Composable private fun localTimeFormatter(): DateTimeFormatter {
+    val is24Hour = DateFormat.is24HourFormat(LocalContext.current)
+    return remember(is24Hour) { DateTimeFormatter.ofPattern(if (is24Hour) "HH:mm" else "h:mm a") }
+}
+
 @Composable fun ReminderPicker(minutes: Int?, count: Int, onChange: (Int?, Int) -> Unit) {
     val context = LocalContext.current
     val allowed = notificationAccess()
     val safeCount = count.coerceIn(1, MAX_DAILY_REMINDERS)
     var permissionGranted by remember { mutableStateOf(allowed) }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { permissionGranted = it }
+    val format = localTimeFormatter()
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -97,7 +104,6 @@ import java.time.format.DateTimeFormatter
             }, modifier = Modifier.semantics { contentDescription = reminderLabel })
         }
         if (minutes != null) {
-            val format = DateTimeFormatter.ofPattern(if (DateFormat.is24HourFormat(context)) "HH:mm" else "h:mm a")
             OutlinedButton(onClick = {
                 TimePickerDialog(context, { _, hour, minute ->
                     onChange(normalizedReminderStart(hour * 60 + minute, safeCount), safeCount)
@@ -114,7 +120,7 @@ import java.time.format.DateTimeFormatter
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(countList, key = { it }) { option ->
-                    val optionLabel = stringResource(R.string.reminder_count_option, option)
+                    val optionLabel = pluralStringResource(R.plurals.reminder_count_option, option, option)
                     FilterChip(
                         selected = option == safeCount,
                         onClick = { onChange(normalizedReminderStart(minutes, option), option) },
@@ -130,7 +136,7 @@ import java.time.format.DateTimeFormatter
             val last = LocalTime.of(slots.last() / 60, slots.last() % 60).format(format)
             Text(
                 if (safeCount == 1) stringResource(R.string.reminder_schedule_once, first)
-                else stringResource(R.string.reminder_schedule_many, safeCount, first, last),
+                else pluralStringResource(R.plurals.reminder_schedule_many, safeCount, safeCount, first, last),
                 color = Accent,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold
@@ -144,13 +150,14 @@ import java.time.format.DateTimeFormatter
     }
 }
 
-@Composable fun NotificationSettings(habits: List<Habit>, onSave: (Habit, () -> Unit) -> Unit) {
+@Composable fun NotificationSettings(habits: List<Habit>, onSave: (Habit, (Boolean) -> Unit) -> Unit) {
     val context = LocalContext.current
     val allowed = notificationAccess()
     var editingId by rememberSaveable { mutableStateOf<String?>(null) }
     var minutes by rememberSaveable { mutableStateOf<Int?>(null) }
     var count by rememberSaveable { mutableIntStateOf(1) }
     var saving by remember { mutableStateOf(false) }
+    val format = localTimeFormatter()
     PlayCard(Yellow) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Rounded.NotificationsActive, null); Spacer(Modifier.width(12.dp))
@@ -163,7 +170,8 @@ import java.time.format.DateTimeFormatter
             TextButton(onClick = { editingId = habit.id; minutes = habit.reminderMinutes; count = habit.reminderCount }, modifier = Modifier.fillMaxWidth()) {
                 Text(habit.name, modifier = Modifier.weight(1f), color = Ink)
                 Spacer(Modifier.width(12.dp)); Text(habit.reminderMinutes?.let {
-                    stringResource(R.string.reminder_list_summary, habit.reminderCount, LocalTime.of(it / 60, it % 60).toString())
+                    pluralStringResource(R.plurals.reminder_list_summary, habit.reminderCount, habit.reminderCount,
+                        LocalTime.of(it / 60, it % 60).format(format))
                 } ?: stringResource(R.string.reminder_off), color = Accent)
             }
         }
@@ -174,7 +182,10 @@ import java.time.format.DateTimeFormatter
             text = { Column(Modifier.verticalScroll(rememberScrollState())) { ReminderPicker(minutes, count) { nextMinutes, nextCount -> minutes = nextMinutes; count = nextCount } } },
             confirmButton = { TextButton(enabled = !saving, onClick = {
                 saving = true
-                onSave(habit.copy(reminderMinutes = minutes, reminderCount = count)) { saving = false; editingId = null }
+                onSave(habit.copy(reminderMinutes = minutes, reminderCount = count)) { saved ->
+                    saving = false
+                    if (saved) editingId = null
+                }
             }) { Text(stringResource(R.string.action_save_reminder)) } },
             dismissButton = { TextButton(onClick = { saving = false; editingId = null }) { Text(stringResource(R.string.action_cancel)) } })
     }

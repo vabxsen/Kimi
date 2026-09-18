@@ -36,7 +36,7 @@ class UpdateTest {
     """.trimIndent()
 
     private fun asset(name: String, size: Long = 4_467_395L) =
-        """{"name":"$name","size":$size,"browser_download_url":"https://example.invalid/$name"}"""
+        """{"name":"$name","size":$size,"browser_download_url":"https://github.com/vabxsen/Kimi/releases/download/v1.0.4/$name"}"""
 
     @Test fun `the apk is found by suffix, so renaming the file keeps updates working`() {
         val parsed = parseRelease(release(asset("Kimi-v1.0.4.apk")))
@@ -60,6 +60,24 @@ class UpdateTest {
         val error = runCatching { parseRelease(release(asset("Kimi-source.zip"))) }.exceptionOrNull()
         assertTrue(error is KimiMessage)
         assertEquals(R.string.err_update_no_file, (error as KimiMessage).resId)
+    }
+
+    @Test fun `untrusted update hosts and path-like file names are rejected`() {
+        val untrusted = release(
+            """{"name":"Kimi.apk","size":1000,"browser_download_url":"https://example.invalid/Kimi.apk"}"""
+        )
+        assertTrue(runCatching { parseRelease(untrusted) }.exceptionOrNull() is KimiMessage)
+        assertTrue(runCatching { parseRelease(release(asset("../Kimi.apk"))) }.exceptionOrNull() is KimiMessage)
+        assertFalse(isAllowedUpdateUrl("http://github.com/vabxsen/Kimi/releases/download/v1/Kimi.apk"))
+        assertFalse(isAllowedUpdateUrl("https://github.com/other/repo/releases/download/v1/Kimi.apk"))
+    }
+
+    @Test fun `oversized update metadata is rejected before downloading`() {
+        val error = runCatching {
+            parseRelease(release(asset("Kimi.apk", MaxUpdateApkBytes + 1)))
+        }.exceptionOrNull()
+        assertTrue(error is KimiMessage)
+        assertEquals(R.string.err_update_too_large, (error as KimiMessage).resId)
     }
 
     @Test fun `download size reads as a size, never as zero`() {

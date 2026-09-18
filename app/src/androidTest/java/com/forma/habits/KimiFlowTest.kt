@@ -21,12 +21,19 @@ class KimiFlowTest {
     private lateinit var scenario: ActivityScenario<MainActivity>
     private val store get() = HabitStore.get(context)
     @Before fun prepare() {
+        AccountSession.testOwner = null
         runBlocking { store.update(replaceDamaged = true, eraseHistory = true) { HabitState(name = "Alex") } }
         context.getSharedPreferences("kimi_drafts", 0).edit().clear().commit()
         scenario = ActivityScenario.launch(MainActivity::class.java)
         compose.waitForIdle()
     }
-    @After fun close() { scenario.close() }
+    @After fun close() {
+        scenario.close()
+        AccountSession.testOwner?.let { owner ->
+            context.getSharedPreferences(AccountSession.preferenceName("forma", owner), 0).edit().clear().commit()
+        }
+        AccountSession.testOwner = null
+    }
     private fun waitFor(check: () -> Boolean) { compose.waitUntil(10000, check) }
 
     @Test fun createCompleteEditAndDeleteHabit() {
@@ -98,6 +105,43 @@ class KimiFlowTest {
         assertEquals("Found a tiny happy moment", store.state.value.journal.single().text)
     }
 
+    @Test fun settingsExposesBackupRestoreAndResetControls() {
+        compose.onNodeWithText("Settings", substring = false).performClick()
+        compose.onNodeWithText("Your data", substring = false).performScrollTo().assertExists()
+        compose.onNodeWithText("Export my space", substring = false).performScrollTo().assertIsEnabled()
+        compose.onNodeWithText("Restore backup", substring = false).performScrollTo().assertIsEnabled()
+        compose.onNodeWithText("Start with a clean space", substring = false).performScrollTo().performClick()
+        compose.onNodeWithText("Start over?", substring = false).assertExists()
+        compose.onNodeWithText("Cancel", substring = false).performClick()
+    }
+
+    @Test fun damagedStoreCanBeResetThroughSettings() {
+        scenario.close()
+        AccountSession.testOwner = "damaged-${java.util.UUID.randomUUID()}"
+        val preferences = context.getSharedPreferences(AccountSession.preferenceName("forma"), 0)
+        assertTrue(preferences.edit()
+            .putString("state", "not valid Kimi JSON")
+            .remove("previous_good")
+            .putLong("updated_at", 7L)
+            .commit())
+
+        scenario = ActivityScenario.launch(MainActivity::class.java)
+        compose.waitForIdle()
+        compose.onNodeWithText("Settings", substring = false).performClick()
+        compose.onNodeWithText("Recovery needed", substring = false).performScrollTo().assertExists()
+        compose.onNodeWithText("Export my space", substring = false).performScrollTo().assertIsNotEnabled()
+        compose.onNodeWithText("Restore backup", substring = false).performScrollTo().assertIsEnabled()
+        compose.onNodeWithText("Start with a clean space", substring = false).performScrollTo().performClick()
+        compose.onNodeWithText("Start over?", substring = false).assertExists()
+        compose.onNodeWithText("Reset this space", substring = false).performClick()
+
+        waitFor { !store.damaged }
+        val saved = preferences.getString("state", null)
+        assertNotNull(saved)
+        assertEquals(store.state.value, BackupCodec.decode(saved!!))
+        compose.onNodeWithText("Your data", substring = false).performScrollTo().assertExists()
+    }
+
     @Test fun backupAndRestoreRoundTripInRealAndroidStorage() = runBlocking {
         val h = Habit(name = "Read", goal = "Ten pages")
         val content = HabitState(listOf(h), mapOf(LocalDate.now().toString() to setOf(h.id)), listOf(Reflection(LocalDate.now(), 3, "A real win")))
@@ -118,9 +162,9 @@ class KimiFlowTest {
 
     @Test fun staleSyncSnapshotCannotOverwriteANewerLocalWrite() = runBlocking {
         val old = store.snapshot()
-        store.update(stamp = old.updatedAt) { it.copy(name = "Newest local name") }
+        store.update(stamp = Long.MAX_VALUE - 1) { it.copy(name = "Newest local name") }
         val current = store.snapshot()
-        assertTrue(current.updatedAt > old.updatedAt)
+        assertEquals(old.updatedAt + 1, current.updatedAt)
 
         val staleApply = store.replaceIfUnchanged(old, old.state.copy(name = "Stale cloud name"), current.updatedAt + 1)
         assertNull(staleApply)

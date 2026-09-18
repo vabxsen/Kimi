@@ -1,5 +1,7 @@
 package com.forma.habits
 
+import android.content.Intent
+import androidx.core.net.toUri
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
@@ -46,6 +48,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringArrayResource
@@ -498,7 +501,22 @@ private val MoodIcons = listOf(Icons.Rounded.SentimentVeryDissatisfied, Icons.Ro
         dismissButton = { TextButton(onClick = { deleteDate = null }) { Text(stringResource(R.string.action_keep_it)) } }) }
 }
 
-@Composable fun SettingsScreen(state: HabitState, onRename: (String) -> Unit, onSaveHabit: (Habit, () -> Unit) -> Unit, account: KimiAccount? = null, onAccount: () -> Unit = {}) {
+@Composable fun SettingsScreen(
+    state: HabitState,
+    onRename: (String, (Boolean) -> Unit) -> Unit,
+    onSaveHabit: (Habit, (Boolean) -> Unit) -> Unit,
+    account: KimiAccount? = null,
+    onAccount: () -> Unit = {},
+    damaged: Boolean = false,
+    syncable: Boolean = false,
+    syncing: Boolean = false,
+    syncFailed: Boolean = false,
+    syncError: String? = null,
+    onRetrySync: () -> Unit = {},
+    onExport: () -> Unit = {},
+    onRestore: () -> Unit = {},
+    onReset: () -> Unit = {}
+) {
     var credits by remember { mutableStateOf(false) }
     /**
      * The name card sits in a LazyColumn item, and Compose disposes items that scroll out of the
@@ -519,13 +537,90 @@ private val MoodIcons = listOf(Icons.Rounded.SentimentVeryDissatisfied, Icons.Ro
         }
         item { NameCard(state.name, editingName, { editingName = it }, onRename) }
         item { AccountCard(account, onAccount) }
+        if (syncable) item { SyncStatusCard(syncing, syncFailed, syncError, onRetrySync) }
         item { AppearanceCard() }
         item { NotificationSettings(state.habits, onSaveHabit) }
+        item { DataRecoveryCard(damaged, onExport, onRestore, onReset) }
         if (state.demo) item { Text(stringResource(R.string.demo_footer_settings), color = Quiet, fontSize = 11.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) }
         item { UpdateCard() }
         item { AboutCard { credits = true } }
     }
     if (credits) CreditsDialog { credits = false }
+}
+
+@Composable private fun SyncStatusCard(syncing: Boolean, failed: Boolean, error: String?, onRetry: () -> Unit) {
+    val icon = when {
+        failed -> Icons.Rounded.CloudOff
+        syncing -> Icons.Rounded.Sync
+        else -> Icons.Rounded.CloudDone
+    }
+    val title = stringResource(when {
+        failed -> R.string.sync_failed_title
+        syncing -> R.string.syncing_title
+        else -> R.string.synced_title
+    })
+    val body = if (failed && error != null) error else stringResource(when {
+        failed -> R.string.sync_failed_body
+        syncing -> R.string.syncing_body
+        else -> R.string.synced_body
+    })
+    PlayCard(if (failed) Peach else Blue) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            BubbleIcon(icon, Overlay)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.titleMedium)
+                Text(body, color = Quiet, style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+        if (failed) {
+            Spacer(Modifier.height(12.dp))
+            OutlinedButton(onClick = onRetry, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp), shape = RoundedCornerShape(15.dp)) {
+                Text(stringResource(R.string.action_retry_sync))
+            }
+        }
+    }
+}
+
+@Composable private fun DataRecoveryCard(
+    damaged: Boolean,
+    onExport: () -> Unit,
+    onRestore: () -> Unit,
+    onReset: () -> Unit
+) {
+    var confirmReset by rememberSaveable { mutableStateOf(false) }
+    PlayCard(if (damaged) Peach else Mint) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            BubbleIcon(if (damaged) Icons.Rounded.Warning else Icons.Rounded.Lock, Overlay)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(if (damaged) R.string.recovery_needed_title else R.string.data_title), style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(if (damaged) R.string.recovery_needed_body else R.string.data_body), color = Quiet, style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        OutlinedButton(onClick = onExport, enabled = !damaged, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp), shape = RoundedCornerShape(15.dp)) {
+            Text(stringResource(R.string.action_export_space))
+        }
+        Spacer(Modifier.height(8.dp))
+        OutlinedButton(onClick = onRestore, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp), shape = RoundedCornerShape(15.dp)) {
+            Text(stringResource(R.string.action_restore_backup))
+        }
+        TextButton(onClick = { confirmReset = true }, modifier = Modifier.fillMaxWidth()) {
+            Text(stringResource(R.string.action_reset_space), color = Danger)
+        }
+    }
+    if (confirmReset) AlertDialog(
+        onDismissRequest = { confirmReset = false },
+        title = { Text(stringResource(R.string.dialog_reset_title)) },
+        text = { Text(stringResource(R.string.dialog_reset_body)) },
+        confirmButton = {
+            TextButton(onClick = { confirmReset = false; onReset() }) {
+                Text(stringResource(R.string.action_reset_confirm), color = Danger)
+            }
+        },
+        dismissButton = { TextButton(onClick = { confirmReset = false }) { Text(stringResource(R.string.action_cancel)) } }
+    )
 }
 
 private const val WaterRippleDurationMillis = 380
@@ -561,11 +656,12 @@ private val BoldCheck = ImageVector.Builder(
  * and draw a caret. Once editing, the pencil becomes a tick, so there is always a way back out, and
  * the ripple gives the press somewhere to land.
  */
-@Composable fun NameCard(saved: String, editing: Boolean, onEditing: (Boolean) -> Unit, onRename: (String) -> Unit) {
+@Composable fun NameCard(saved: String, editing: Boolean, onEditing: (Boolean) -> Unit, onRename: (String, (Boolean) -> Unit) -> Unit) {
     // The draft stays saveable: LazyColumn keeps an item’s saveable state across disposal, so a
     // half-typed name survives scrolling even though the item itself does not. It is a
     // TextFieldValue rather than a String so the caret position is Kimi's to set, and survives too.
     var name by rememberSaveable(saved, stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue(saved)) }
+    var saving by remember { mutableStateOf(false) }
     val focus = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     val scope = rememberCoroutineScope()
@@ -577,9 +673,18 @@ private val BoldCheck = ImageVector.Builder(
     // The tick always closes the field. Only a real change is saved: a blank or untouched name goes
     // back to the saved one, instead of leaving a dead button or announcing a rename to the same name.
     fun commit() {
+        if (saving) return
         val typed = name.text.trim()
-        if (typed.isNotEmpty() && typed != saved) onRename(typed) else { name = TextFieldValue(saved) }
-        onEditing(false)
+        if (typed.isNotEmpty() && typed != saved) {
+            saving = true
+            onRename(typed) { succeeded ->
+                saving = false
+                if (succeeded) onEditing(false)
+            }
+        } else {
+            name = TextFieldValue(saved)
+            onEditing(false)
+        }
     }
     PlayCard(Paper) {
         Text(stringResource(R.string.settings_name_question), style = MaterialTheme.typography.titleMedium)
@@ -624,7 +729,7 @@ private val BoldCheck = ImageVector.Builder(
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                 keyboardActions = KeyboardActions(onDone = { commit() }),
                 trailingIcon = {
-                    IconButton(onClick = {
+                    IconButton(enabled = !saving, onClick = {
                         scope.launch { drop.snapTo(0f); drop.animateTo(1f,
                             tween(WaterRippleDurationMillis, easing = LinearEasing)) }
                         if (editing) commit() else {
@@ -645,6 +750,7 @@ private val BoldCheck = ImageVector.Builder(
 
 /** Version is here so a bug report can name a build; credits are an obligation, not decoration. */
 @Composable fun AboutCard(onCredits: () -> Unit) {
+    val context = LocalContext.current
     PlayCard(Paper) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             BubbleIcon(Icons.Rounded.Info, Overlay); Spacer(Modifier.width(12.dp))
@@ -660,23 +766,29 @@ private val BoldCheck = ImageVector.Builder(
                 style = MaterialTheme.typography.bodyMedium, color = Quiet)
         }
         Spacer(Modifier.height(12.dp))
+        OutlinedButton(onClick = {
+            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, PrivacyPolicyUrl.toUri())) }
+        }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp), shape = RoundedCornerShape(15.dp)) {
+            Text(stringResource(R.string.action_privacy_policy))
+        }
+        Spacer(Modifier.height(8.dp))
         OutlinedButton(onClick = onCredits, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp), shape = RoundedCornerShape(15.dp)) {
             Text(stringResource(R.string.action_credits))
         }
     }
 }
 
+private const val PrivacyPolicyUrl = "https://github.com/vabxsen/Kimi/blob/main/docs/PRIVACY.md"
+
 /**
  * Built like [WelcomeDialog] rather than as a page of its own: a rounded Cream sheet, the mascot,
  * and tinted [PlayCard]s, so Credits reads as part of Kimi instead of a settings screen borrowed
  * from somewhere else.
  *
- * Per-library attributions were deliberately removed. Nunito ships under the SIL Open Font License
- * and the AndroidX/Firebase/Material dependencies under Apache 2.0, both of which ask for the
- * notice to travel with the binary - `Nunito-OFL.txt` and `LICENSE` carry it in the repository
- * only. Restore a list here, or surface it another way, before that matters.
+ * License notices are bundled in res/raw and remain viewable offline from this dialog.
  */
 @Composable fun CreditsDialog(onDismiss: () -> Unit) {
+    var notices by rememberSaveable { mutableStateOf(false) }
     val author = stringResource(R.string.credits_author_name)
     val credit = stringResource(R.string.credits_author_line, author)
     Dialog(onDismissRequest = onDismiss) {
@@ -713,10 +825,34 @@ private val BoldCheck = ImageVector.Builder(
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
             }
+            Spacer(Modifier.height(10.dp))
+            OutlinedButton(onClick = { notices = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp), shape = RoundedCornerShape(15.dp)) {
+                Text(stringResource(R.string.action_open_source_licenses))
+            }
             Spacer(Modifier.height(16.dp))
             Text(stringResource(R.string.credits_copyright), color = Quiet, fontSize = 10.sp,
                 modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
             Spacer(Modifier.height(16.dp))
+            MainButton(stringResource(R.string.action_close), onClick = onDismiss)
+        }
+    }
+    if (notices) OpenSourceNoticesDialog { notices = false }
+}
+
+@Composable private fun OpenSourceNoticesDialog(onDismiss: () -> Unit) {
+    val resources = LocalResources.current
+    val text = remember(resources) {
+        resources.openRawResource(R.raw.open_source_notices).bufferedReader().use { it.readText() }
+    }
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            Modifier.fillMaxWidth().fillMaxHeight(.88f).clip(RoundedCornerShape(24.dp)).background(Cream).padding(20.dp)
+        ) {
+            Text(stringResource(R.string.open_source_licenses_title), style = MaterialTheme.typography.titleLarge)
+            Spacer(Modifier.height(12.dp))
+            Text(text, modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
+                color = Quiet, style = MaterialTheme.typography.bodyMedium)
+            Spacer(Modifier.height(12.dp))
             MainButton(stringResource(R.string.action_close), onClick = onDismiss)
         }
     }
@@ -777,12 +913,13 @@ private val BoldCheck = ImageVector.Builder(
             shape = RoundedCornerShape(16.dp), singleLine = true, keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(onDone = { keyboard?.hide(); focus.clearFocus() }))
         Text(stringResource(R.string.editor_icon_section), style = MaterialTheme.typography.titleMedium)
+        val iconDescriptions = stringArrayResource(R.array.habit_icon_names)
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
             HabitSymbols.forEachIndexed { i, icon ->
-                val description = if (i == HabitSymbols.lastIndex) stringResource(R.string.cd_habit_icon_gaming)
-                    else stringResource(R.string.cd_habit_icon, i + 1)
-                IconButton(onClick = { symbol = i }, modifier = Modifier.size(48.dp).clip(RoundedCornerShape(15.dp)).background(if (symbol == i) Purple else Paper)) {
-                    Icon(icon, description, tint = if (symbol == i) OnAccent else Ink)
+                IconButton(onClick = { symbol = i }, modifier = Modifier.size(48.dp)
+                    .semantics { contentDescription = iconDescriptions[i]; selected = symbol == i }
+                    .clip(RoundedCornerShape(15.dp)).background(if (symbol == i) Purple else Paper)) {
+                    Icon(icon, null, tint = if (symbol == i) OnAccent else Ink)
                 }
             }
         }

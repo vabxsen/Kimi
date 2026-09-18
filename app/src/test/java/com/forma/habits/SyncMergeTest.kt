@@ -83,6 +83,32 @@ class SyncMergeTest {
         val seeded = legacy.withBaselineRevisions(100)
         val renamed = seeded.copy(name = "New name").recordChangesFrom(seeded, 300)
         assertEquals(100L, renamed.sync.habitUpdates["read"])
+        assertEquals(300L, renamed.sync.nameUpdatedAt)
+    }
+
+    @Test fun aLegacyDeviceCannotUndoAnExplicitRenameWithAnUnrelatedEdit() {
+        val legacy = HabitState(listOf(reading), name = "Alex").withBaselineRevisions(500)
+        val checked = legacy.copy(checks = mapOf(monday.toString() to setOf("read")))
+            .recordChangesFrom(legacy, 501)
+        val renamed = HabitState(listOf(reading), name = "Sam")
+            .recordChangesFrom(HabitState(listOf(reading), name = "Alex"), 200)
+
+        assertEquals(0L, checked.sync.nameUpdatedAt)
+        val merged = mergeSpaces(checked, 501, renamed, 200)
+        assertEquals("Sam", merged.name)
+        assertTrue(merged.done("read", monday))
+    }
+
+    @Test fun anIndependentCheckInCannotRevertAnExplicitRename() {
+        val original = HabitState(listOf(reading), name = "Alex").recordChangesFrom(HabitState(), 100)
+        val renamed = original.copy(name = "Sam").recordChangesFrom(original, 200)
+        val checked = original.copy(checks = mapOf(monday.toString() to setOf("read")))
+            .recordChangesFrom(original, 300)
+
+        val merged = mergeSpaces(renamed, 200, checked, 300)
+        assertEquals("Sam", merged.name)
+        assertEquals(200L, merged.sync.nameUpdatedAt)
+        assertTrue(merged.done("read", monday))
     }
 
     @Test fun checkInsForHabitsNeitherSideHasAreDropped() {

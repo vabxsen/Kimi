@@ -8,7 +8,7 @@ import java.time.LocalDate
 object BackupCodec {
     const val MAX_BYTES = 8 * 1024 * 1024
     fun encode(state: HabitState): String = JSONObject().apply {
-        put("format", "kimi"); put("version", 3)
+        put("format", "kimi"); put("version", 4)
         put("name", state.name); put("demo", state.demo); put("onboarded", state.onboarded)
         put("habits", JSONArray().apply { state.habits.forEach { h -> put(JSONObject().apply {
             put("id", h.id); put("name", h.name); put("goal", h.goal); put("icon", h.icon); put("color", h.color)
@@ -23,6 +23,7 @@ object BackupCodec {
             put("date", entry.date.toString()); put("mood", entry.mood); put("text", entry.text)
         }) } })
         put("sync", JSONObject().apply {
+            put("nameUpdatedAt", state.sync.nameUpdatedAt)
             put("habitUpdates", state.sync.habitUpdates.timestamps())
             put("habitDeletions", state.sync.habitDeletions.timestamps())
             put("checkUpdates", state.sync.checkUpdates.timestamps())
@@ -35,7 +36,7 @@ object BackupCodec {
     fun decode(raw: String): HabitState {
         demand(raw.toByteArray(Charsets.UTF_8).size <= MAX_BYTES, R.string.err_backup_too_large)
         val json = JSONObject(raw.removePrefix("\uFEFF"))
-        demand(json.optInt("version", 1) in 1..3, R.string.err_backup_version)
+        demand(json.optInt("version", 1) in 1..4, R.string.err_backup_version)
         demand(!json.has("format") || json.getString("format") == "kimi", R.string.err_backup_format)
         val habits = json.getJSONArray("habits").objects(500).map { h ->
             Habit(id = h.getString("id"), name = h.getString("name"), goal = h.getString("goal"),
@@ -68,6 +69,7 @@ object BackupCodec {
         demand(name.isNotBlank() && name.length <= 30, R.string.err_backup_name)
         val sync = json.optJSONObject("sync")?.let { value ->
             SyncMetadata(
+                nameUpdatedAt = value.optLong("nameUpdatedAt", 0L),
                 habitUpdates = value.optJSONObject("habitUpdates").timestampMap(),
                 habitDeletions = value.optJSONObject("habitDeletions").timestampMap(),
                 checkUpdates = value.optJSONObject("checkUpdates").timestampMap(),
@@ -103,6 +105,7 @@ object BackupCodec {
         }
     }
     private fun validateSync(sync: SyncMetadata, habits: List<Habit>, checks: Map<String, Set<String>>, journal: List<Reflection>) {
+        demand(sync.nameUpdatedAt in 0 until Long.MAX_VALUE, R.string.err_backup_sync_metadata)
         val ids = habits.map { it.id }.toSet()
         val checkKeys = checks.flatMap { (day, habitIds) -> habitIds.map { checkRevisionKey(day, it) } }.toSet()
         val reflectionKeys = journal.map { it.date.toString() }.toSet()

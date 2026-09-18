@@ -25,7 +25,7 @@ class BackupAndReminderTest {
             BackupCodec.encode(HabitState(listOf(habit.copy(color = 100)))) ,
             BackupCodec.encode(HabitState(listOf(habit.copy(icon = 9)))),
             BackupCodec.encode(HabitState(listOf(habit), mapOf(monday.toString() to setOf("unknown")))),
-            BackupCodec.encode(HabitState(listOf(habit))).replace("\"version\": 3", "\"version\": 99"),
+            BackupCodec.encode(HabitState(listOf(habit))).replace("\"version\": 4", "\"version\": 99"),
             BackupCodec.encode(HabitState(journal = listOf(Reflection(monday, 9, "Invalid")))),
             BackupCodec.encode(HabitState(listOf(habit.copy(reminderMinutes = 540, reminderCount = 25)))),
             BackupCodec.encode(HabitState(listOf(habit.copy(reminderMinutes = 1439, reminderCount = 24)))),
@@ -40,6 +40,14 @@ class BackupAndReminderTest {
         assertEquals(200L, removed.sync.habitDeletions[habit.id])
         assertEquals(200L, removed.sync.reflectionDeletions[monday.toString()])
     }
+    @Test fun versionThreeBackupsMigrateWithoutInventingANameRevision() {
+        val versionThree = BackupCodec.encode(HabitState(name = "Legacy"))
+            .replace("\"version\": 4", "\"version\": 3")
+            .replace(Regex("\\s*\"nameUpdatedAt\": 0,?"), "")
+        val decoded = BackupCodec.decode(versionThree)
+        assertEquals("Legacy", decoded.name)
+        assertEquals(0L, decoded.sync.nameUpdatedAt)
+    }
     @Test fun editingSchedulePreservesEarlierWeekends() {
         val friday = monday.minusDays(3)
         val old = habit.copy(created = friday)
@@ -53,12 +61,6 @@ class BackupAndReminderTest {
         val second = first.copy(weekdays = false).editedFrom(first, monday.plusDays(1))
         assertEquals(2, second.schedule.size)
         BackupCodec.validateHabit(second)
-    }
-    @Test fun starterHabitsHaveNoInventedHistory() {
-        val state = HabitState(starterHabits(monday))
-        assertEquals(0, state.count(monday))
-        assertEquals(0, state.percent(monday))
-        assertEquals(0, state.due(monday.minusDays(1)).size)
     }
     @Test fun reminderSkipsCompletedDayAndWeekend() {
         val h = habit.copy(weekdays = true, reminderMinutes = 540)

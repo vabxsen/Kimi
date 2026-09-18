@@ -1,5 +1,6 @@
 package com.forma.habits
 
+import android.annotation.SuppressLint
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,7 +22,7 @@ class HabitStore private constructor(context: Context, val owner: String) {
     private val mutableState = MutableStateFlow(load())
     val state = mutableState.asStateFlow()
 
-    /** Wall-clock millis of the last local write. Prefer [snapshot] when state and revision must agree. */
+    /** Monotonic logical revision of the last local write. Prefer [snapshot] when state and revision must agree. */
     val updatedAt: Long get() = prefs.getLong("updated_at", 0L)
 
     private fun load(): HabitState {
@@ -38,7 +39,7 @@ class HabitStore private constructor(context: Context, val owner: String) {
         mutex.withLock { Snapshot(mutableState.value, updatedAt) }
     }
 
-    suspend fun update(replaceDamaged: Boolean = false, eraseHistory: Boolean = false, stamp: Long = System.currentTimeMillis(), transform: (HabitState) -> HabitState): HabitState = withContext(Dispatchers.IO) {
+    suspend fun update(replaceDamaged: Boolean = false, eraseHistory: Boolean = false, stamp: Long? = null, transform: (HabitState) -> HabitState): HabitState = withContext(Dispatchers.IO) {
         mutex.withLock {
             demand(!damaged || replaceDamaged, R.string.err_damaged_locked)
             val previousRevision = updatedAt
@@ -62,11 +63,14 @@ class HabitStore private constructor(context: Context, val owner: String) {
         }
     }
 
-    private fun monotonicStamp(requested: Long, current: Long): Long {
+    private fun monotonicStamp(requested: Long?, current: Long): Long {
         val afterCurrent = if (current == Long.MAX_VALUE) Long.MAX_VALUE else current + 1
-        return maxOf(1L, requested, afterCurrent)
+        // Revisions are logical counters, not timestamps. Accept only the immediate next value from
+        // tests/migrations so a device with a wildly incorrect clock cannot dominate every conflict.
+        return if (requested == afterCurrent) requested else maxOf(1L, afterCurrent)
     }
 
+    @SuppressLint("UseKtx") // commit() is required so a failed durable write can be reported.
     private fun persist(next: HabitState, stamp: Long, eraseHistory: Boolean, json: String = BackupCodec.encode(next)): HabitState {
         demand(json.toByteArray(Charsets.UTF_8).size <= BackupCodec.MAX_BYTES, R.string.err_space_full)
         val previous = prefs.getString("state", null)
@@ -82,6 +86,7 @@ class HabitStore private constructor(context: Context, val owner: String) {
         return next
     }
 
+    @SuppressLint("UseKtx") // commit() is required so reset never reports success before persistence.
     suspend fun erase() = withContext(Dispatchers.IO) {
         mutex.withLock {
             if (!prefs.edit().clear().commit()) throw KimiMessage(R.string.err_erase_failed)

@@ -2,6 +2,7 @@ package com.forma.habits
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import androidx.core.net.toUri
 import android.os.Build
@@ -11,6 +12,9 @@ import org.json.JSONObject
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
+import java.nio.file.AtomicMoveNotSupportedException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
 
 /**
@@ -26,6 +30,9 @@ const val ReleasesPageUrl = "https://github.com/$UpdateRepository/releases/lates
 private const val UserAgent = "Kimi-Android"
 private const val MaxMetadataBytes = 512 * 1024
 private const val NetworkTimeoutMillis = 20_000
+internal const val MaxUpdateApkBytes = 100L * 1024 * 1024
+private const val LocalUpdateFileName = "kimi-update.apk"
+private const val MaxRedirects = 5
 
 data class UpdateRelease(
     val version: String,
@@ -75,20 +82,50 @@ internal fun parseRelease(body: String): UpdateRelease {
         .map { assets!!.getJSONObject(it) }
         .firstOrNull { it.optString("name").endsWith(".apk", ignoreCase = true) }
     demand(apk != null, R.string.err_update_no_file)
+    val fileName = apk!!.optString("name")
+    val downloadUrl = apk.optString("browser_download_url")
+    val size = apk.optLong("size")
+    demand(fileName.length in 1..150 && fileName.endsWith(".apk", ignoreCase = true) &&
+        !fileName.contains('/') && !fileName.contains('\\'), R.string.err_update_unreadable)
+    demand(isAllowedUpdateUrl(downloadUrl), R.string.err_update_unreadable)
+    demand(size in 1..MaxUpdateApkBytes, R.string.err_update_too_large)
     return UpdateRelease(
         version = version,
         notes = json.optString("body").trim(),
         pageUrl = json.optString("html_url").ifBlank { ReleasesPageUrl },
-        fileName = apk!!.optString("name"),
-        downloadUrl = apk.optString("browser_download_url"),
-        size = apk.optLong("size")
+        fileName = fileName,
+        downloadUrl = downloadUrl,
+        size = size
     )
 }
+
+internal fun isAllowedUpdateUrl(value: String): Boolean = runCatching {
+    val url = URL(value)
+    val host = url.host.lowercase()
+    url.protocol.equals("https", ignoreCase = true) && url.userInfo == null && when {
+        host == "github.com" -> url.path.startsWith("/$UpdateRepository/releases/download/")
+        host == "release-assets.githubusercontent.com" -> true
+        host == "objects.githubusercontent.com" -> true
+        host == "github-releases.githubusercontent.com" -> true
+        else -> false
+    }
+}.getOrDefault(false)
 
 private fun open(url: String): HttpURLConnection = (URL(url).openConnection() as HttpURLConnection).apply {
     connectTimeout = NetworkTimeoutMillis
     readTimeout = NetworkTimeoutMillis
     setRequestProperty("User-Agent", UserAgent)
+}
+
+private fun openDownload(url: String, redirects: Int = 0): HttpURLConnection {
+    demand(redirects <= MaxRedirects && isAllowedUpdateUrl(url), R.string.err_update_download)
+    val connection = open(url).apply { instanceFollowRedirects = false }
+    if (connection.responseCode !in 300..399) return connection
+    val location = connection.getHeaderField("Location")
+    val next = runCatching { URL(connection.url, location).toString() }.getOrNull()
+    connection.disconnect()
+    demand(next != null, R.string.err_update_download)
+    return openDownload(next!!, redirects + 1)
 }
 
 object Updates {
@@ -131,13 +168,18 @@ object Updates {
      */
     fun download(context: Context, release: UpdateRelease, onProgress: (Long, Long) -> Unit): File {
         val directory = downloadDirectory(context).apply { mkdirs() }
-        directory.listFiles()?.forEach { it.delete() }
-        val target = File(directory, release.fileName)
-        val partial = File(directory, release.fileName + ".part")
-        val connection = open(release.downloadUrl)
+        demand(directory.isDirectory, R.string.err_update_download)
+        directory.listFiles()?.filter { it.isFile }?.forEach { it.delete() }
+        val target = File(directory, LocalUpdateFileName)
+        val partial = File(directory, "$LocalUpdateFileName.part")
+        demand(release.size in 1..MaxUpdateApkBytes && isAllowedUpdateUrl(release.downloadUrl), R.string.err_update_download)
+        val connection = openDownload(release.downloadUrl)
         try {
             demand(connection.responseCode == 200, R.string.err_update_download)
-            val total = if (release.size > 0) release.size else connection.contentLengthLong
+            val responseSize = connection.contentLengthLong
+            demand(responseSize <= 0 || responseSize in 1..MaxUpdateApkBytes, R.string.err_update_too_large)
+            demand(responseSize <= 0 || responseSize == release.size, R.string.err_update_download)
+            val total = release.size
             var written = 0L
             connection.inputStream.use { input ->
                 partial.outputStream().use { output ->
@@ -145,15 +187,21 @@ object Updates {
                     while (true) {
                         val read = input.read(buffer)
                         if (read < 0) break
-                        output.write(buffer, 0, read)
                         written += read
+                        demand(written <= release.size && written <= MaxUpdateApkBytes, R.string.err_update_too_large)
+                        output.write(buffer, 0, read)
                         onProgress(written, total)
                     }
                 }
             }
             // A truncated file would otherwise reach the installer and fail as "app not installed".
-            demand(release.size <= 0 || written == release.size, R.string.err_update_download)
-            partial.renameTo(target)
+            demand(written == release.size, R.string.err_update_download)
+            try {
+                Files.move(partial.toPath(), target.toPath(), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+            } catch (_: AtomicMoveNotSupportedException) {
+                Files.move(partial.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING)
+            }
+            demand(target.isFile && target.length() == release.size, R.string.err_update_download)
             return target
         } catch (e: Throwable) {
             partial.delete()
@@ -170,21 +218,26 @@ object Updates {
      */
     fun signedLikeInstalled(context: Context, file: File): Boolean = runCatching {
         val packages = context.packageManager
-        fun certificates(archive: Boolean): Set<String> {
-            @Suppress("DEPRECATION")
-            val flag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
-                PackageManager.GET_SIGNING_CERTIFICATES else PackageManager.GET_SIGNATURES
-            val info = if (archive) packages.getPackageArchiveInfo(file.absolutePath, flag)
-            else packages.getPackageInfo(context.packageName, flag)
+        @Suppress("DEPRECATION")
+        val flag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
+            PackageManager.GET_SIGNING_CERTIFICATES else PackageManager.GET_SIGNATURES
+        val installed = packages.getPackageInfo(context.packageName, flag)
+        val offered = packages.getPackageArchiveInfo(file.absolutePath, flag) ?: return@runCatching false
+        fun certificates(info: PackageInfo): Set<String> {
             @Suppress("DEPRECATION")
             val signatures = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
-                info?.signingInfo?.apkContentsSigners else info?.signatures
+                info.signingInfo?.apkContentsSigners else info.signatures
             val digest = MessageDigest.getInstance("SHA-256")
             return signatures.orEmpty().map { digest.digest(it.toByteArray()).joinToString("") { b -> "%02x".format(b) } }.toSet()
         }
-        val offered = certificates(archive = true)
-        offered.isNotEmpty() && offered == certificates(archive = false)
-    }.getOrDefault(true) // Never block an install on a check that itself failed to run.
+        @Suppress("DEPRECATION")
+        fun versionCode(info: PackageInfo): Long = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
+            info.longVersionCode else info.versionCode.toLong()
+        val offeredCertificates = certificates(offered)
+        offered.packageName == installed.packageName &&
+            versionCode(offered) > versionCode(installed) &&
+            offeredCertificates.isNotEmpty() && offeredCertificates == certificates(installed)
+    }.getOrDefault(false)
 
     fun canInstall(context: Context): Boolean = context.packageManager.canRequestPackageInstalls()
 

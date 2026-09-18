@@ -39,7 +39,7 @@ The app is fully native—there is no WebView—and its interface includes light
 
 Additional details:
 
-- Five suggested starter rituals or a completely blank space.
+- A focused first-run flow that starts with a blank space and opens the habit editor.
 - Automatic, light, and dark appearance modes.
 - Optional habit reminders on scheduled, incomplete days.
 - Local JSON export with validation and preview before restore.

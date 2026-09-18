@@ -69,6 +69,7 @@ val LocalToday = compositionLocalOf { LocalDate.now() }
     val savedPages = rememberSaveableStateHolder()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val restore = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { it?.let(vm::readBackup) }
+    val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { it?.let(vm::exportBackup) }
     DisposableEffect(lifecycle) {
         val observer = LifecycleEventObserver { _, event -> if (event == Lifecycle.Event.ON_RESUME) vm.refreshDate() }
         lifecycle.addObserver(observer)
@@ -123,7 +124,22 @@ val LocalToday = compositionLocalOf { LocalDate.now() }
                 Page.Calendar -> CalendarScreen(state, vm::toggle)
                 Page.Insights -> InsightsScreen(state)
                 Page.Journal -> JournalScreen(state, vm::reflect, vm::deleteReflection, vm.draftMood, vm.draftText, vm::updateDraft, vm.draftDate, vm::loadDraft, vm.draftDates())
-                Page.Settings -> SettingsScreen(state, vm::rename, vm::saveHabit, account, onAccount)
+                Page.Settings -> SettingsScreen(
+                    state = state,
+                    onRename = vm::rename,
+                    onSaveHabit = vm::saveHabit,
+                    account = account,
+                    onAccount = onAccount,
+                    damaged = vm.damaged,
+                    syncable = vm.syncable,
+                    syncing = vm.syncing,
+                    syncFailed = vm.syncFailed,
+                    syncError = vm.syncError,
+                    onRetrySync = vm::syncNow,
+                    onExport = { export.launch("Kimi-backup-${LocalDate.now()}.json") },
+                    onRestore = { restore.launch(arrayOf("application/json", "text/*", "application/octet-stream")) },
+                    onReset = vm::reset
+                )
             }
             }
             if (vm.busy) LinearProgressIndicator(Modifier.fillMaxWidth().align(Alignment.TopCenter), color = Accent)
@@ -133,7 +149,7 @@ val LocalToday = compositionLocalOf { LocalDate.now() }
     if (sheetOpen) {
         ModalBottomSheet(onDismissRequest = { sheetOpen = false }, containerColor = Cream,
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-            HabitEditor(state.habits.find { it.id == editingId }, onSave = { vm.saveHabit(it) { sheetOpen = false } },
+            HabitEditor(state.habits.find { it.id == editingId }, onSave = { vm.saveHabit(it) { saved -> if (saved) sheetOpen = false } },
                 onDelete = { deleteId = editingId }, onClose = { sheetOpen = false }, busy = vm.busy)
         }
     }
