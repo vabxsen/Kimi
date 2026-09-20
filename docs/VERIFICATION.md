@@ -3,7 +3,8 @@
 ## v1.0.10 hardening pass — 2026-09-19
 
 Recovery, sync conflict handling, updater validation, save-failure states, privacy/licensing,
-accessibility, and CI coverage were hardened after the full application audit.
+accessibility, CI coverage, and the build supply chain were hardened after the full application
+and Codex Security audits.
 
 **Result: the debug and signed/minified release variants build successfully. All 45 JVM tests pass,
 the instrumentation-test APK compiles, and debug/release lint report 0 errors.**
@@ -15,9 +16,10 @@ the instrumentation-test APK compiles, and debug/release lint report 0 errors.**
 | `assembleDebug testDebugUnitTest lintDebug assembleDebugAndroidTest`, plus `assembleRelease lintRelease` | Passed on the final source tree |
 | JVM tests | 45 passed, 0 failed, 0 skipped |
 | Android lint | Debug and release: 0 errors; 16 informational warnings about the SDK/dependency versions intentionally retained for AGP 8.13 / compile SDK 36 compatibility |
+| Build supply chain | GitHub Actions pinned to full commit SHAs; Firebase CLI pinned to `15.30.2`; Gradle 8.14.5 distribution pinned to its official SHA-256; wrapper JAR validation added to both CI jobs |
 | Release APK | R8/minification and packaging passed; package `com.forma.habits`, versionCode 11, versionName 1.0.10, minSdk 26, targetSdk 36 |
 | APK signature | `apksigner` verified one APK Signature Scheme v2 signer, `CN=Kimi`; certificate SHA-256 `A5466183C5714F0EE88DAE5498BB52239C6D8668B6BFD9649773A7F781B8F843` |
-| Current local release digest | SHA-256 `C9C535ADC210E45DC12CB2FE0E9A6173A18A26072E73CBF5BBF1FCC83B70C0B3` |
+| Draft v1.0.10 release asset digest | SHA-256 `C9C535ADC210E45DC12CB2FE0E9A6173A18A26072E73CBF5BBF1FCC83B70C0B3` |
 
 The remaining device flows are compiled and are now scheduled in CI with Android and Firebase
 emulators, but this local pass did not execute them because no emulator is available. Firebase App
