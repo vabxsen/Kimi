@@ -50,6 +50,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
@@ -878,7 +879,7 @@ private const val PrivacyPolicyUrl = "https://github.com/vabxsen/Kimi/blob/main/
                 ThemeMode.Dark to R.string.settings_theme_dark).forEach { (value, label) ->
                 FilterChip(selected = ThemeSetting.mode == value, onClick = { ThemeSetting.set(context, value) },
                     label = { Text(stringResource(label), fontSize = 11.sp) }, shape = CircleShape,
-                    modifier = Modifier.weight(1f))
+                    modifier = Modifier.weight(1f).testTag("theme_${value.name.lowercase()}"))
             }
         }
     }

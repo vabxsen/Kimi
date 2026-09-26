@@ -105,9 +105,108 @@ class KimiFlowTest {
         assertEquals("Found a tiny happy moment", store.state.value.journal.single().text)
     }
 
+    @Test fun navigationCalendarAndEditorCancelControlsWork() {
+        val habit = Habit(name = "Read", goal = "Ten pages")
+        runBlocking { store.update { HabitState(habits = listOf(habit), name = "Alex") } }
+        waitFor { store.state.value.habits.size == 1 }
+
+        compose.onNodeWithText("Calendar", substring = false).performClick()
+        compose.onNodeWithText("Look at you grow.", substring = false).assertExists()
+        compose.onNodeWithContentDescription("Next month").performClick()
+        compose.onNodeWithContentDescription("Previous month").assertIsEnabled()
+        compose.onAllNodesWithText("Today", substring = false)[0].performScrollTo().performClick()
+
+        compose.onNodeWithText("Insights", substring = false).performClick()
+        compose.onNodeWithText("You’re on a roll!", substring = false).assertExists()
+
+        compose.onNodeWithText("Habits", substring = false).performClick()
+        compose.onNodeWithContentDescription("Edit Read").performClick()
+        compose.onNodeWithContentDescription("Close habit editor").performClick()
+        compose.onNodeWithText("Habit name", substring = false).assertDoesNotExist()
+
+        compose.onNodeWithContentDescription("Edit Read").performClick()
+        compose.onNodeWithText("Delete this habit", substring = false).performScrollTo().performClick()
+        compose.onNodeWithText("Keep it", substring = false).performClick()
+        assertEquals("Read", store.state.value.habits.single().name)
+        compose.onNodeWithContentDescription("Close habit editor").performClick()
+    }
+
+    @Test fun journalMoodEditAndDeleteControlsWork() {
+        val today = LocalDate.now()
+        runBlocking { store.update { HabitState(journal = listOf(Reflection(today, 2, "Original note"))) } }
+        waitFor { store.state.value.journal.size == 1 }
+
+        compose.onNodeWithText("Journal", substring = false).performClick()
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Original note", substring = false))
+        compose.onNodeWithText("Edit", substring = false).performScrollTo().performClick()
+        compose.onNodeWithContentDescription("Amazing").performScrollTo().performClick()
+        compose.onNodeWithContentDescription("Amazing").assertIsSelected()
+        compose.onNodeWithText("A thought worth keeping").performTextReplacement("Updated note")
+        compose.onNodeWithText("Keep this little moment", substring = false).performScrollTo().performClick()
+        waitFor { store.state.value.journal.singleOrNull()?.text == "Updated note" }
+        assertEquals(4, store.state.value.journal.single().mood)
+
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Delete", substring = false))
+        compose.onNodeWithText("Delete", substring = false).performScrollTo().performClick()
+        compose.onNodeWithText("Keep it", substring = false).performClick()
+        assertEquals(1, store.state.value.journal.size)
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Delete", substring = false))
+        compose.onNodeWithText("Delete", substring = false).performScrollTo().performClick()
+        compose.onAllNodesWithText("Delete", substring = false)[1].performClick()
+        waitFor { store.state.value.journal.isEmpty() }
+    }
+
+    @Test fun settingsNameThemeReminderAndCreditsControlsWork() {
+        val habit = Habit(name = "Stretch", goal = "Five minutes")
+        runBlocking { store.update { HabitState(habits = listOf(habit), name = "Alex") } }
+        waitFor { store.state.value.habits.size == 1 }
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            InstrumentationRegistry.getInstrumentation().uiAutomation.grantRuntimePermission(
+                context.packageName,
+                android.Manifest.permission.POST_NOTIFICATIONS
+            )
+        }
+
+        compose.onNodeWithContentDescription("Open settings").performClick()
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Dark", substring = false))
+        compose.onNodeWithTag("theme_dark").performClick()
+        compose.runOnIdle { assertEquals(ThemeMode.Dark, ThemeSetting.mode) }
+        compose.onNodeWithTag("theme_light").performClick()
+        compose.runOnIdle { assertEquals(ThemeMode.Light, ThemeSetting.mode) }
+
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Stretch", substring = false))
+        compose.onNodeWithText("Stretch", substring = false).performClick()
+        compose.onNodeWithContentDescription("Habit reminder").performClick()
+        compose.onNodeWithText("Save reminder", substring = false).performClick()
+        waitFor { store.state.value.habits.single().reminderMinutes == 9 * 60 }
+
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Credits", substring = false))
+        compose.onNodeWithText("Credits", substring = false).performClick()
+        compose.onNodeWithText("Open-source licenses", substring = false).performClick()
+        compose.onNodeWithText("Open-source notices", substring = false).assertExists()
+        android.os.ParcelFileDescriptor.AutoCloseInputStream(
+            InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand("input keyevent KEYCODE_BACK")
+        ).use { it.readBytes() }
+        waitFor { compose.onAllNodesWithText("Open-source notices", substring = false).fetchSemanticsNodes().isEmpty() }
+        compose.onNodeWithText("Close", substring = false).performClick()
+        compose.onNodeWithText("Designed & developed by Vaibhav Sen", substring = false).assertDoesNotExist()
+
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Automatic", substring = false))
+        compose.onNodeWithTag("theme_system").performClick()
+        compose.runOnIdle { assertEquals(ThemeMode.System, ThemeSetting.mode) }
+
+        // Keep the rename last: its software keyboard resizes the settings list while it closes.
+        compose.onNode(hasScrollAction()).performScrollToNode(hasContentDescription("Edit your name"))
+        compose.onNodeWithContentDescription("Edit your name").performClick()
+        compose.onNodeWithText("Your name", substring = false).performTextReplacement("Taylor")
+        compose.onNodeWithContentDescription("Save your name").performClick()
+        waitFor { store.state.value.name == "Taylor" }
+    }
+
     @Test fun settingsExposesBackupRestoreAndResetControls() {
-        compose.onNodeWithText("Settings", substring = false).performClick()
-        compose.onNodeWithText("Your data", substring = false).performScrollTo().assertExists()
+        compose.onNodeWithContentDescription("Open settings").performClick()
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Your data", substring = false))
+        compose.onNodeWithText("Your data", substring = false).assertExists()
         compose.onNodeWithText("Export my space", substring = false).performScrollTo().assertIsEnabled()
         compose.onNodeWithText("Restore backup", substring = false).performScrollTo().assertIsEnabled()
         compose.onNodeWithText("Start with a clean space", substring = false).performScrollTo().performClick()
@@ -127,8 +226,9 @@ class KimiFlowTest {
 
         scenario = ActivityScenario.launch(MainActivity::class.java)
         compose.waitForIdle()
-        compose.onNodeWithText("Settings", substring = false).performClick()
-        compose.onNodeWithText("Recovery needed", substring = false).performScrollTo().assertExists()
+        compose.onNodeWithContentDescription("Open settings").performClick()
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Recovery needed", substring = false))
+        compose.onNodeWithText("Recovery needed", substring = false).assertExists()
         compose.onNodeWithText("Export my space", substring = false).performScrollTo().assertIsNotEnabled()
         compose.onNodeWithText("Restore backup", substring = false).performScrollTo().assertIsEnabled()
         compose.onNodeWithText("Start with a clean space", substring = false).performScrollTo().performClick()
