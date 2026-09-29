@@ -7,6 +7,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -161,12 +162,13 @@ private const val StripFutureDays = 7L
                         val d = today.minusDays(StripPastDays - index); val selected = d == date
                         val dayLabel = stringResource(if (selected) R.string.cd_day_selected else R.string.cd_day, d.format(ShortDate))
                         Column(Modifier.width(dayWidth).clip(RoundedCornerShape(17.dp)).background(if (selected) Purple else Paper)
+                            .then(if (selected) Modifier else Modifier.lightCardBorder(RoundedCornerShape(17.dp)))
                             .clickable(enabled = !d.isAfter(today), role = Role.Button) { dateString = d.toString() }
                             .semantics { contentDescription = dayLabel }
                             .padding(vertical = 9.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(d.dayOfWeek.name.take(1), fontSize = 10.sp, color = if (selected) OnAccent else Quiet)
                             Spacer(Modifier.height(7.dp)); Text(d.dayOfMonth.toString(), fontSize = 17.sp, fontWeight = FontWeight.Bold, color = if (selected) OnAccent else if (d.isAfter(today)) Quiet.copy(alpha = .78f) else Ink)
-                            Spacer(Modifier.height(7.dp)); Box(Modifier.size(4.dp).background(if (selected) Highlight else Lavender, CircleShape))
+                            Spacer(Modifier.height(7.dp)); Box(Modifier.size(4.dp).background(if (selected) Highlight else if (LocalKimiPalette.current.dark) Lavender else Accent, CircleShape))
                         }
                     }
                 }
@@ -182,7 +184,11 @@ private const val StripFutureDays = 7L
                 (listOf("All") + Dayparts).forEach { item ->
                     val label = if (item == "All") stringResource(R.string.filter_all) else daypartLabel(item)
                     FilterChip(selected = filter == item, onClick = { filter = item }, label = { Text(label, fontSize = 11.sp) }, shape = CircleShape,
-                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Ink, selectedLabelColor = OnInk), border = null)
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = if (LocalKimiPalette.current.dark) Color.Transparent else Paper,
+                            labelColor = if (LocalKimiPalette.current.dark) Quiet else Ink,
+                            selectedContainerColor = Ink, selectedLabelColor = OnInk),
+                        border = if (LocalKimiPalette.current.dark || filter == item) null else BorderStroke(1.dp, LightControlOutline))
                 }
             }
         }

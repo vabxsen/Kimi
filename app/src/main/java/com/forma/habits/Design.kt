@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.core.content.edit
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
@@ -22,6 +23,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -54,13 +56,13 @@ data class KimiPalette(
     val tiles: List<Color> get() = listOf(lavender, blue, yellow, mint, pink, peach)
 }
 
-private val LightPalette = KimiPalette(
-    cream = Color(0xFFFFF8F0), surface = Color.White, ink = Color(0xFF30243A), onInk = Color.White,
-    quiet = Color(0xFF615567), purple = Color(0xFF6847D6), accent = Color(0xFF6847D6),
-    onAccent = Color.White, highlight = Color(0xFFFFE696), overlay = Color.White.copy(alpha = .65f),
+internal val LightPalette = KimiPalette(
+    cream = Color(0xFFEDE7DF), surface = Color(0xFFF8F4EE), ink = Color(0xFF30243A), onInk = Color.White,
+    quiet = Color(0xFF514459), purple = Color(0xFF6847D6), accent = Color(0xFF6847D6),
+    onAccent = Color.White, highlight = Color(0xFFFFE696), overlay = Color(0xFFF8F4EE).copy(alpha = .50f),
     petal = Color.White.copy(alpha = .85f), danger = Color(0xFF9C463A),
-    lavender = Color(0xFFDCCFFF), blue = Color(0xFFBFE1F6), yellow = Color(0xFFFFDC70),
-    mint = Color(0xFFB8E3CD), pink = Color(0xFFF1C4D9), peach = Color(0xFFFFC9AB),
+    lavender = Color(0xFFCDBDEB), blue = Color(0xFFAED1E5), yellow = Color(0xFFF1CE69),
+    mint = Color(0xFFA8D2BB), pink = Color(0xFFE5B5CD), peach = Color(0xFFEDBC9E),
     verified = Color(0xFF1D9BF0), dark = false
 )
 
@@ -98,6 +100,12 @@ val Blue: Color @Composable @ReadOnlyComposable get() = LocalKimiPalette.current
 /** The badge blue. Named apart from [Blue], which is a pale card tint, and from the `Verified` icon. */
 val VerifiedBlue: Color @Composable @ReadOnlyComposable get() = LocalKimiPalette.current.verified
 val TileColors: List<Color> @Composable @ReadOnlyComposable get() = LocalKimiPalette.current.tiles
+
+// Neutral cards need an edge in light mode; hue alone is enough for the pastel cards.
+internal val LightCardOutline = Color(0xFFC1B5C2)
+internal val LightControlOutline = Color(0xFF88768F)
+@Composable internal fun Modifier.lightCardBorder(shape: Shape): Modifier =
+    if (LocalKimiPalette.current.dark) this else border(1.dp, LightCardOutline, shape)
 
 enum class ThemeMode { System, Light, Dark }
 
@@ -151,7 +159,8 @@ private val RoundedFont = FontFamily(
         primary = palette.purple, onPrimary = palette.onAccent, secondary = palette.purple,
         background = palette.cream, surface = palette.cream, onBackground = palette.ink, onSurface = palette.ink,
         onSurfaceVariant = palette.quiet,
-        surfaceContainer = palette.surface, surfaceContainerHigh = Color(0xFFF1EAF8), outline = palette.quiet,
+        surfaceContainer = palette.surface, surfaceContainerHigh = Color(0xFFE2D8EB),
+        outline = palette.quiet, outlineVariant = LightControlOutline,
         inverseSurface = palette.ink, inverseOnSurface = palette.surface,
         error = palette.danger
     )
@@ -198,12 +207,16 @@ private val RoundedFont = FontFamily(
 }
 
 @Composable fun BubbleIcon(icon: ImageVector, background: Color, modifier: Modifier = Modifier, size: Int = 48) {
-    Box(modifier.size(size.dp).clip(RoundedCornerShape((size * .32).dp)).background(background), contentAlignment = Alignment.Center) {
+    val shape = RoundedCornerShape((size * .32).dp)
+    Box(modifier.size(size.dp).clip(shape).background(background)
+        .then(if (background == Paper) Modifier.lightCardBorder(shape) else Modifier), contentAlignment = Alignment.Center) {
         Icon(icon, null, Modifier.size((size * .51).dp), tint = Ink)
     }
 }
 @Composable fun Pill(text: String, color: Color = Paper, icon: ImageVector? = null, onClick: (() -> Unit)? = null) {
-    Row(Modifier.clip(CircleShape).background(color).then(if (onClick != null) Modifier.clickable(role = Role.Button, onClick = onClick) else Modifier)
+    Row(Modifier.clip(CircleShape).background(color)
+        .then(if (color == Paper) Modifier.lightCardBorder(CircleShape) else Modifier)
+        .then(if (onClick != null) Modifier.clickable(role = Role.Button, onClick = onClick) else Modifier)
         .padding(horizontal = 13.dp, vertical = if (onClick != null) 13.dp else 7.dp), horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
         if (icon != null) Icon(icon, null, Modifier.size(15.dp), tint = Ink)
         Text(text, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Ink)
@@ -222,6 +235,7 @@ private val RoundedFont = FontFamily(
 }
 @Composable fun PlayCard(color: Color, modifier: Modifier = Modifier, onClick: (() -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
     Column(modifier.fillMaxWidth().clip(RoundedCornerShape(25.dp)).background(color)
+        .then(if (color == Paper) Modifier.lightCardBorder(RoundedCornerShape(25.dp)) else Modifier)
         .then(if (onClick != null) Modifier.clickable(role = Role.Button, onClick = onClick) else Modifier)
         .padding(20.dp), content = content)
 }
