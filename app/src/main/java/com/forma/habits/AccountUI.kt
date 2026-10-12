@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
@@ -81,11 +82,17 @@ class SpaceViewModels : ViewModel() {
 @Composable fun WelcomeDialog(welcome: Welcome, onDismiss: () -> Unit) {
     val created = welcome == Welcome.Created
     Dialog(onDismissRequest = onDismiss) {
+        // Springs open rather than appearing, with the flower blooming a beat behind the card.
+        val pop = rememberGrow(1f, 420)
+        val bloom by rememberGrow(6f, 1100, 180)
         Column(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(Cream).padding(26.dp),
+            Modifier.graphicsLayer {
+                val s = .85f + .15f * easeOutBack(pop.value)
+                scaleX = s; scaleY = s; alpha = pop.value
+            }.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(Cream).padding(26.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Flower(Modifier.size(96.dp))
+            Flower(Modifier.size(96.dp), bloom = bloom, alive = true)
             Spacer(Modifier.height(16.dp))
             Text(
                 stringResource(if (created) R.string.welcome_created_title else R.string.welcome_back_title),

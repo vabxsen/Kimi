@@ -8,6 +8,16 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -68,6 +78,7 @@ val LocalToday = compositionLocalOf { LocalDate.now() }
     val snackbar = remember { SnackbarHostState() }
     val state = vm.state
     val savedPages = rememberSaveableStateHolder()
+    val reduced = reducedMotion()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val restore = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { it?.let(vm::readBackup) }
     val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { it?.let(vm::exportBackup) }
@@ -115,15 +126,24 @@ val LocalToday = compositionLocalOf { LocalDate.now() }
                     Triple(Page.Insights, Icons.Rounded.BarChart, R.string.nav_insights),
                     Triple(Page.Journal, Icons.Rounded.AutoStories, R.string.nav_journal)).forEach { (destination, icon, label) ->
                     NavigationBarItem(selected = page == destination, onClick = { page = destination },
-                        icon = { Icon(icon, null, Modifier.size(23.dp)) }, label = { Text(stringResource(label), fontSize = 10.sp, fontWeight = FontWeight.Bold) },
+                        icon = { HopIcon(icon, page == destination, Modifier.size(23.dp)) }, label = { Text(stringResource(label), fontSize = 10.sp, fontWeight = FontWeight.Bold) },
                         colors = NavigationBarItemDefaults.colors(selectedIconColor = OnAccent, selectedTextColor = Accent,
                             unselectedIconColor = Quiet, unselectedTextColor = Quiet, indicatorColor = Purple))
                 }
             }
         }) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
-            savedPages.SaveableStateProvider(page.name) {
-            when (page) {
+            // Tabs drift a little toward the side they come from in the bar while they crossfade.
+            AnimatedContent(page, transitionSpec = {
+                if (reduced) EnterTransition.None togetherWith ExitTransition.None
+                else {
+                    val forward = targetState.ordinal > initialState.ordinal
+                    (fadeIn(tween(220, delayMillis = 60)) + slideInHorizontally(tween(300, easing = FastOutSlowInEasing)) { (if (forward) it else -it) / 10 }) togetherWith
+                        (fadeOut(tween(120)) + slideOutHorizontally(tween(300, easing = FastOutSlowInEasing)) { (if (forward) -it else it) / 10 })
+                }
+            }, label = "page") { shown ->
+            savedPages.SaveableStateProvider(shown.name) {
+            when (shown) {
                 Page.Today -> TodayScreen(state, vm::toggle, { edit(null) })
                 Page.Habits -> HabitsScreen(state, { edit(null) }, { edit(it) })
                 Page.Calendar -> CalendarScreen(state, vm::toggle)
@@ -145,6 +165,7 @@ val LocalToday = compositionLocalOf { LocalDate.now() }
                     onRestore = { restore.launch(arrayOf("application/json", "text/*", "application/octet-stream")) },
                     onReset = vm::reset
                 )
+            }
             }
             }
             if (vm.busy) LinearProgressIndicator(Modifier.fillMaxWidth().align(Alignment.TopCenter), color = Accent)

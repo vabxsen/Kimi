@@ -2,10 +2,36 @@ package com.forma.habits
 
 import android.content.Intent
 import androidx.core.net.toUri
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateIntAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.input.pointer.pointerInput
+import java.time.temporal.ChronoUnit
+import kotlin.math.abs
+import kotlin.math.roundToInt
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
@@ -100,6 +126,16 @@ private const val StripFutureDays = 7L
     var dateString by rememberSaveable(today) { mutableStateOf(today.toString()) }
     val date = LocalDate.parse(dateString)
     var filter by rememberSaveable { mutableStateOf("All") }
+    // Celebrates the moment the day is finished, not every later visit to a finished day.
+    val haptics = LocalHapticFeedback.current
+    val dayDone = !state.isRestDay(today) && state.percent(today) == 100
+    var celebrations by remember { mutableIntStateOf(0) }
+    var wasDone by remember { mutableStateOf(dayDone) }
+    LaunchedEffect(dayDone) {
+        if (dayDone && !wasDone) { celebrations++; haptics.performHapticFeedback(HapticFeedbackType.LongPress) }
+        wasDone = dayDone
+    }
+    Box {
     LazyColumn(contentPadding = PaddingValues(23.dp, 10.dp, 23.dp, 22.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -111,6 +147,8 @@ private const val StripFutureDays = 7L
             }
         }
         item {
+            // The banner flower's petals fill as the day's habits are ticked off.
+            val dayProgress = if (state.isRestDay(date)) null else state.count(date).toFloat() / state.due(date).size
             BoxWithConstraints(Modifier.fillMaxWidth().clip(RoundedCornerShape(27.dp)).background(Lavender).padding(18.dp)) {
                 val expandedText = maxWidth < 300.dp || LocalDensity.current.fontScale > 1.2f
                 Column(Modifier.fillMaxWidth(if (expandedText) 1f else .64f)) {
@@ -123,30 +161,37 @@ private const val StripFutureDays = 7L
                         Text(if (state.isRestDay(date)) stringResource(R.string.today_banner_rest)
                             else pluralStringResource(R.plurals.today_banner_progress, state.due(date).size, state.count(date), state.due(date).size), fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
-                    if (expandedText) Flower(Modifier.align(Alignment.End).size(86.dp))
+                    if (expandedText) Flower(Modifier.align(Alignment.End).size(86.dp), progress = dayProgress, alive = true)
                 }
-                if (!expandedText) Flower(Modifier.align(Alignment.CenterEnd).size(111.dp).offset(x = 9.dp))
+                if (!expandedText) Flower(Modifier.align(Alignment.CenterEnd).size(111.dp).offset(x = 9.dp), progress = dayProgress, alive = true)
             }
         }
         item {
             BoxWithConstraints {
                 val restDay = state.isRestDay(date)
-                val streakValue = pluralStringResource(R.plurals.streak_days, stats.bestStreak, stats.bestStreak)
+                // The streak rolls like an odometer and the percentage counts toward its new value.
+                val streakValue: @Composable () -> Unit = {
+                    Rolling(stats.bestStreak) { n -> Text(pluralStringResource(R.plurals.streak_days, n, n), fontSize = 14.sp, fontWeight = FontWeight.Bold) }
+                }
+                val streakIcon: @Composable () -> Unit = { Flame(stats.bestStreak > 0, Modifier.size(28.dp)) }
                 val streakCaption = stringResource(R.string.today_streak_caption)
-                val progressValue = if (restDay) stringResource(R.string.today_rest_day) else stringResource(R.string.today_percent_complete, state.percent(date))
+                val shownPercent by animateIntAsState(state.percent(date), tween(600), label = "percent complete")
+                val progressText = if (restDay) stringResource(R.string.today_rest_day) else stringResource(R.string.today_percent_complete, shownPercent)
+                val progressValue: @Composable () -> Unit = { Text(progressText, fontSize = 14.sp, fontWeight = FontWeight.Bold) }
+                val progressIcon: @Composable () -> Unit = { Icon(Icons.Rounded.Stars, null, tint = Ink, modifier = Modifier.size(28.dp)) }
                 val progressCaption = if (restDay) stringResource(R.string.today_rest_caption) else stringResource(R.string.today_percent_caption)
                 val stackStats = maxWidth < 344.dp || LocalDensity.current.fontScale > 1.2f
                 if (stackStats) Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    WideStat(Peach, Icons.Rounded.LocalFireDepartment, streakValue, streakCaption)
-                    WideStat(Mint, Icons.Rounded.Stars, progressValue, progressCaption)
+                    WideStat(Peach, streakIcon, streakValue, streakCaption)
+                    WideStat(Mint, progressIcon, progressValue, progressCaption)
                 } else Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Row(Modifier.weight(1f).clip(RoundedCornerShape(18.dp)).background(Peach).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Rounded.LocalFireDepartment, null, tint = Ink, modifier = Modifier.size(28.dp)); Spacer(Modifier.width(10.dp))
-                        Column { Text(streakValue, fontSize = 14.sp, fontWeight = FontWeight.Bold); Text(streakCaption, fontSize = 10.sp, color = Quiet) }
+                        streakIcon(); Spacer(Modifier.width(10.dp))
+                        Column { streakValue(); Text(streakCaption, fontSize = 10.sp, color = Quiet) }
                     }
                     Row(Modifier.weight(1f).clip(RoundedCornerShape(18.dp)).background(Mint).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Rounded.Stars, null, tint = Ink, modifier = Modifier.size(28.dp)); Spacer(Modifier.width(10.dp))
-                        Column { Text(progressValue, fontSize = 14.sp, fontWeight = FontWeight.Bold); Text(progressCaption, fontSize = 10.sp, color = Quiet) }
+                        progressIcon(); Spacer(Modifier.width(10.dp))
+                        Column { progressValue(); Text(progressCaption, fontSize = 10.sp, color = Quiet) }
                     }
                 }
             }
@@ -162,18 +207,33 @@ private const val StripFutureDays = 7L
                 // Re-centres only when the day itself rolls over. Keying this on the selection
                 // instead would drag the strip back every time a past day was tapped.
                 LaunchedEffect(today, centre) { strip.scrollToItem(StripPastDays.toInt(), -centre) }
+                val lastIndex = (StripPastDays + StripFutureDays).toInt()
+                val selectedIndex = (StripPastDays - ChronoUnit.DAYS.between(date, today)).toInt().coerceIn(0, lastIndex)
+                // One purple pill glides between days. Each cell paints only the part of the pill that
+                // overlaps it, so the pill slides along the strip without a layer over the items.
+                val pill = animateFloatAsState(selectedIndex.toFloat(),
+                    if (reducedMotion()) snap() else spring(dampingRatio = .72f, stiffness = 520f), label = "day pill")
+                val step = with(LocalDensity.current) { (dayWidth + 7.dp).toPx() }
+                val purple = Purple
+                val dayShape = RoundedCornerShape(17.dp)
                 LazyRow(state = strip, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                    items(StripPastDays.toInt() + StripFutureDays.toInt() + 1) { index ->
+                    items(lastIndex + 1) { index ->
                         val d = today.minusDays(StripPastDays - index); val selected = d == date
+                        val cover = (1f - abs(pill.value - index)).coerceIn(0f, 1f)
                         val dayLabel = stringResource(if (selected) R.string.cd_day_selected else R.string.cd_day, d.format(ShortDate))
-                        Column(Modifier.width(dayWidth).clip(RoundedCornerShape(17.dp)).background(if (selected) Purple else Paper)
-                            .then(if (selected) Modifier else Modifier.lightCardBorder(RoundedCornerShape(17.dp)))
+                        Column(Modifier.width(dayWidth).clip(dayShape).background(Paper)
+                            .drawBehind {
+                                val shift = (pill.value - index) * step
+                                if (abs(shift) < size.width) drawRoundRect(purple, Offset(shift, 0f), size, CornerRadius(17.dp.toPx()))
+                            }
+                            .then(if (cover > .5f) Modifier else Modifier.lightCardBorder(dayShape))
                             .clickable(enabled = !d.isAfter(today), role = Role.Button) { dateString = d.toString() }
                             .semantics { contentDescription = dayLabel }
                             .padding(vertical = 9.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(weekdayInitial(d.dayOfWeek), fontSize = 10.sp, color = if (selected) OnAccent else Quiet)
-                            Spacer(Modifier.height(7.dp)); Text(d.dayOfMonth.toString(), fontSize = 17.sp, fontWeight = FontWeight.Bold, color = if (selected) OnAccent else if (d.isAfter(today)) Quiet.copy(alpha = .78f) else Ink)
-                            Spacer(Modifier.height(7.dp)); Box(Modifier.size(4.dp).background(if (selected) Highlight else if (LocalKimiPalette.current.dark) Lavender else Accent, CircleShape))
+                            Text(weekdayInitial(d.dayOfWeek), fontSize = 10.sp, color = lerp(Quiet, OnAccent, cover))
+                            Spacer(Modifier.height(7.dp)); Text(d.dayOfMonth.toString(), fontSize = 17.sp, fontWeight = FontWeight.Bold,
+                                color = lerp(if (d.isAfter(today)) Quiet.copy(alpha = .78f) else Ink, OnAccent, cover))
+                            Spacer(Modifier.height(7.dp)); Box(Modifier.size(4.dp).background(lerp(if (LocalKimiPalette.current.dark) Lavender else Accent, Highlight, cover), CircleShape))
                         }
                     }
                 }
@@ -208,6 +268,8 @@ private const val StripFutureDays = 7L
         }
         if (state.demo) item { Text(stringResource(R.string.demo_footer_today), color = Quiet, fontSize = 10.sp, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) }
     }
+    DayCompleteCelebration(celebrations)
+    }
 }
 
 @Composable fun HabitRow(habit: Habit, state: HabitState, date: LocalDate, onToggle: () -> Unit) {
@@ -216,7 +278,17 @@ private const val StripFutureDays = 7L
     val haptics = LocalHapticFeedback.current
     val background by animateColorAsState(TileColors[habit.color.coerceIn(0, 5)], label = "habit color")
     val toggleLabel = stringResource(if (checked) R.string.cd_undo_habit else R.string.cd_complete_habit, habit.name)
-    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(background)
+    // Pops only on a fresh tick, never for a habit that was already done when the row appeared.
+    val burst = rememberBurst()
+    var wasChecked by remember { mutableStateOf(checked) }
+    LaunchedEffect(checked) {
+        val fresh = checked && !wasChecked
+        wasChecked = checked
+        if (fresh) burst.fire()
+    }
+    Row(Modifier.fillMaxWidth()
+        .drawBurst(burst) { Offset(size.width - 39.dp.toPx(), size.height / 2) }
+        .clip(RoundedCornerShape(22.dp)).background(background)
         .toggleable(value = checked, enabled = date == today, role = Role.Checkbox, onValueChange = {
             haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove); onToggle()
         }).semantics { contentDescription = toggleLabel }.padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -226,12 +298,7 @@ private const val StripFutureDays = 7L
             Text(habit.name, style = MaterialTheme.typography.titleMedium, fontSize = 14.sp)
             Spacer(Modifier.height(4.dp)); Text(habit.goal, fontSize = 10.sp, color = Quiet)
         }
-        Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
-            Box(Modifier.size(29.dp).clip(CircleShape).background(if (checked) Ink else Overlay)
-                .border(1.5.dp, if (checked) Ink else Quiet, CircleShape), contentAlignment = Alignment.Center) {
-                if (checked) Icon(Icons.Rounded.Check, null, Modifier.size(19.dp), tint = OnInk)
-            }
-        }
+        Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) { CheckCircle(checked) }
     }
 }
 
@@ -301,38 +368,64 @@ private const val StripFutureDays = 7L
         item { PageTitle(stringResource(R.string.calendar_title), stringResource(R.string.calendar_subtitle)) }
         item {
             PlayCard(Paper) {
+                val canGoBack = month.year > 1970 || month.monthValue > 1
+                val canGoForward = month.year < 2200 || month.monthValue < 12
+                val reduced = reducedMotion()
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                    IconButton({ monthString = month.minusMonths(1).toString() }, enabled = month.year > 1970 || month.monthValue > 1) { Icon(Icons.Rounded.ChevronLeft, stringResource(R.string.cd_prev_month)) }
-                    Text(month.format(MonthLabel), style = MaterialTheme.typography.titleMedium)
-                    IconButton({ monthString = month.plusMonths(1).toString() }, enabled = month.year < 2200 || month.monthValue < 12) { Icon(Icons.Rounded.ChevronRight, stringResource(R.string.cd_next_month)) }
+                    IconButton({ monthString = month.minusMonths(1).toString() }, enabled = canGoBack) { Icon(Icons.Rounded.ChevronLeft, stringResource(R.string.cd_prev_month)) }
+                    AnimatedContent(month, transitionSpec = { fadeIn(tween(220)) togetherWith fadeOut(tween(120)) }, label = "month label") { shown ->
+                        Text(shown.format(MonthLabel), style = MaterialTheme.typography.titleMedium)
+                    }
+                    IconButton({ monthString = month.plusMonths(1).toString() }, enabled = canGoForward) { Icon(Icons.Rounded.ChevronRight, stringResource(R.string.cd_next_month)) }
                 }
                 Spacer(Modifier.height(12.dp))
                 Row(Modifier.fillMaxWidth()) { weekdayInitials().forEach { Text(it, modifier = Modifier.weight(1f), textAlign = TextAlign.Center, color = Quiet, fontSize = 10.sp) } }
                 Spacer(Modifier.height(12.dp))
-                val offset = month.atDay(1).dayOfWeek.value - 1
-                val cells = (offset + month.lengthOfMonth() + 6) / 7 * 7
+                // Months slide in from the side you are heading to, by arrow or by a sideways swipe.
+                val swipe = with(LocalDensity.current) { 56.dp.toPx() }
+                AnimatedContent(month, Modifier.pointerInput(monthString) {
+                    var drag = 0f
+                    detectHorizontalDragGestures(onDragStart = { drag = 0f }, onDragEnd = {
+                        if (drag < -swipe && canGoForward) monthString = month.plusMonths(1).toString()
+                        else if (drag > swipe && canGoBack) monthString = month.minusMonths(1).toString()
+                    }) { change, amount -> change.consume(); drag += amount }
+                }, transitionSpec = {
+                    if (reduced) EnterTransition.None togetherWith ExitTransition.None
+                    else {
+                        val forward = targetState > initialState
+                        (slideInHorizontally(tween(320, easing = FastOutSlowInEasing)) { if (forward) it else -it } + fadeIn(tween(220))) togetherWith
+                            (slideOutHorizontally(tween(320, easing = FastOutSlowInEasing)) { if (forward) -it else it } + fadeOut(tween(160))) using
+                            SizeTransform(clip = true)
+                    }
+                }, label = "month") { shown ->
+                Column {
+                val offset = shown.atDay(1).dayOfWeek.value - 1
+                val cells = (offset + shown.lengthOfMonth() + 6) / 7 * 7
                 (0 until cells).chunked(7).forEach { week ->
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                         week.forEach { n ->
                             val day = n - offset + 1
-                            if (day !in 1..month.lengthOfMonth()) Box(Modifier.weight(1f).height(44.dp))
+                            if (day !in 1..shown.lengthOfMonth()) Box(Modifier.weight(1f).height(44.dp))
                             else {
-                                val d = month.atDay(day); val pct = state.percent(d); val selected = d == date
+                                val d = shown.atDay(day); val pct = state.percent(d); val selected = d == date
                                 val rest = state.isRestDay(d)
                                 val dayLabel = if (rest) stringResource(R.string.cd_calendar_day_rest, d.format(ShortDate))
                                     else pluralStringResource(R.plurals.cd_calendar_day, state.count(d), d.format(ShortDate), state.count(d))
+                                // A rest day stays unfilled so it never reads as a day you missed.
+                                val fill by animateColorAsState(if (selected) Purple else if (rest) Color.Transparent else if (pct == 100) Mint else if (pct > 0) Lavender else Cream, label = "day fill")
+                                val ink by animateColorAsState(if (selected) OnAccent else if (rest) Quiet.copy(alpha = .72f) else Ink, label = "day ink")
                                 Box(Modifier.weight(1f).height(44.dp).clip(RoundedCornerShape(13.dp))
-                                    // A rest day stays unfilled so it never reads as a day you missed.
-                                    .background(if (selected) Purple else if (rest) Color.Transparent else if (pct == 100) Mint else if (pct > 0) Lavender else Cream)
+                                    .background(fill)
                                     .clickable(role = Role.Button) { dateString = d.toString() }
                                     .semantics { contentDescription = dayLabel }, contentAlignment = Alignment.Center) {
-                                    Text(day.toString(), fontWeight = FontWeight.Bold, fontSize = 12.sp,
-                                        color = if (selected) OnAccent else if (rest) Quiet.copy(alpha = .72f) else Ink)
+                                    Text(day.toString(), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = ink)
                                 }
                             }
                         }
                     }
                     Spacer(Modifier.height(6.dp))
+                }
+                }
                 }
                 Spacer(Modifier.height(8.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
@@ -364,8 +457,10 @@ private const val StripFutureDays = 7L
     val enlargedText = LocalDensity.current.fontScale > 1.2f
     val stats = rememberHabitStats(state, today)
     val summary = rememberInsights(state, today)
-    val count = summary.wins
-    val percent = summary.percent
+    // The page arrives with its numbers counting up and its bars growing in, one after another.
+    val count by rememberGrow(summary.wins.toFloat())
+    val percent by rememberGrow(summary.percent.toFloat(), 1100)
+    val best by rememberGrow(stats.bestStreak.toFloat())
     LazyColumn(contentPadding = PaddingValues(23.dp, 17.dp, 23.dp, 24.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
         item { PageTitle(stringResource(R.string.insights_title), stringResource(R.string.insights_subtitle)) }
         item {
@@ -373,17 +468,17 @@ private const val StripFutureDays = 7L
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(stringResource(R.string.insights_energy_label), color = OnAccent, fontSize = 10.sp, letterSpacing = 1.sp)
-                        Spacer(Modifier.height(10.dp)); Text(stringResource(R.string.percent_value, percent), color = Highlight, fontWeight = FontWeight.ExtraBold, fontSize = 49.sp)
+                        Spacer(Modifier.height(10.dp)); Text(stringResource(R.string.percent_value, percent.roundToInt()), color = Highlight, fontWeight = FontWeight.ExtraBold, fontSize = 49.sp)
                         Text(stringResource(R.string.insights_consistency), color = OnAccent, fontSize = 12.sp)
                     }
-                    Flower(Modifier.size(119.dp), petal = Petal)
+                    Flower(Modifier.size(119.dp), petal = Petal, alive = true)
                 }
             }
         }
         item {
             Row(Modifier.then(if (enlargedText) Modifier.height(IntrinsicSize.Min) else Modifier), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                PlayCard(Yellow, Modifier.weight(1f).then(if (enlargedText) Modifier.fillMaxHeight() else Modifier)) { Icon(Icons.Rounded.Bolt, null); Spacer(Modifier.height(9.dp)); Text("$count", style = MaterialTheme.typography.headlineMedium); Text(stringResource(R.string.insights_wins), fontSize = 11.sp, color = Quiet) }
-                PlayCard(Pink, Modifier.weight(1f).then(if (enlargedText) Modifier.fillMaxHeight() else Modifier)) { Icon(Icons.Rounded.LocalFireDepartment, null); Spacer(Modifier.height(9.dp)); Text("${stats.bestStreak}", style = MaterialTheme.typography.headlineMedium); Text(stringResource(R.string.insights_best_streak), fontSize = 11.sp, color = Quiet) }
+                PlayCard(Yellow, Modifier.weight(1f).then(if (enlargedText) Modifier.fillMaxHeight() else Modifier)) { Icon(Icons.Rounded.Bolt, null); Spacer(Modifier.height(9.dp)); Text("${count.roundToInt()}", style = MaterialTheme.typography.headlineMedium); Text(stringResource(R.string.insights_wins), fontSize = 11.sp, color = Quiet) }
+                PlayCard(Pink, Modifier.weight(1f).then(if (enlargedText) Modifier.fillMaxHeight() else Modifier)) { Flame(stats.bestStreak > 0); Spacer(Modifier.height(9.dp)); Text("${best.roundToInt()}", style = MaterialTheme.typography.headlineMedium); Text(stringResource(R.string.insights_best_streak), fontSize = 11.sp, color = Quiet) }
             }
         }
         item {
@@ -397,9 +492,11 @@ private const val StripFutureDays = 7L
                         Column(Modifier.weight(1f).semantics { contentDescription = barLabel }, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom) {
                             // A rest day shows a dash and a flat marker; charting it as 0% would
                             // make a perfect week look like it collapsed every weekend.
-                            Text(if (day.rest) stringResource(R.string.rest_marker) else stringResource(R.string.percent_value, day.percent),
+                            val rise by rememberGrow(if (day.rest) 0f else day.percent.toFloat(), 700, delayMillis = i * 70)
+                            Text(if (day.rest) stringResource(R.string.rest_marker) else stringResource(R.string.percent_value, rise.roundToInt()),
                                 fontSize = 9.sp, color = Quiet); Spacer(Modifier.height(7.dp))
-                            Box(Modifier.fillMaxWidth().height(if (day.rest) 4.dp else (day.percent * 1.05f + 4).dp).clip(RoundedCornerShape(11.dp))
+                            // Scaled so a 100% bar plus both labels fits the 165dp chart; 1.05 pushed that day's letter below the rest.
+                            Box(Modifier.fillMaxWidth().height(if (day.rest) 4.dp else (rise * .95f + 4).dp).clip(RoundedCornerShape(11.dp))
                                 .background(if (day.rest) Quiet.copy(alpha = .25f) else if (i == 6) Purple else TileColors[i % 6]))
                             Spacer(Modifier.height(9.dp)); Text(weekdayInitial(day.date.dayOfWeek), fontSize = 10.sp, color = Quiet)
                         }
@@ -410,13 +507,14 @@ private const val StripFutureDays = 7L
         item { SectionTitle(stringResource(R.string.insights_habits_section)) }
         items(state.habits, key = { it.id }) { habit ->
             val pct = summary.consistency[habit.id] ?: 0
+            val fill = rememberGrow(pct / 100f, 800, 150)
             PlayCard(TileColors[habit.color.coerceIn(0, 5)]) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(HabitSymbols[habit.icon.coerceIn(HabitSymbols.indices)], null, Modifier.size(24.dp)); Spacer(Modifier.width(10.dp))
                     Text(habit.name, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, fontSize = 13.sp)
                     Text(stringResource(R.string.percent_value, pct), fontWeight = FontWeight.Bold)
                 }
-                Spacer(Modifier.height(12.dp)); LinearProgressIndicator(progress = { pct / 100f }, modifier = Modifier.fillMaxWidth().height(7.dp).clip(CircleShape), color = Ink, trackColor = Overlay, drawStopIndicator = {})
+                Spacer(Modifier.height(12.dp)); LinearProgressIndicator(progress = { fill.value }, modifier = Modifier.fillMaxWidth().height(7.dp).clip(CircleShape), color = Ink, trackColor = Overlay, drawStopIndicator = {})
             }
         }
         item { Text(stringResource(R.string.insights_footnote), color = Quiet, fontSize = 10.sp) }
@@ -430,11 +528,11 @@ private const val StripFutureDays = 7L
     }
 }
 
-@Composable private fun WideStat(color: Color, icon: androidx.compose.ui.graphics.vector.ImageVector, value: String, caption: String) {
+@Composable private fun WideStat(color: Color, icon: @Composable () -> Unit, value: @Composable () -> Unit, caption: String) {
     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(color).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, null, tint = Ink, modifier = Modifier.size(28.dp)); Spacer(Modifier.width(12.dp))
+        icon(); Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text(value, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            value()
             Text(caption, fontSize = 10.sp, color = Quiet)
         }
     }
@@ -470,7 +568,7 @@ private val MoodIcons = listOf(Icons.Rounded.SentimentVeryDissatisfied, Icons.Ro
             PlayCard(Pink) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) { Text(stringResource(R.string.journal_moods_title), style = MaterialTheme.typography.titleLarge); Spacer(Modifier.height(8.dp)); Text(stringResource(R.string.journal_moods_body), fontSize = 12.sp, color = Quiet) }
-                    Flower(Modifier.size(100.dp), happy = mood > 1, petal = Petal)
+                    Flower(Modifier.size(100.dp), mood = mood, petal = Petal, alive = true)
                 }
             }
         }
@@ -480,9 +578,10 @@ private val MoodIcons = listOf(Icons.Rounded.SentimentVeryDissatisfied, Icons.Ro
             val names = moodNames()
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                 MoodIcons.forEachIndexed { index, icon ->
-                    Column(Modifier.weight(1f).clip(RoundedCornerShape(18.dp)).background(if (index == mood) Yellow else Paper)
+                    val tile by animateColorAsState(if (index == mood) Yellow else Paper, label = "mood tile")
+                    Column(Modifier.weight(1f).clip(RoundedCornerShape(18.dp)).background(tile)
                         .semantics { selected = index == mood }.clickable(role = Role.RadioButton) { onDraft(index, text) }.padding(vertical = 13.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(icon, names[index], Modifier.size(28.dp)); Spacer(Modifier.height(8.dp)); Text(names[index], fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                        HopIcon(icon, index == mood, Modifier.size(28.dp), names[index]); Spacer(Modifier.height(8.dp)); Text(names[index], fontSize = 9.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -913,8 +1012,19 @@ private const val PrivacyPolicyUrl = "https://github.com/vabxsen/Kimi/blob/main/
             Column(Modifier.weight(1f)) { Text(stringResource(if (existing == null) R.string.editor_title_new else R.string.editor_title_edit), style = MaterialTheme.typography.headlineMedium); Text(stringResource(R.string.editor_subtitle), color = Quiet, fontSize = 12.sp) }
             IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, stringResource(R.string.cd_close_editor)) }
         }
-        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(TileColors[color]).padding(17.dp), verticalAlignment = Alignment.CenterVertically) {
-            BubbleIcon(HabitSymbols[symbol], Overlay); Spacer(Modifier.width(13.dp))
+        // The preview card rises in as the sheet opens, then follows every colour and icon choice live.
+        val tile by animateColorAsState(TileColors[color], label = "preview colour")
+        val arrival = rememberGrow(1f, 520)
+        Row(Modifier.fillMaxWidth().graphicsLayer {
+                val a = arrival.value
+                alpha = a
+                scaleX = .9f + .1f * easeOutBack(a); scaleY = scaleX
+                translationY = (1f - a) * 24.dp.toPx()
+            }.clip(RoundedCornerShape(20.dp)).background(tile).padding(17.dp), verticalAlignment = Alignment.CenterVertically) {
+            AnimatedContent(symbol, transitionSpec = {
+                (scaleIn(spring(dampingRatio = .5f, stiffness = Spring.StiffnessMedium)) + fadeIn()) togetherWith (scaleOut() + fadeOut())
+            }, label = "preview icon") { BubbleIcon(HabitSymbols[it], Overlay) }
+            Spacer(Modifier.width(13.dp))
             Column { Text(name.ifBlank { stringResource(R.string.editor_preview_name) }, style = MaterialTheme.typography.titleMedium); Text(goal.ifBlank { stringResource(R.string.editor_preview_goal) }, fontSize = 11.sp, color = Quiet) }
         }
         OutlinedTextField(name, { name = it.take(70) }, label = { Text(stringResource(R.string.editor_name_label)) }, modifier = Modifier.fillMaxWidth(),
@@ -928,10 +1038,12 @@ private const val PrivacyPolicyUrl = "https://github.com/vabxsen/Kimi/blob/main/
         val iconDescriptions = stringArrayResource(R.array.habit_icon_names)
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
             HabitSymbols.forEachIndexed { i, icon ->
+                val chip by animateColorAsState(if (symbol == i) Purple else Paper, label = "icon chip")
+                val glyph by animateColorAsState(if (symbol == i) OnAccent else Ink, label = "icon glyph")
                 IconButton(onClick = { symbol = i }, modifier = Modifier.size(48.dp)
                     .semantics { contentDescription = iconDescriptions[i]; selected = symbol == i }
-                    .clip(RoundedCornerShape(15.dp)).background(if (symbol == i) Purple else Paper)) {
-                    Icon(icon, null, tint = if (symbol == i) OnAccent else Ink)
+                    .clip(RoundedCornerShape(15.dp)).background(chip)) {
+                    HopIcon(icon, symbol == i, tint = glyph)
                 }
             }
         }

@@ -52,7 +52,10 @@ import java.time.format.DateTimeFormatter
             Flower(Modifier.size(40.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.app_name) + stringResource(R.string.app_wordmark_dot), style = MaterialTheme.typography.headlineLarge)
         }
         PlayCard(Lavender) {
-            Flower(Modifier.size(135.dp).align(Alignment.CenterHorizontally))
+            // First impression: the mascot opens petal by petal, then settles into its idle sway.
+            // Starts after Android's own window fade-in, which would otherwise hide the first petals.
+            val bloom by rememberGrow(6f, 1400, 400)
+            Flower(Modifier.size(135.dp).align(Alignment.CenterHorizontally), bloom = bloom, alive = true)
             Spacer(Modifier.height(20.dp))
             Text(stringResource(R.string.welcome_title), style = MaterialTheme.typography.headlineLarge)
             Spacer(Modifier.height(12.dp)); Text(stringResource(R.string.welcome_body), color = Quiet)

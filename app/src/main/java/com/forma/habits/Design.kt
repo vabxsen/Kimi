@@ -37,6 +37,21 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.keyframes
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.graphics.lerp
+import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -182,27 +197,81 @@ private val RoundedFont = FontFamily(
     }
 }
 
-/** A resolution-independent flower mascot, drawn with native Compose Canvas. */
-@Composable fun Flower(modifier: Modifier = Modifier, happy: Boolean = true, petal: Color = Highlight) {
+/** Mouth curve per journal mood, Low to Amazing: below zero frowns, above one grins. */
+private val MoodSmiles = listOf(-.8f, -.15f, .6f, .9f, 1.25f)
+
+private class FlowerIdle(val sway: State<Float>, val breath: State<Float>, val eyes: State<Float>)
+
+@Composable private fun rememberFlowerIdle(): FlowerIdle {
+    val idle = rememberInfiniteTransition(label = "flower idle")
+    val sway = idle.animateFloat(-5f, 5f, infiniteRepeatable(tween(2800, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "sway")
+    val breath = idle.animateFloat(.97f, 1.03f, infiniteRepeatable(tween(2200, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "breath")
+    val eyes = idle.animateFloat(1f, 1f, infiniteRepeatable(keyframes {
+        durationMillis = 4600
+        1f at 0; 1f at 4300; .12f at 4380; 1f at 4480
+    }), label = "blink")
+    return remember(sway, breath, eyes) { FlowerIdle(sway, breath, eyes) }
+}
+
+/**
+ * A resolution-independent flower mascot, drawn with native Compose Canvas.
+ *
+ * [mood] (the journal's 0-4 scale) shapes the mouth and glides between moods; without it, [happy]
+ * picks a smile or a straight line. [progress] (0-1) fills the six petals in turn, so the mascot can
+ * double as the day's progress. [bloom] is how many petals are open (0-6), for an opening animation.
+ * [alive] adds a gentle sway, breath and blink while the flower is on screen.
+ */
+@Composable fun Flower(
+    modifier: Modifier = Modifier,
+    happy: Boolean = true,
+    petal: Color = Highlight,
+    mood: Int? = null,
+    progress: Float? = null,
+    bloom: Float = 6f,
+    alive: Boolean = false
+) {
     // The mascot is a fixed illustration, not themed UI: a dark face on the orange centre reads
     // correctly on light and dark alike, whereas the theme ink would invert it after dark.
     val face = Color(0xFF33283E)
+    val idle = if (alive && !reducedMotion()) rememberFlowerIdle() else null
+    val smileTarget = mood?.let { MoodSmiles[it.coerceIn(0, 4)] } ?: if (happy) 1f else 0f
+    val smile = animateFloatAsState(smileTarget, spring(dampingRatio = .55f, stiffness = Spring.StiffnessLow), label = "smile")
+    val filled = animateFloatAsState((progress ?: 1f).coerceIn(0f, 1f), spring(stiffness = Spring.StiffnessLow), label = "petals")
+    val mouth = remember { Path() }
     Canvas(modifier) {
         val unit = size.minDimension
         val center = Offset(size.width / 2, size.height / 2)
-        for (i in 0..5) {
-            val angle = (i * Math.PI / 3).toFloat()
-            drawCircle(petal, unit * .205f, center + Offset(cos(angle) * unit * .245f, sin(angle) * unit * .245f))
+        val sway = idle?.sway?.value ?: 0f
+        scale(idle?.breath?.value ?: 1f, center) {
+            for (i in 0..5) {
+                // Petals open and fill clockwise from the upper right.
+                val order = (i + 1) % 6
+                val open = easeOutBack((bloom - order).coerceIn(0f, 1f))
+                if (open <= 0f) continue
+                val color = if (progress == null) petal
+                    else lerp(petal.copy(alpha = petal.alpha * .32f), petal, (filled.value * 6f - order).coerceIn(0f, 1f))
+                val angle = ((i * 60f + sway) * PI / 180).toFloat()
+                val reach = unit * .245f * open
+                drawCircle(color, unit * .205f * open, center + Offset(cos(angle) * reach, sin(angle) * reach))
+            }
+            drawCircle(Color(0xFFFFAD73), unit * .25f, center)
+            val stroke = unit * .027f
+            val eyes = idle?.eyes?.value ?: 1f
+            for (x in listOf(-.085f, .085f)) {
+                drawLine(face, center + Offset(unit * x, -unit * (.03f + .025f * eyes)), center + Offset(unit * x, -unit * (.03f - .025f * eyes)), stroke, StrokeCap.Round)
+            }
+            drawCircle(Color(0xFFF88972), unit * .032f, center + Offset(-unit * .15f, unit * .045f))
+            drawCircle(Color(0xFFF88972), unit * .032f, center + Offset(unit * .15f, unit * .045f))
+            val curve = smile.value
+            val bend = abs(curve).coerceAtMost(1f)
+            val half = unit * (.065f + .02f * bend)
+            // A frown sits a little lower, so the face does not look surprised.
+            val corners = center.y + unit * (.09f - .005f * bend + (-curve).coerceAtLeast(0f) * .03f)
+            mouth.reset()
+            mouth.moveTo(center.x - half, corners)
+            mouth.quadraticTo(center.x, corners + unit * .104f * curve, center.x + half, corners)
+            drawPath(mouth, face, style = Stroke(stroke, cap = StrokeCap.Round))
         }
-        drawCircle(Color(0xFFFFAD73), unit * .25f, center)
-        val stroke = unit * .027f
-        for (x in listOf(-.085f, .085f)) {
-            drawLine(face, center + Offset(unit * x, -unit * .055f), center + Offset(unit * x, -unit * .005f), stroke, StrokeCap.Round)
-        }
-        drawCircle(Color(0xFFF88972), unit * .032f, center + Offset(-unit * .15f, unit * .045f))
-        drawCircle(Color(0xFFF88972), unit * .032f, center + Offset(unit * .15f, unit * .045f))
-        if (happy) drawArc(face, 12f, 156f, false, center + Offset(-unit * .085f, unit * .005f), Size(unit * .17f, unit * .13f), style = Stroke(stroke, cap = StrokeCap.Round))
-        else drawLine(face, center + Offset(-unit * .065f, unit * .09f), center + Offset(unit * .065f, unit * .09f), stroke, StrokeCap.Round)
     }
 }
 
@@ -241,7 +310,7 @@ private val RoundedFont = FontFamily(
 }
 @Composable fun EmptySpace(title: String, text: String) {
     Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Flower(Modifier.size(100.dp))
+        Flower(Modifier.size(100.dp), alive = true)
         Spacer(Modifier.height(10.dp)); Text(title, style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(6.dp)); Text(text, color = Quiet, style = MaterialTheme.typography.bodyMedium)
     }
