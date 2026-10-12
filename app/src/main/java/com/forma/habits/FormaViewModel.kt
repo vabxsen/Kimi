@@ -61,9 +61,14 @@ class FormaViewModel(application: Application) : AndroidViewModel(application) {
     val syncable get() = store.owner.isNotEmpty()
     val damaged get() = store.damaged
 
+    /** Earlier days with an unsaved journal draft, newest first. Kept as state so composition never reads prefs. */
+    var draftDates by mutableStateOf<List<LocalDate>>(emptyList())
+        private set
+
     init {
         loadDraft(today)
-        store.recoveryNotice?.let { tell(text(it)) }
+        refreshDraftDates()
+        store.takeRecoveryNotice()?.let { tell(text(it)) }
         viewModelScope.launch { store.state.drop(1).collect { state = it; syncNow() } }
         viewModelScope.launch(Dispatchers.IO) { Reminders.reschedule(application, state, force = true, owner = store.owner) }
         if (syncable) runCatching { connectivity.registerDefaultNetworkCallback(networkCallback) }
@@ -147,11 +152,16 @@ class FormaViewModel(application: Application) : AndroidViewModel(application) {
             } finally { endTask() }
         }
     }
-    fun refreshDate() {
+    /**
+     * Follows the calendar day. [sync] is for resume; the once-a-minute tick passes false so it only
+     * reaches Firestore when the day actually rolls over, since every reconcile downloads the whole space.
+     */
+    fun refreshDate(sync: Boolean = true) {
         val now = LocalDate.now()
-        if (today != now) { today = now; loadDraft(now) }
+        val rolledOver = today != now
+        if (rolledOver) { today = now; loadDraft(now); refreshDraftDates() }
         viewModelScope.launch(Dispatchers.IO) { Reminders.reschedule(getApplication(), store.state.value, owner = store.owner) }
-        syncNow()
+        if (sync || rolledOver) syncNow()
     }
     fun toggle(habit: Habit, date: LocalDate) {
         if (date != LocalDate.now() || !habit.isDue(date)) return
@@ -174,7 +184,10 @@ class FormaViewModel(application: Application) : AndroidViewModel(application) {
     fun reflect(mood: Int, text: String) {
         val date = draftDate
         change(text(R.string.msg_reflection_saved), onComplete = { saved ->
-            if (saved && draftDate == date && draftMood == mood && draftText == text) draftPrefs.edit { remove(date.toString()) }
+            if (saved && draftDate == date && draftMood == mood && draftText == text) {
+                draftPrefs.edit { remove(date.toString()) }
+                refreshDraftDates()
+            }
         }) {
             demand(mood in 0..4 && text.isNotBlank() && text.length <= 10000, R.string.err_reflection_invalid)
             it.copy(journal = it.journal.filterNot { e -> e.date == date } + Reflection(date, mood, text.trim()))
@@ -183,6 +196,7 @@ class FormaViewModel(application: Application) : AndroidViewModel(application) {
     fun deleteReflection(date: LocalDate) = change(text(R.string.msg_reflection_deleted), onComplete = { saved ->
         if (saved) {
             draftPrefs.edit { remove(date.toString()) }
+            refreshDraftDates()
             if (date == draftDate) { draftMood = 2; draftText = "" }
         }
     }) { it.copy(journal = it.journal.filterNot { e -> e.date == date }) }
@@ -191,8 +205,8 @@ class FormaViewModel(application: Application) : AndroidViewModel(application) {
         it.copy(name = name.trim())
     }
     fun reset() = change(text(R.string.msg_reset), replaceDamaged = true, eraseHistory = true, onComplete = { saved ->
-        if (saved) { draftPrefs.edit { clear() }; loadDraft(today) }
-    }) { HabitState(name = it.name) }
+        if (saved) { draftPrefs.edit { clear() }; loadDraft(today); refreshDraftDates() }
+    }) { HabitState(name = it.name).adoptingRevisionsOf(it) }
     fun start(name: String, onStarted: () -> Unit = {}) = change(text(R.string.msg_welcome), onComplete = { if (it) onStarted() }) {
         demand(name.isNotBlank() && name.trim().length <= 30, R.string.err_name_length)
         HabitState(name = name.trim(), onboarded = true)
@@ -201,6 +215,7 @@ class FormaViewModel(application: Application) : AndroidViewModel(application) {
     fun updateDraft(mood: Int, text: String) {
         draftMood = mood.coerceIn(0, 4); draftText = text.take(10000)
         draftPrefs.edit { putString(draftDate.toString(), JSONObject().put("mood", draftMood).put("text", draftText).toString()) }
+        if (draftDate != today && draftDate !in draftDates) draftDates = (draftDates + draftDate).sortedDescending()
     }
     fun loadDraft(date: LocalDate) {
         draftDate = date
@@ -209,8 +224,10 @@ class FormaViewModel(application: Application) : AndroidViewModel(application) {
         draftMood = (draft?.optInt("mood", 2) ?: existing?.mood ?: 2).coerceIn(0, 4)
         draftText = draft?.optString("text") ?: existing?.text.orEmpty()
     }
-    fun draftDates(): List<LocalDate> = draftPrefs.all.keys.mapNotNull { runCatching { LocalDate.parse(it) }.getOrNull() }
-        .filter { it != today && !draftPrefs.getString(it.toString(), null).isNullOrBlank() }.sortedDescending()
+    private fun refreshDraftDates() {
+        draftDates = draftPrefs.all.keys.mapNotNull { runCatching { LocalDate.parse(it) }.getOrNull() }
+            .filter { it != today && !draftPrefs.getString(it.toString(), null).isNullOrBlank() }.sortedDescending()
+    }
 
     fun exportBackup(uri: Uri) {
         viewModelScope.launch {
@@ -259,7 +276,7 @@ class FormaViewModel(application: Application) : AndroidViewModel(application) {
     fun confirmRestore() {
         val restored = pendingRestore ?: return
         change(text(R.string.msg_restored), replaceDamaged = true, onComplete = { saved ->
-            if (saved) { pendingRestore = null; draftPrefs.edit { clear() }; loadDraft(today) }
-        }) { restored }
+            if (saved) { pendingRestore = null; draftPrefs.edit { clear() }; loadDraft(today); refreshDraftDates() }
+        }) { restored.adoptingRevisionsOf(it) }
     }
 }

@@ -15,8 +15,9 @@ class HabitStore private constructor(context: Context, val owner: String) {
 
     private val prefs = context.getSharedPreferences(AccountSession.preferenceName("forma", owner), Context.MODE_PRIVATE)
     private val mutex = Mutex()
-    var recoveryNotice: Int? = null
-        private set
+    private var recoveryNotice: Int? = null
+    /** The load-time recovery message, handed out once so a recreated screen does not repeat it. */
+    @Synchronized fun takeRecoveryNotice(): Int? = recoveryNotice.also { recoveryNotice = null }
     var damaged = false
         private set
     private val mutableState = MutableStateFlow(load())

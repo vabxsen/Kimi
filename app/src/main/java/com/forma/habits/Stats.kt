@@ -32,14 +32,21 @@ fun HabitState.habitStats(today: LocalDate): HabitStats {
     return HabitStats(streaks, streaks.values.maxOrNull() ?: 0)
 }
 
+/**
+ * Whether [habit] on [date] belongs in a consistency total. Today is still open: a habit not yet
+ * ticked is not a miss, so it only counts once done - otherwise every score dips each morning.
+ */
+private fun HabitState.counted(habit: Habit, date: LocalDate, today: LocalDate) =
+    habit.isDue(date) && (date != today || done(habit.id, date))
+
 fun HabitState.insightSummary(today: LocalDate): InsightSummary {
     val dates = (6L downTo 0L).map { today.minusDays(it) }
     val week = dates.map { DayScore(it, percent(it), isRestDay(it)) }
-    val possible = dates.sumOf { due(it).size }
+    val possible = dates.sumOf { date -> habits.count { counted(it, date, today) } }
     val wins = dates.sumOf { count(it) }
     val month = (0L..29L).map { today.minusDays(it) }
     val consistency = habits.associate { habit ->
-        val scheduled = month.filter { habit.isDue(it) }
+        val scheduled = month.filter { counted(habit, it, today) }
         habit.id to if (scheduled.isEmpty()) 0 else scheduled.count { done(habit.id, it) } * 100 / scheduled.size
     }
     return InsightSummary(week, wins, if (possible == 0) 0 else wins * 100 / possible, consistency)

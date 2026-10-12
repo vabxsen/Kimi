@@ -42,6 +42,16 @@ internal fun HabitState.recordChangesFrom(previous: HabitState, at: Long): Habit
     ))
 }
 
+/**
+ * Prepares a wholesale replacement (a restored backup, a reset) to be recorded against [current].
+ *
+ * The replacement's own revisions belong to whatever space it came from and may be far ahead of this
+ * one, which would let restored entries outrank later deletions made on other devices. Carrying
+ * [current]'s revisions instead means [recordChangesFrom] stamps every real difference at the new
+ * local revision, unchanged entries keep their history, and tombstones not yet synced survive.
+ */
+internal fun HabitState.adoptingRevisionsOf(current: HabitState): HabitState = copy(sync = current.sync)
+
 /** Gives legacy present entries their pre-edit revision before a new local write advances the space. */
 internal fun HabitState.withBaselineRevisions(at: Long): HabitState {
     if (at <= 0) return this

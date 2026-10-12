@@ -28,20 +28,36 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import android.app.Application
 
-@Composable fun KimiRoot(account: AccountViewModel = viewModel()) {
+/**
+ * Holds the ViewModels of the signed-in identity's space. Living in the activity's store, it survives
+ * rotation and theme changes, so a pending restore, an in-flight save and sync state are not thrown
+ * away with the composition; a different uid (including sign-out) clears the previous space's.
+ */
+class SpaceViewModels : ViewModel() {
+    private var uid: String? = null
+    private var store = ViewModelStore()
+    fun ownerFor(uid: String): ViewModelStoreOwner {
+        if (uid != this.uid) { store.clear(); store = ViewModelStore(); this.uid = uid }
+        val current = store
+        return object : ViewModelStoreOwner { override val viewModelStore = current }
+    }
+    override fun onCleared() = store.clear()
+}
+
+@Composable fun KimiRoot(account: AccountViewModel = viewModel(), spaces: SpaceViewModels = viewModel()) {
     var showAccount by rememberSaveable { mutableStateOf(false) }
     val uid = account.account?.uid.orEmpty()
     val application = LocalContext.current.applicationContext as Application
     // Clear tab/editor state and old ViewModels when an account changes, including sign-out.
     key(uid) {
-        val owner = remember { object : ViewModelStoreOwner { override val viewModelStore = ViewModelStore() } }
-        DisposableEffect(owner) { onDispose { owner.viewModelStore.clear() } }
+        val owner = remember { spaces.ownerFor(uid) }
         val habits: FormaViewModel = viewModel(viewModelStoreOwner = owner,
             factory = ViewModelProvider.AndroidViewModelFactory.getInstance(application))
         FormaApp(habits, account.account) { account.clearMessage(); showAccount = true }

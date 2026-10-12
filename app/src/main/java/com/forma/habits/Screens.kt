@@ -74,8 +74,13 @@ import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.launch
 
-private val ShortDate = DateTimeFormatter.ofPattern("EEE, MMM d")
-private val MonthLabel = DateTimeFormatter.ofPattern("MMMM yyyy")
+/** Built for the current locale; a top-level formatter would keep the locale the process started with. */
+private val ShortDate: DateTimeFormatter @Composable get() = localizedPattern("EEE, MMM d")
+private val MonthLabel: DateTimeFormatter @Composable get() = localizedPattern("MMMM yyyy")
+@Composable private fun localizedPattern(pattern: String): DateTimeFormatter {
+    val locale = LocalConfiguration.current.locales[0]
+    return remember(pattern, locale) { DateTimeFormatter.ofPattern(pattern, locale) }
+}
 
 /** Habit dayparts are stored as stable English keys; only the label on screen is translated. */
 @Composable fun daypartLabel(key: String): String = when (key) {
@@ -166,7 +171,7 @@ private const val StripFutureDays = 7L
                             .clickable(enabled = !d.isAfter(today), role = Role.Button) { dateString = d.toString() }
                             .semantics { contentDescription = dayLabel }
                             .padding(vertical = 9.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(d.dayOfWeek.name.take(1), fontSize = 10.sp, color = if (selected) OnAccent else Quiet)
+                            Text(weekdayInitial(d.dayOfWeek), fontSize = 10.sp, color = if (selected) OnAccent else Quiet)
                             Spacer(Modifier.height(7.dp)); Text(d.dayOfMonth.toString(), fontSize = 17.sp, fontWeight = FontWeight.Bold, color = if (selected) OnAccent else if (d.isAfter(today)) Quiet.copy(alpha = .78f) else Ink)
                             Spacer(Modifier.height(7.dp)); Box(Modifier.size(4.dp).background(if (selected) Highlight else if (LocalKimiPalette.current.dark) Lavender else Accent, CircleShape))
                         }
@@ -258,7 +263,7 @@ private const val StripFutureDays = 7L
                     week.forEach { d ->
                         val done = state.done(h.id, d); val scheduled = h.isDue(d)
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(d.dayOfWeek.name.take(1), fontSize = 10.sp, color = Quiet)
+                            Text(weekdayInitial(d.dayOfWeek), fontSize = 10.sp, color = Quiet)
                             Spacer(Modifier.height(6.dp))
                             // A day this habit was never due on is left blank, not marked missed.
                             Box(Modifier.size(30.dp).clip(RoundedCornerShape(10.dp))
@@ -396,7 +401,7 @@ private const val StripFutureDays = 7L
                                 fontSize = 9.sp, color = Quiet); Spacer(Modifier.height(7.dp))
                             Box(Modifier.fillMaxWidth().height(if (day.rest) 4.dp else (day.percent * 1.05f + 4).dp).clip(RoundedCornerShape(11.dp))
                                 .background(if (day.rest) Quiet.copy(alpha = .25f) else if (i == 6) Purple else TileColors[i % 6]))
-                            Spacer(Modifier.height(9.dp)); Text(day.date.dayOfWeek.name.take(1), fontSize = 10.sp, color = Quiet)
+                            Spacer(Modifier.height(9.dp)); Text(weekdayInitial(day.date.dayOfWeek), fontSize = 10.sp, color = Quiet)
                         }
                     }
                 }
@@ -440,10 +445,10 @@ private val MoodIcons = listOf(Icons.Rounded.SentimentVeryDissatisfied, Icons.Ro
 @Composable private fun moodNames(): Array<String> = stringArrayResource(R.array.mood_names)
 
 /** Locale-correct single-letter column headings, Monday first, matching the grid layout. */
-@Composable private fun weekdayInitials(): List<String> {
-    val locale = LocalConfiguration.current.locales[0]
-    return (0..6).map { java.time.DayOfWeek.of(it + 1).getDisplayName(java.time.format.TextStyle.NARROW, locale) }
-}
+@Composable private fun weekdayInitials(): List<String> = (0..6).map { weekdayInitial(java.time.DayOfWeek.of(it + 1)) }
+
+@Composable private fun weekdayInitial(day: java.time.DayOfWeek): String =
+    day.getDisplayName(java.time.format.TextStyle.NARROW, LocalConfiguration.current.locales[0])
 
 @Composable fun JournalScreen(state: HabitState, onSave: (Int, String) -> Unit, onDelete: (LocalDate) -> Unit,
     mood: Int, text: String, onDraft: (Int, String) -> Unit, draftDate: LocalDate,

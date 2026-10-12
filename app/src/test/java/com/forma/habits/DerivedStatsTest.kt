@@ -87,6 +87,20 @@ class DerivedStatsTest {
         summary.week.filter { it.rest }.forEach { assertFalse(habit.isDue(it.date)) }
     }
 
+    /** Every score used to dip each morning until the day's habits were ticked. */
+    @Test fun aHabitNotYetTickedTodayIsNotAMiss() {
+        val habit = Habit("h", "Read", "Ten pages", created = monday)
+        val state = HabitState(listOf(habit), mapOf(
+            monday.toString() to setOf("h"), monday.plusDays(1).toString() to setOf("h")))
+        val morning = state.insightSummary(wednesday)
+        assertEquals(100, morning.percent)
+        assertEquals(100, morning.consistency["h"])
+
+        val ticked = state.copy(checks = state.checks + (wednesday.toString() to setOf("h"))).insightSummary(wednesday)
+        assertEquals(3, ticked.wins)
+        assertEquals(100, ticked.percent)
+    }
+
     @Test fun restDayIsNotAFailedDay() {
         val weekday = Habit("weekday", "Stretch", "Five minutes", weekdays = true, created = monday)
         val state = HabitState(listOf(weekday))

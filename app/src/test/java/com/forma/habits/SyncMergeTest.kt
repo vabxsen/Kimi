@@ -10,6 +10,22 @@ class SyncMergeTest {
     private val reading = Habit("read", "Read", "Ten pages", created = monday)
     private val walking = Habit("walk", "Walk", "Half an hour", created = monday)
 
+    @Test fun aRestoredBackupCannotOutrankLaterDeletionsOrDropUnsyncedOnes() {
+        // This phone deleted "walk" at revision 50 and has not synced since.
+        val before = HabitState(listOf(reading, walking)).recordChangesFrom(HabitState(), 40)
+        val phone = before.copy(habits = listOf(reading)).recordChangesFrom(before, 50)
+        // The backup comes from a busier space whose counters are far ahead of this one.
+        val backup = HabitState(listOf(reading)).recordChangesFrom(HabitState(), 900)
+        val restored = backup.adoptingRevisionsOf(phone).recordChangesFrom(phone, 51)
+        assertEquals(40L, restored.sync.habitUpdates["read"])
+        assertEquals(50L, restored.sync.habitDeletions["walk"])
+
+        // Meanwhile another device deleted "read" at revision 60; the cloud still holds "walk".
+        val cloudBase = HabitState(listOf(reading, walking)).recordChangesFrom(HabitState(), 40)
+        val cloud = cloudBase.copy(habits = listOf(walking)).recordChangesFrom(cloudBase, 60)
+        assertTrue(mergeSpaces(restored, 51, cloud, 60).habits.isEmpty())
+    }
+
     @Test fun habitsFromBothSidesSurvive() {
         val phone = HabitState(listOf(reading))
         val tablet = HabitState(listOf(walking))

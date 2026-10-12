@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
@@ -75,7 +76,11 @@ val LocalToday = compositionLocalOf { LocalDate.now() }
         lifecycle.addObserver(observer)
         onDispose { lifecycle.removeObserver(observer) }
     }
-    LaunchedEffect(Unit) { while (true) { delay(60_000); vm.refreshDate() } }
+    // Watches for midnight only while Kimi is on screen; a composition outlives onStop, so a bare
+    // loop here would keep waking the app in the background.
+    LaunchedEffect(lifecycle) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) { while (true) { delay(60_000); vm.refreshDate(sync = false) } }
+    }
     BackHandler(page != Page.Today && !sheetOpen) { page = Page.Today }
     LaunchedEffect(Unit) { vm.events.collectLatest { snackbar.currentSnackbarData?.dismiss(); snackbar.showSnackbar(it, withDismissAction = true) } }
     fun edit(habit: Habit?) { editingId = habit?.id; sheetOpen = true }
@@ -123,7 +128,7 @@ val LocalToday = compositionLocalOf { LocalDate.now() }
                 Page.Habits -> HabitsScreen(state, { edit(null) }, { edit(it) })
                 Page.Calendar -> CalendarScreen(state, vm::toggle)
                 Page.Insights -> InsightsScreen(state)
-                Page.Journal -> JournalScreen(state, vm::reflect, vm::deleteReflection, vm.draftMood, vm.draftText, vm::updateDraft, vm.draftDate, vm::loadDraft, vm.draftDates())
+                Page.Journal -> JournalScreen(state, vm::reflect, vm::deleteReflection, vm.draftMood, vm.draftText, vm::updateDraft, vm.draftDate, vm::loadDraft, vm.draftDates)
                 Page.Settings -> SettingsScreen(
                     state = state,
                     onRename = vm::rename,
