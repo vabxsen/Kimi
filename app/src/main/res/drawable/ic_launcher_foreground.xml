@@ -1,16 +1,16 @@
 <!--
-  The approved mascot is supplied as a high-resolution transparent bitmap. Its visible
-  bounds occupy roughly four fifths of the source canvas, so a 76dp layer keeps the flower
-  inside the adaptive icon's central safe zone while preserving its intentional padding.
+  Petal K: a purple stem whose two arms are petals, meeting at a coral bud.
+  The artwork is drawn on a 100-unit tile. The group scales it to 0.82 and centres the K on the
+  icon: as large as it can be while every point stays inside the 66dp safe circle (its farthest
+  tip sits about 30dp from centre), so no launcher mask, round or square, ever clips it.
 -->
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item
-        android:width="76dp"
-        android:height="76dp"
-        android:gravity="center">
-        <bitmap
-            android:src="@drawable/kimi_launcher_foreground"
-            android:gravity="fill"
-            android:filter="true" />
-    </item>
-</layer-list>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <group android:scaleX="0.82" android:scaleY="0.82" android:translateX="12.6" android:translateY="13">
+        <path android:fillColor="#6847D6" android:pathData="M35,22h0a7,7 0,0 1,7 7v42a7,7 0,0 1,-7 7h0a7,7 0,0 1,-7 -7v-42a7,7 0,0 1,7 -7z"/>
+        <path android:fillColor="#FFAD73" android:pathData="M41,50Q63,45 73,21Q50,28 41,50Z"/>
+        <path android:fillColor="#F1CE69" android:pathData="M41,50Q50,72 73,79Q63,55 41,50Z"/>
+        <path android:fillColor="#F88972" android:pathData="M41,44.5a5.5,5.5 0,1 1,0 11a5.5,5.5 0,1 1,0 -11z"/>
+    </group>
+</vector>

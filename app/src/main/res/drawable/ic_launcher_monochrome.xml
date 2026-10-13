@@ -1,13 +1,10 @@
-<!-- Android 13+ themed icons use the approved flower's complete alpha silhouette. -->
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item
-        android:width="76dp"
-        android:height="76dp"
-        android:gravity="center">
-        <bitmap
-            android:src="@drawable/kimi_launcher_foreground"
-            android:gravity="fill"
-            android:filter="true"
-            android:tint="#000000" />
-    </item>
-</layer-list>
+<!-- Android 13+ themed icons: the Petal K silhouette in one colour, which the launcher tints. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <group android:scaleX="0.82" android:scaleY="0.82" android:translateX="12.6" android:translateY="13">
+        <path android:fillColor="#000000" android:pathData="M35,22h0a7,7 0,0 1,7 7v42a7,7 0,0 1,-7 7h0a7,7 0,0 1,-7 -7v-42a7,7 0,0 1,7 -7z"/>
+        <path android:fillColor="#000000" android:pathData="M41,50Q63,45 73,21Q50,28 41,50Z"/>
+        <path android:fillColor="#000000" android:pathData="M41,50Q50,72 73,79Q63,55 41,50Z"/>
+    </group>
+</vector>
