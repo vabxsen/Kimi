@@ -105,7 +105,15 @@ internal class Confetto(
     val color: Color, val round: Boolean, val drift: Float
 )
 
-internal fun confetti(count: Int, seed: Int): List<Confetto> {
+/** Greys of different lightness, so Monochrome celebrations stay in character. */
+private val MonoConfettiColors = listOf(
+    Color(0xFF2B2B2E), Color(0xFF6B6B70), Color(0xFFA5A5AA), Color(0xFF48484C), Color(0xFF8A8A8F), Color(0xFFC4C4C8)
+)
+
+/** The confetti for the current theme. */
+@Composable internal fun confettiColors(): List<Color> = if (LocalKimiPalette.current.mono) MonoConfettiColors else ConfettiColors
+
+internal fun confetti(count: Int, seed: Int, colors: List<Color> = ConfettiColors): List<Confetto> {
     val random = Random(seed)
     return List(count) { i ->
         Confetto(
@@ -113,7 +121,7 @@ internal fun confetti(count: Int, seed: Int): List<Confetto> {
             speed = .55f + random.nextFloat() * .45f,
             size = .7f + random.nextFloat() * .6f,
             spin = (random.nextFloat() - .5f) * 3f,
-            color = ConfettiColors[i % ConfettiColors.size],
+            color = colors[i % colors.size],
             round = random.nextInt(3) == 0,
             drift = random.nextFloat()
         )
@@ -144,7 +152,8 @@ private const val BurstMillis = 720
 
 @Composable fun rememberBurst(count: Int = 14): Burst {
     val reduced = reducedMotion()
-    return remember(reduced) { Burst(confetti(count, Random.nextInt()), !reduced) }
+    val colors = confettiColors()
+    return remember(reduced, colors) { Burst(confetti(count, Random.nextInt(), colors), !reduced) }
 }
 
 /**
@@ -178,7 +187,8 @@ private const val CelebrationMillis = 1500
 @Composable fun DayCompleteCelebration(trigger: Int, modifier: Modifier = Modifier) {
     if (reducedMotion()) return
     val progress = remember { Animatable(1f) }
-    val pieces = remember { confetti(48, seed = 7) }
+    val colors = confettiColors()
+    val pieces = remember(colors) { confetti(48, seed = 7, colors = colors) }
     LaunchedEffect(trigger) {
         if (trigger == 0) return@LaunchedEffect
         progress.snapTo(0f)

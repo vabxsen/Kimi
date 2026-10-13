@@ -9,6 +9,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.lazy.LazyItemScope
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
@@ -21,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 
 /**
  * How things move in response to touch and to lists changing: the springy press, rows that slide
@@ -64,6 +66,28 @@ import kotlinx.coroutines.launch
 fun Modifier.squish(squish: Squish): Modifier = graphicsLayer {
     scaleX = squish.scale.value
     scaleY = squish.scale.value
+}
+
+/**
+ * How strongly a magnifying lens at the middle of this list's viewport sits over the item at [index]:
+ * 1 dead centre, easing smoothly to 0 at either edge (or for an item not on screen). Reads layout
+ * state, so call it inside a layer or draw block and scrolling only redraws.
+ */
+fun LazyListState.lensAt(index: Int): Float {
+    val info = layoutInfo
+    val item = info.visibleItemsInfo.firstOrNull { it.index == index } ?: return 0f
+    val half = (info.viewportEndOffset - info.viewportStartOffset) / 2f
+    if (half <= 0f) return 0f
+    val middle = info.viewportStartOffset + half
+    val near = (1f - abs(item.offset + item.size / 2f - middle) / half).coerceIn(0f, 1f)
+    return near * near * (3f - 2f * near)
+}
+
+/** The visible item whose centre is closest to the middle of the viewport, if any. */
+fun LazyListState.centredIndex(): Int? {
+    val info = layoutInfo
+    val middle = (info.viewportStartOffset + info.viewportEndOffset) / 2f
+    return info.visibleItemsInfo.minByOrNull { abs(it.offset + it.size / 2f - middle) }?.index
 }
 
 /** Rows slide to their new places and fade in and out as a lazy list changes. */

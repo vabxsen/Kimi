@@ -90,7 +90,10 @@ object Reminders {
         }, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val notification = NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_notification).setContentTitle(habit.name)
-            .setContentText(habit.goal).setStyle(NotificationCompat.BigTextStyle().bigText(context.getString(R.string.notification_body, habit.goal)))
+            .setContentText(habit.goal.ifBlank { context.getString(R.string.notification_body_no_goal) })
+            .setStyle(NotificationCompat.BigTextStyle().bigText(
+                if (habit.goal.isBlank()) context.getString(R.string.notification_body_no_goal)
+                else context.getString(R.string.notification_body, habit.goal)))
             .setContentIntent(open).setAutoCancel(true).setColor(0xFF7255D9.toInt())
             .setCategory(NotificationCompat.CATEGORY_REMINDER).setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .addAction(R.drawable.ic_notification, context.getString(R.string.action_mark_complete), pending(context, habit.id, DONE, date.toString(), owner))

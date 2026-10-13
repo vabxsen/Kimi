@@ -13,6 +13,7 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateIntAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -32,6 +33,11 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.layout.onSizeChanged
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.filterNotNull
+import androidx.compose.foundation.gestures.snapping.SnapPosition
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.graphicsLayer
@@ -127,6 +133,16 @@ private val MonthLabel: DateTimeFormatter @Composable get() = localizedPattern("
 /** How far the Today strip scrolls either side of today. Older days live on the Calendar page. */
 private const val StripPastDays = 90L
 private const val StripFutureDays = 7L
+
+/**
+ * The strip's magnifier. A day at an edge shows at [LensSmallest] scale and [LensFaintest] opacity;
+ * the day in the middle at [LensLargest], raised by [LensLift]. With seven days in view, the middle
+ * day and its neighbours still clear each other's 7dp gaps at full size.
+ */
+private const val LensSmallest = .88f
+private const val LensLargest = 1.12f
+private const val LensFaintest = .62f
+private val LensLift = 3.dp
 
 @Composable fun TodayScreen(state: HabitState, onToggle: (Habit, LocalDate) -> Unit, onNew: () -> Unit) {
     val today = LocalToday.current
@@ -267,13 +283,34 @@ private const val StripFutureDays = 7L
                 val step = with(LocalDensity.current) { (dayWidth + 7.dp).toPx() }
                 val purple = Purple
                 val dayShape = RoundedCornerShape(17.dp)
-                LazyRow(state = strip, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                // Sliding through days feels like turning a dial: each day passing the middle gives a
+                // faint tick, but only while a finger or fling is moving the strip, never on its own.
+                LaunchedEffect(strip, reduced) {
+                    if (reduced) return@LaunchedEffect
+                    snapshotFlow { strip.centredIndex() }.filterNotNull().distinctUntilChanged().drop(1).collect {
+                        if (strip.isScrollInProgress) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    }
+                }
+                // A released fling settles with a day in the middle, under the lens, not between two.
+                LazyRow(state = strip, horizontalArrangement = Arrangement.spacedBy(7.dp),
+                    flingBehavior = rememberSnapFlingBehavior(strip, SnapPosition.Center)) {
                     items(lastIndex + 1) { index ->
                         val d = today.minusDays(StripPastDays - index); val selected = d == date
                         val cover = (1f - abs(pill.value - index)).coerceIn(0f, 1f)
                         val dayLabel = stringResource(if (selected) R.string.cd_day_selected else R.string.cd_day, d.format(ShortDate))
                         val press = rememberSquish(.9f)
-                        Column(Modifier.width(dayWidth).squish(press).clip(dayShape).background(Paper)
+                        Column(Modifier.width(dayWidth)
+                            // The magnifier: the day under the middle of the strip swells and lifts, and the
+                            // rest shrink and soften toward the edges, following the scroll frame by frame.
+                            .graphicsLayer {
+                                if (reduced) return@graphicsLayer
+                                val lens = strip.lensAt(index)
+                                val scale = LensSmallest + (LensLargest - LensSmallest) * lens
+                                scaleX = scale; scaleY = scale
+                                translationY = -LensLift.toPx() * lens
+                                alpha = LensFaintest + (1f - LensFaintest) * lens
+                            }
+                            .squish(press).clip(dayShape).background(Paper)
                             .drawBehind {
                                 val shift = (pill.value - index) * step
                                 if (abs(shift) < size.width) drawRoundRect(purple, Offset(shift, 0f), size, CornerRadius(17.dp.toPx()))
@@ -359,7 +396,7 @@ private const val StripFutureDays = 7L
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(habit.name, style = MaterialTheme.typography.titleMedium, fontSize = 14.sp)
-            Spacer(Modifier.height(4.dp)); Text(habit.goal, fontSize = 10.sp, color = Quiet)
+            if (habit.goal.isNotBlank()) { Spacer(Modifier.height(4.dp)); Text(habit.goal, fontSize = 10.sp, color = Quiet) }
         }
         Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) { CheckCircle(checked) }
     }
@@ -386,7 +423,7 @@ private const val StripFutureDays = 7L
                 .semantics { contentDescription = editLabel }, { onEdit(h) }) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     BubbleIcon(HabitSymbols[h.icon.coerceIn(HabitSymbols.indices)], Overlay, size = 51)
-                    Spacer(Modifier.width(12.dp)); Column(Modifier.weight(1f)) { Text(h.name, style = MaterialTheme.typography.titleMedium); Text(h.goal, color = Quiet, fontSize = 11.sp) }
+                    Spacer(Modifier.width(12.dp)); Column(Modifier.weight(1f)) { Text(h.name, style = MaterialTheme.typography.titleMedium); if (h.goal.isNotBlank()) Text(h.goal, color = Quiet, fontSize = 11.sp) }
                     Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Edit, null, Modifier.size(21.dp)) }
                 }
                 Spacer(Modifier.height(18.dp))
@@ -1057,31 +1094,117 @@ private const val PrivacyPolicyUrl = "https://github.com/vabxsen/Kimi/blob/main/
     }
 }
 
-/** Light, dark, or whatever the device is doing. Stored per device, never in a backup. */
+/**
+ * How Kimi looks: a mode (follow the device, light or dark) and a colour theme. Both are stored per
+ * device, never in a backup. Each theme is shown as a tiny Kimi drawn in its own colours, in the
+ * mode currently showing, so you see what you will get before you tap.
+ */
 @Composable fun AppearanceCard() {
     val context = LocalContext.current
+    val dark = kimiDarkTheme()
     PlayCard(Blue) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            BubbleIcon(Icons.Rounded.DarkMode, Overlay); Spacer(Modifier.width(12.dp))
+            BubbleIcon(Icons.Rounded.Palette, Overlay); Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(stringResource(R.string.settings_appearance_title), style = MaterialTheme.typography.titleMedium)
-                Text(stringResource(R.string.settings_appearance_body), color = Quiet, fontSize = 11.sp)
+                Text(stringResource(R.string.settings_appearance_body), color = Quiet, fontSize = 12.sp, lineHeight = 16.sp)
             }
         }
-        Spacer(Modifier.height(14.dp))
-        // Deliberately not horizontally scrollable: three short chips always fit, and a second
-        // scroll container on this page would make the settings list ambiguous to scroll.
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf(ThemeMode.System to R.string.settings_theme_system,
-                ThemeMode.Light to R.string.settings_theme_light,
-                ThemeMode.Dark to R.string.settings_theme_dark).forEach { (value, label) ->
-                FilterChip(selected = ThemeSetting.mode == value, onClick = { ThemeSetting.set(context, value) },
-                    label = { Text(stringResource(label), fontSize = 11.sp) }, shape = CircleShape,
-                    modifier = Modifier.weight(1f).testTag("theme_${value.name.lowercase()}"))
+        Spacer(Modifier.height(18.dp))
+        AppearanceLabel(stringResource(R.string.settings_mode_label))
+        Spacer(Modifier.height(8.dp))
+        ModeSwitcher(ThemeMode.entries.indexOf(ThemeSetting.mode)) { ThemeSetting.set(context, it) }
+        Spacer(Modifier.height(18.dp))
+        AppearanceLabel(stringResource(R.string.settings_theme_label))
+        Spacer(Modifier.height(8.dp))
+        KimiTheme.entries.chunked(2).forEach { pair ->
+            Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                pair.forEach { theme ->
+                    ThemeTile(theme, paletteFor(theme, dark), ThemeSetting.theme == theme, Modifier.weight(1f)) { ThemeSetting.set(context, theme) }
+                }
             }
         }
     }
 }
+
+@Composable private fun AppearanceLabel(text: String) =
+    Text(text.uppercase(), fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp, color = Quiet)
+
+private val ModeOptions = listOf(
+    Triple(ThemeMode.System, Icons.Rounded.BrightnessAuto, R.string.settings_theme_system),
+    Triple(ThemeMode.Light, Icons.Rounded.LightMode, R.string.settings_theme_light),
+    Triple(ThemeMode.Dark, Icons.Rounded.DarkMode, R.string.settings_theme_dark)
+)
+
+/** Automatic, light or dark as one segmented control; the highlight slides to the chosen side. */
+@Composable private fun ModeSwitcher(selected: Int, onPick: (ThemeMode) -> Unit) {
+    BoxWithConstraints(Modifier.fillMaxWidth().height(50.dp).clip(CircleShape).background(Overlay)) {
+        val segment = maxWidth / ModeOptions.size
+        val slide by animateDpAsState(segment * selected,
+            if (reducedMotion()) snap() else spring(dampingRatio = .75f, stiffness = Spring.StiffnessMediumLow), label = "mode pill")
+        Box(Modifier.offset(x = slide).width(segment).fillMaxHeight().padding(4.dp).clip(CircleShape).background(Purple))
+        Row(Modifier.fillMaxSize()) {
+            ModeOptions.forEachIndexed { index, (mode, icon, label) ->
+                val on = index == selected
+                val ink by animateColorAsState(if (on) OnAccent else Ink, label = "mode ink")
+                Row(Modifier.weight(1f).fillMaxHeight().clip(CircleShape)
+                    .clickable(role = Role.RadioButton) { onPick(mode) }
+                    .semantics { this.selected = on }
+                    .testTag("theme_${mode.name.lowercase()}"),
+                    horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                    Icon(icon, null, Modifier.size(16.dp), tint = ink)
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(label), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = ink, maxLines = 1)
+                }
+            }
+        }
+    }
+}
+
+private val ThemeNames = mapOf(
+    KimiTheme.Kimi to R.string.theme_name_kimi, KimiTheme.Monochrome to R.string.theme_name_monochrome,
+    KimiTheme.Ocean to R.string.theme_name_ocean, KimiTheme.Sunset to R.string.theme_name_sunset
+)
+
+/** A miniature Kimi in [preview]'s colours: a header with the flower, three habit tiles and the name. */
+@Composable private fun ThemeTile(theme: KimiTheme, preview: KimiPalette, selected: Boolean, modifier: Modifier, onPick: () -> Unit) {
+    val press = rememberSquish(.96f)
+    val shape = RoundedCornerShape(20.dp)
+    val ring by animateDpAsState(if (selected) 2.5.dp else 1.dp, label = "theme ring")
+    val ringColor by animateColorAsState(if (selected) Accent else preview.quiet.copy(alpha = .3f), label = "theme ring colour")
+    Column(modifier.squish(press).clip(shape).background(preview.cream).border(ring, ringColor, shape)
+        .clickable(press.interaction, LocalIndication.current, role = Role.RadioButton, onClick = onPick)
+        .semantics { this.selected = selected }
+        .testTag("palette_${theme.name.lowercase()}")
+        .padding(10.dp)) {
+        // The miniature reads the preview palette itself, so its flower turns grey for Monochrome too.
+        CompositionLocalProvider(LocalKimiPalette provides preview) {
+            Row(Modifier.fillMaxWidth().height(36.dp).clip(RoundedCornerShape(12.dp)).background(preview.purple).padding(horizontal = 6.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Flower(Modifier.size(26.dp))
+                Spacer(Modifier.width(6.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Box(Modifier.width(34.dp).height(5.dp).clip(CircleShape).background(preview.onAccent.copy(alpha = .85f)))
+                    Box(Modifier.width(22.dp).height(5.dp).clip(CircleShape).background(preview.highlight))
+                }
+            }
+            Spacer(Modifier.height(6.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                preview.tiles.take(3).forEach { Box(Modifier.weight(1f).height(16.dp).clip(RoundedCornerShape(6.dp)).background(it)) }
+            }
+            Spacer(Modifier.height(9.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(ThemeNames.getValue(theme)), Modifier.weight(1f), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = preview.ink, maxLines = 1)
+                if (selected) Box(Modifier.size(20.dp).clip(CircleShape).background(preview.purple), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Rounded.Check, null, Modifier.size(14.dp), tint = preview.onAccent)
+                }
+            }
+        }
+    }
+}
+
+/** Rows in the editor's sideways-scrolling icon strip. */
+private const val IconRows = 3
 
 @Composable fun HabitEditor(existing: Habit?, onSave: (Habit) -> Unit, onDelete: () -> Unit, onClose: () -> Unit, busy: Boolean = false) {
     var name by rememberSaveable(existing?.id) { mutableStateOf(existing?.name.orEmpty()) }
@@ -1113,7 +1236,12 @@ private const val PrivacyPolicyUrl = "https://github.com/vabxsen/Kimi/blob/main/
                 (scaleIn(spring(dampingRatio = .5f, stiffness = Spring.StiffnessMedium)) + fadeIn()) togetherWith (scaleOut() + fadeOut())
             }, label = "preview icon") { BubbleIcon(HabitSymbols[it], Overlay) }
             Spacer(Modifier.width(13.dp))
-            Column { Text(name.ifBlank { stringResource(R.string.editor_preview_name) }, style = MaterialTheme.typography.titleMedium); Text(goal.ifBlank { stringResource(R.string.editor_preview_goal) }, fontSize = 11.sp, color = Quiet) }
+            Column {
+                Text(name.ifBlank { stringResource(R.string.editor_preview_name) }, style = MaterialTheme.typography.titleMedium)
+                // The goal is optional: the sample line only shows while the card is still empty.
+                val previewGoal = goal.ifBlank { if (name.isBlank()) stringResource(R.string.editor_preview_goal) else "" }
+                if (previewGoal.isNotEmpty()) Text(previewGoal, fontSize = 11.sp, color = Quiet)
+            }
         }
         OutlinedTextField(name, { name = it.take(70) }, label = { Text(stringResource(R.string.editor_name_label)) }, modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp), singleLine = true, keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
@@ -1124,14 +1252,24 @@ private const val PrivacyPolicyUrl = "https://github.com/vabxsen/Kimi/blob/main/
             keyboardActions = KeyboardActions(onDone = { keyboard?.hide(); focus.clearFocus() }))
         Text(stringResource(R.string.editor_icon_section), style = MaterialTheme.typography.titleMedium)
         val iconDescriptions = stringArrayResource(R.array.habit_icon_names)
-        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-            HabitSymbols.forEachIndexed { i, icon ->
-                val chip by animateColorAsState(if (symbol == i) Purple else Paper, label = "icon chip")
-                val glyph by animateColorAsState(if (symbol == i) OnAccent else Ink, label = "icon glyph")
-                IconButton(onClick = { symbol = i }, modifier = Modifier.size(48.dp)
-                    .semantics { contentDescription = iconDescriptions[i]; selected = symbol == i }
-                    .clip(RoundedCornerShape(15.dp)).background(chip)) {
-                    HopIcon(icon, symbol == i, tint = glyph)
+        // Three rows that scroll sideways together. Icons fill each column top to bottom, so the
+        // themed groups (food, health, movement…) read left to right as you scroll.
+        val iconScroll = rememberScrollState()
+        val iconStep = with(LocalDensity.current) { (48.dp + 7.dp).roundToPx() }
+        // Editing a habit opens the strip at its own icon, a couple of columns in, rather than the start.
+        LaunchedEffect(Unit) { iconScroll.scrollTo(((symbol / IconRows) - 2).coerceAtLeast(0) * iconStep) }
+        Row(Modifier.fillMaxWidth().horizontalScroll(iconScroll), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+            HabitSymbols.indices.chunked(IconRows).forEach { column ->
+                Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                    column.forEach { i ->
+                        val chip by animateColorAsState(if (symbol == i) Purple else Paper, label = "icon chip")
+                        val glyph by animateColorAsState(if (symbol == i) OnAccent else Ink, label = "icon glyph")
+                        IconButton(onClick = { symbol = i }, modifier = Modifier.size(48.dp)
+                            .semantics { contentDescription = iconDescriptions[i]; selected = symbol == i }
+                            .clip(RoundedCornerShape(15.dp)).background(chip)) {
+                            HopIcon(HabitSymbols[i], symbol == i, tint = glyph)
+                        }
+                    }
                 }
             }
         }
@@ -1155,7 +1293,7 @@ private const val PrivacyPolicyUrl = "https://github.com/vabxsen/Kimi/blob/main/
             reminderMinutes = nextMinutes
             reminderCount = nextCount
         }
-        MainButton(stringResource(if (existing == null) R.string.action_create_habit else R.string.action_save_changes), enabled = !busy && name.isNotBlank() && goal.isNotBlank()) {
+        MainButton(stringResource(if (existing == null) R.string.action_create_habit else R.string.action_save_changes), enabled = !busy && name.isNotBlank()) {
             onSave((existing ?: Habit(name = name, goal = goal)).copy(
                 name = name.trim(), goal = goal.trim(), color = color, icon = symbol, time = time,
                 weekdays = weekdays, reminderMinutes = reminderMinutes, reminderCount = reminderCount

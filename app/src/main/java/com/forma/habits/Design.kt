@@ -12,6 +12,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material.icons.automirrored.rounded.DirectionsBike
+import androidx.compose.material.icons.automirrored.rounded.DirectionsRun
 import androidx.compose.material.icons.automirrored.rounded.DirectionsWalk
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.rounded.*
@@ -70,7 +72,11 @@ data class KimiPalette(
     val overlay: Color, val petal: Color, val danger: Color,
     val lavender: Color, val blue: Color, val yellow: Color, val mint: Color, val pink: Color, val peach: Color,
     val verified: Color,
-    val dark: Boolean
+    /** The slightly lifted surface Material uses for dialogs and sheets. */
+    val raised: Color,
+    val dark: Boolean,
+    /** Monochrome: the mascot, the sun and the confetti drop their colour too, not just the cards. */
+    val mono: Boolean = false
 ) {
     val tiles: List<Color> get() = listOf(lavender, blue, yellow, mint, pink, peach)
 }
@@ -82,7 +88,7 @@ internal val LightPalette = KimiPalette(
     petal = Color.White.copy(alpha = .85f), danger = Color(0xFF9C463A),
     lavender = Color(0xFFCDBDEB), blue = Color(0xFFAED1E5), yellow = Color(0xFFF1CE69),
     mint = Color(0xFFA8D2BB), pink = Color(0xFFE5B5CD), peach = Color(0xFFEDBC9E),
-    verified = Color(0xFF1D9BF0), dark = false
+    verified = Color(0xFF1D9BF0), raised = Color(0xFFE2D8EB), dark = false
 )
 
 /** Same personality after dark: the tiles keep their hue, they just carry light text instead. */
@@ -93,8 +99,81 @@ private val DarkPalette = KimiPalette(
     petal = Color(0xFFE9B8D4), danger = Color(0xFFFF9E8F),
     lavender = Color(0xFF3A2F57), blue = Color(0xFF1E3A4C), yellow = Color(0xFF4A3A15),
     mint = Color(0xFF1F4434), pink = Color(0xFF46243A), peach = Color(0xFF4E3020),
-    verified = Color(0xFF4FB5F7), dark = true
+    verified = Color(0xFF4FB5F7), raised = Color(0xFF2C2338), dark = true
 )
+
+/** Ink on paper: six greys of different lightness keep habits apart without any hue. */
+internal val MonochromeLightPalette = KimiPalette(
+    cream = Color(0xFFEFEFED), surface = Color(0xFFFAFAF9), ink = Color(0xFF1C1C1E), onInk = Color.White,
+    quiet = Color(0xFF4C4C51), purple = Color(0xFF2B2B2E), accent = Color(0xFF2B2B2E),
+    onAccent = Color.White, highlight = Color(0xFFE4E4E6), overlay = Color(0xFFFAFAF9).copy(alpha = .55f),
+    petal = Color.White.copy(alpha = .85f), danger = Color(0xFF8E3B33),
+    lavender = Color(0xFFDCDCDE), blue = Color(0xFFCFCFD2), yellow = Color(0xFFE6E6E3),
+    mint = Color(0xFFC6C7C6), pink = Color(0xFFD7D5D7), peach = Color(0xFFBDBDBF),
+    verified = Color(0xFF3A3A3D), raised = Color(0xFFE2E2E4), dark = false, mono = true
+)
+
+private val MonochromeDarkPalette = KimiPalette(
+    cream = Color(0xFF111113), surface = Color(0xFF1D1D20), ink = Color(0xFFF2F2F3), onInk = Color(0xFF141416),
+    quiet = Color(0xFFB4B4B9), purple = Color(0xFF3E3E43), accent = Color(0xFFD9D9DD),
+    onAccent = Color.White, highlight = Color(0xFFE8E8EA), overlay = Color.White.copy(alpha = .10f),
+    petal = Color(0xFFDADADD), danger = Color(0xFFE39A90),
+    lavender = Color(0xFF2C2C30), blue = Color(0xFF333337), yellow = Color(0xFF3B3B3F),
+    mint = Color(0xFF2F3031), pink = Color(0xFF38363A), peach = Color(0xFF424246),
+    verified = Color(0xFFBDBDC2), raised = Color(0xFF2A2A2E), dark = true, mono = true
+)
+
+/** Sea glass and deep water: teal fills, aqua petals, sky and sand tiles. */
+internal val OceanLightPalette = KimiPalette(
+    cream = Color(0xFFE5EEF1), surface = Color(0xFFF5F9FA), ink = Color(0xFF14303A), onInk = Color.White,
+    quiet = Color(0xFF3B5761), purple = Color(0xFF1F6F8B), accent = Color(0xFF1C6884),
+    onAccent = Color.White, highlight = Color(0xFFBFF0E6), overlay = Color(0xFFF5F9FA).copy(alpha = .50f),
+    petal = Color.White.copy(alpha = .85f), danger = Color(0xFFA1433A),
+    lavender = Color(0xFFB9D3EA), blue = Color(0xFFA6DBE3), yellow = Color(0xFFF0DEA4),
+    mint = Color(0xFFA6D7C2), pink = Color(0xFFC5C8EE), peach = Color(0xFFF1C6B3),
+    verified = Color(0xFF1D9BF0), raised = Color(0xFFD3E2E8), dark = false
+)
+
+private val OceanDarkPalette = KimiPalette(
+    cream = Color(0xFF0C161B), surface = Color(0xFF15242B), ink = Color(0xFFEAF6F9), onInk = Color(0xFF0E1A1F),
+    quiet = Color(0xFFA7C2CA), purple = Color(0xFF237995), accent = Color(0xFF8ED2E7),
+    onAccent = Color.White, highlight = Color(0xFFBFF0E6), overlay = Color.White.copy(alpha = .12f),
+    petal = Color(0xFF9ED9E6), danger = Color(0xFFFF9E8F),
+    lavender = Color(0xFF1B3A4F), blue = Color(0xFF15404A), yellow = Color(0xFF45401F),
+    mint = Color(0xFF1C4336), pink = Color(0xFF2D3156), peach = Color(0xFF493026),
+    verified = Color(0xFF4FB5F7), raised = Color(0xFF1D2F37), dark = true
+)
+
+/** The warm end of the day: terracotta fills, a peach-gold glow, rose and apricot tiles. */
+internal val SunsetLightPalette = KimiPalette(
+    cream = Color(0xFFF3E8E1), surface = Color(0xFFFBF5F1), ink = Color(0xFF3A1F1A), onInk = Color.White,
+    quiet = Color(0xFF64443C), purple = Color(0xFFBF4E2E), accent = Color(0xFFAE4329),
+    onAccent = Color.White, highlight = Color(0xFFFFE0A8), overlay = Color(0xFFFBF5F1).copy(alpha = .50f),
+    petal = Color.White.copy(alpha = .85f), danger = Color(0xFF9C2F2F),
+    lavender = Color(0xFFE9C3CF), blue = Color(0xFFF2C9A8), yellow = Color(0xFFF3D88B),
+    mint = Color(0xFFD8D2A2), pink = Color(0xFFF0B6A3), peach = Color(0xFFDCC0E7),
+    verified = Color(0xFF1D9BF0), raised = Color(0xFFEAD8CE), dark = false
+)
+
+private val SunsetDarkPalette = KimiPalette(
+    cream = Color(0xFF19110F), surface = Color(0xFF261A17), ink = Color(0xFFFBEDE7), onInk = Color(0xFF1F1412),
+    quiet = Color(0xFFD0B5AB), purple = Color(0xFFB84B2C), accent = Color(0xFFFFAF8E),
+    onAccent = Color.White, highlight = Color(0xFFFFE0A8), overlay = Color.White.copy(alpha = .12f),
+    petal = Color(0xFFF5B79E), danger = Color(0xFFFF9E8F),
+    lavender = Color(0xFF4A2733), blue = Color(0xFF4E3020), yellow = Color(0xFF4C3D16),
+    mint = Color(0xFF3A3920), pink = Color(0xFF523026), peach = Color(0xFF3B2A4A),
+    verified = Color(0xFF4FB5F7), raised = Color(0xFF33231F), dark = true
+)
+
+/** Kimi's colour themes. Each has a light and a dark palette, and the mode picks between them. */
+enum class KimiTheme { Kimi, Monochrome, Ocean, Sunset }
+
+internal fun paletteFor(theme: KimiTheme, dark: Boolean): KimiPalette = when (theme) {
+    KimiTheme.Kimi -> if (dark) DarkPalette else LightPalette
+    KimiTheme.Monochrome -> if (dark) MonochromeDarkPalette else MonochromeLightPalette
+    KimiTheme.Ocean -> if (dark) OceanDarkPalette else OceanLightPalette
+    KimiTheme.Sunset -> if (dark) SunsetDarkPalette else SunsetLightPalette
+}
 
 val LocalKimiPalette = staticCompositionLocalOf { LightPalette }
 
@@ -133,13 +212,20 @@ object ThemeSetting {
     private const val PREFS = "kimi_appearance"
     var mode by mutableStateOf(ThemeMode.System)
         private set
+    var theme by mutableStateOf(KimiTheme.Kimi)
+        private set
     fun load(context: Context) {
-        val saved = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("mode", null)
-        mode = runCatching { ThemeMode.valueOf(saved!!) }.getOrDefault(ThemeMode.System)
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        mode = runCatching { ThemeMode.valueOf(prefs.getString("mode", null)!!) }.getOrDefault(ThemeMode.System)
+        theme = runCatching { KimiTheme.valueOf(prefs.getString("theme", null)!!) }.getOrDefault(KimiTheme.Kimi)
     }
     fun set(context: Context, value: ThemeMode) {
         mode = value
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putString("mode", value.name) }
+    }
+    fun set(context: Context, value: KimiTheme) {
+        theme = value
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putString("theme", value.name) }
     }
 }
 
@@ -149,9 +235,32 @@ object ThemeSetting {
     ThemeMode.Dark -> true
 }
 
+/**
+ * Every icon a habit can wear. A habit stores its icon as a position in this list, in backups and in
+ * the synced space, so new icons only ever go on the END: inserting or reordering would silently
+ * swap the icon of every habit already saved. Names, in the same order: `habit_icon_names`.
+ */
 val HabitSymbols = listOf(Icons.Rounded.SelfImprovement, Icons.Rounded.WaterDrop, Icons.AutoMirrored.Rounded.MenuBook,
     Icons.AutoMirrored.Rounded.DirectionsWalk, Icons.Rounded.Bedtime, Icons.Rounded.FitnessCenter, Icons.Rounded.Brush,
-    Icons.Rounded.Spa, Icons.Rounded.SportsEsports)
+    Icons.Rounded.Spa, Icons.Rounded.SportsEsports,
+    // Food and drink
+    Icons.Rounded.Restaurant, Icons.Rounded.SoupKitchen, Icons.Rounded.LocalCafe, Icons.Rounded.EmojiFoodBeverage,
+    Icons.Rounded.BakeryDining, Icons.Rounded.NoFood,
+    // Health
+    Icons.Rounded.Medication, Icons.Rounded.MonitorHeart, Icons.Rounded.Mood,
+    // Movement
+    Icons.AutoMirrored.Rounded.DirectionsRun, Icons.AutoMirrored.Rounded.DirectionsBike, Icons.Rounded.Pool,
+    Icons.Rounded.Hiking, Icons.Rounded.SportsSoccer,
+    // Mind and learning
+    Icons.Rounded.Psychology, Icons.Rounded.School, Icons.Rounded.Code, Icons.Rounded.MusicNote,
+    Icons.Rounded.Translate, Icons.Rounded.EditNote,
+    // Home and life
+    Icons.Rounded.CleaningServices, Icons.Rounded.LocalFlorist, Icons.Rounded.Pets, Icons.Rounded.Savings,
+    Icons.Rounded.Alarm, Icons.Rounded.WbSunny,
+    // People
+    Icons.Rounded.Groups, Icons.Rounded.Call, Icons.Rounded.VolunteerActivism, Icons.Rounded.CameraAlt,
+    // Letting go
+    Icons.Rounded.SmokeFree, Icons.Rounded.NoDrinks, Icons.Rounded.PhonelinkErase)
 private val RoundedFont = FontFamily(
     Font(R.font.nunito_regular, FontWeight.Normal),
     Font(R.font.nunito_extra_bold, FontWeight.Bold),
@@ -176,12 +285,13 @@ private const val ThemeBlendMillis = 380
         petal = blend(target.petal, "petal"), danger = blend(target.danger, "danger"),
         lavender = blend(target.lavender, "lavender"), blue = blend(target.blue, "blue"), yellow = blend(target.yellow, "yellow"),
         mint = blend(target.mint, "mint"), pink = blend(target.pink, "pink"), peach = blend(target.peach, "peach"),
-        verified = blend(target.verified, "verified"), dark = target.dark
+        verified = blend(target.verified, "verified"), raised = blend(target.raised, "raised"),
+        dark = target.dark, mono = target.mono
     )
 }
 
 @Composable fun FormaTheme(content: @Composable () -> Unit) {
-    val palette = blendedPalette(if (kimiDarkTheme()) DarkPalette else LightPalette)
+    val palette = blendedPalette(paletteFor(ThemeSetting.theme, kimiDarkTheme()))
     val defaults = Typography()
     val base = defaults.copy(
         bodyLarge = defaults.bodyLarge.copy(fontFamily = RoundedFont),
@@ -193,14 +303,14 @@ private const val ThemeBlendMillis = 380
         primary = palette.accent, onPrimary = palette.onInk, secondary = palette.accent,
         background = palette.cream, surface = palette.cream, onBackground = palette.ink, onSurface = palette.ink,
         onSurfaceVariant = palette.quiet,
-        surfaceContainer = palette.surface, surfaceContainerHigh = Color(0xFF2C2338), outline = palette.quiet,
+        surfaceContainer = palette.surface, surfaceContainerHigh = palette.raised, outline = palette.quiet,
         inverseSurface = palette.ink, inverseOnSurface = palette.cream,
         error = palette.danger
     ) else lightColorScheme(
         primary = palette.purple, onPrimary = palette.onAccent, secondary = palette.purple,
         background = palette.cream, surface = palette.cream, onBackground = palette.ink, onSurface = palette.ink,
         onSurfaceVariant = palette.quiet,
-        surfaceContainer = palette.surface, surfaceContainerHigh = Color(0xFFE2D8EB),
+        surfaceContainer = palette.surface, surfaceContainerHigh = palette.raised,
         outline = palette.quiet, outlineVariant = LightControlOutline,
         inverseSurface = palette.ink, inverseOnSurface = palette.surface,
         error = palette.danger
@@ -259,6 +369,10 @@ private class FlowerIdle(val sway: State<Float>, val breath: State<Float>, val e
     // The mascot is a fixed illustration, not themed UI: a dark face on the orange centre reads
     // correctly on light and dark alike, whereas the theme ink would invert it after dark.
     val face = Color(0xFF33283E)
+    // Monochrome drains the orange centre and rosy cheeks too, leaving a grey flower with the same face.
+    val mono = LocalKimiPalette.current.mono
+    val core = if (mono) Color(0xFFB9B9BD) else Color(0xFFFFAD73)
+    val cheek = if (mono) Color(0xFFA3A3A8) else Color(0xFFF88972)
     val idle = if (alive && !reducedMotion()) rememberFlowerIdle() else null
     val smileTarget = mood?.let { MoodSmiles[it.coerceIn(0, 4)] } ?: if (happy) 1f else 0f
     val smile = animateFloatAsState(smileTarget, spring(dampingRatio = .55f, stiffness = Spring.StiffnessLow), label = "smile")
@@ -280,14 +394,14 @@ private class FlowerIdle(val sway: State<Float>, val breath: State<Float>, val e
                 val reach = unit * .245f * open
                 drawCircle(color, unit * .205f * open, center + Offset(cos(angle) * reach, sin(angle) * reach))
             }
-            drawCircle(Color(0xFFFFAD73), unit * .25f, center)
+            drawCircle(core, unit * .25f, center)
             val stroke = unit * .027f
             val eyes = idle?.eyes?.value ?: 1f
             for (x in listOf(-.085f, .085f)) {
                 drawLine(face, center + Offset(unit * x, -unit * (.03f + .025f * eyes)), center + Offset(unit * x, -unit * (.03f - .025f * eyes)), stroke, StrokeCap.Round)
             }
-            drawCircle(Color(0xFFF88972), unit * .032f, center + Offset(-unit * .15f, unit * .045f))
-            drawCircle(Color(0xFFF88972), unit * .032f, center + Offset(unit * .15f, unit * .045f))
+            drawCircle(cheek, unit * .032f, center + Offset(-unit * .15f, unit * .045f))
+            drawCircle(cheek, unit * .032f, center + Offset(unit * .15f, unit * .045f))
             val curve = smile.value
             val bend = abs(curve).coerceAtMost(1f)
             val half = unit * (.065f + .02f * bend)

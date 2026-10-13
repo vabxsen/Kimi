@@ -37,6 +37,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.graphicsLayer
@@ -83,8 +84,12 @@ private val Stars = listOf(
     val palette = LocalKimiPalette.current
     val cream = palette.cream
     val trail = palette.quiet.copy(alpha = .3f)
-    val moon = if (palette.dark) Color(0xFFF3E9C6) else Color(0xFFB7A4EA)
-    val star = if (palette.dark) Color(0xFFF3E9C6) else Color(0xFF9C86E0)
+    // By day the moon and stars borrow the theme's accent, softened toward the page.
+    val moon = if (palette.dark) Color(0xFFF3E9C6) else lerp(palette.accent, palette.cream, .45f)
+    val star = if (palette.dark) Color(0xFFF3E9C6) else lerp(palette.accent, palette.cream, .25f)
+    // Monochrome keeps the little sky too: a pale grey sun instead of a golden one.
+    val sunColor = if (palette.mono) Color(0xFFB4B4B9) else SunColor
+    val sunRays = if (palette.mono) Color(0xFF9A9AA0) else SunRays
     Canvas(modifier) {
         val t = turn?.value ?: 0f
         val now = LocalTime.now()
@@ -100,16 +105,16 @@ private val Stars = listOf(
         val angle = PI * (1 - along)
         val body = ground + Offset((cos(angle) * radius).toFloat(), (-sin(angle) * radius).toFloat())
         if (daytime) {
-            drawCircle(Brush.radialGradient(listOf(SunColor.copy(alpha = .45f), Color.Transparent), body, 20.dp.toPx()), 20.dp.toPx(), body)
+            drawCircle(Brush.radialGradient(listOf(sunColor.copy(alpha = .45f), Color.Transparent), body, 20.dp.toPx()), 20.dp.toPx(), body)
             rotate(t * 360f, body) {
                 for (i in 0 until 8) {
                     val a = i * PI.toFloat() / 4f
                     val from = body + Offset(cos(a), sin(a)) * 9.5.dp.toPx()
                     val to = body + Offset(cos(a), sin(a)) * 13.dp.toPx()
-                    drawLine(SunRays, from, to, 1.8.dp.toPx(), StrokeCap.Round)
+                    drawLine(sunRays, from, to, 1.8.dp.toPx(), StrokeCap.Round)
                 }
             }
-            drawCircle(SunColor, 7.dp.toPx(), body)
+            drawCircle(sunColor, 7.dp.toPx(), body)
         } else {
             Stars.forEach { (x, y, phase) ->
                 // Whole-number cycles per turn, so the twinkle loops without a jump.
@@ -150,7 +155,8 @@ private val RibbonShade = Color(0xFFD9603F)
 @Composable fun MilestoneMoment(trigger: Int, days: Int, habit: String, modifier: Modifier = Modifier) {
     val reduced = reducedMotion()
     val progress = remember { Animatable(1f) }
-    val sparkles = remember { confetti(18, seed = 11) }
+    val sparkleColors = confettiColors()
+    val sparkles = remember(sparkleColors) { confetti(18, seed = 11, colors = sparkleColors) }
     LaunchedEffect(trigger) {
         if (trigger == 0) return@LaunchedEffect
         progress.snapTo(0f)

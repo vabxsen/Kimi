@@ -84,7 +84,8 @@ object BackupCodec {
 
     fun validateHabit(h: Habit) {
         demand(h.id.matches(Regex("[A-Za-z0-9_-]{1,100}")), R.string.err_habit_id)
-        demand(h.name.isNotBlank() && h.name.length <= 70 && h.goal.isNotBlank() && h.goal.length <= 80, R.string.err_habit_name)
+        // A name is required; the goal is optional and may be empty.
+        demand(h.name.isNotBlank() && h.name.length <= 70 && h.goal.length <= 80, R.string.err_habit_name)
         demand(h.icon in HabitSymbols.indices && h.color in 0..5 && h.time in Dayparts, R.string.err_habit_style)
         demand(h.reminderMinutes == null || h.reminderMinutes in 0..1439, R.string.err_habit_reminder)
         demand(h.reminderCount in 1..MAX_DAILY_REMINDERS, R.string.err_habit_reminder_count)

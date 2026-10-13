@@ -98,6 +98,39 @@
         <item>Creativity</item>
         <item>Wellness</item>
         <item>Gaming</item>
+        <item>Meals</item>
+        <item>Cooking</item>
+        <item>Coffee</item>
+        <item>Tea</item>
+        <item>Baking</item>
+        <item>Fasting</item>
+        <item>Medicine</item>
+        <item>Heart health</item>
+        <item>Gratitude</item>
+        <item>Running</item>
+        <item>Cycling</item>
+        <item>Swimming</item>
+        <item>Hiking</item>
+        <item>Sports</item>
+        <item>Mind</item>
+        <item>Learning</item>
+        <item>Coding</item>
+        <item>Music</item>
+        <item>Languages</item>
+        <item>Writing</item>
+        <item>Cleaning</item>
+        <item>Plants</item>
+        <item>Pets</item>
+        <item>Saving money</item>
+        <item>Waking early</item>
+        <item>Sunshine</item>
+        <item>Friends</item>
+        <item>Calls</item>
+        <item>Kindness</item>
+        <item>Photography</item>
+        <item>No smoking</item>
+        <item>No alcohol</item>
+        <item>Less screen time</item>
     </string-array>
 
     <!-- Today -->
@@ -179,10 +212,16 @@
     <string name="settings_name_question">What should we call you?</string>
     <string name="settings_name_label">Your name</string>
     <string name="settings_appearance_title">How Kimi looks</string>
-    <string name="settings_appearance_body">Follow your device, or pick a side.</string>
+    <string name="settings_appearance_body">Pick a mode and a color theme.</string>
     <string name="settings_theme_system">Automatic</string>
     <string name="settings_theme_light">Light</string>
     <string name="settings_theme_dark">Dark</string>
+    <string name="settings_mode_label">Mode</string>
+    <string name="settings_theme_label">Theme</string>
+    <string name="theme_name_kimi">Kimi</string>
+    <string name="theme_name_monochrome">Monochrome</string>
+    <string name="theme_name_ocean">Ocean</string>
+    <string name="theme_name_sunset">Sunset</string>
     <string name="syncing_title">Syncing your space…</string>
     <string name="syncing_body">Your latest changes are on their way.</string>
     <string name="synced_title">Your space is synced</string>
@@ -237,7 +276,7 @@
     <string name="editor_preview_name">Your next little win</string>
     <string name="editor_preview_goal">A promise to yourself</string>
     <string name="editor_name_label">Habit name</string>
-    <string name="editor_goal_label">A small, specific goal</string>
+    <string name="editor_goal_label">A small, specific goal (optional)</string>
     <string name="editor_goal_placeholder">e.g. Read for 15 minutes</string>
     <string name="editor_icon_section">Pick a personality</string>
     <string name="editor_schedule_section">Make it a regular thing</string>
@@ -263,20 +302,26 @@
         <item quantity="one">%1$d notification from %2$s to %3$s</item>
         <item quantity="other">%1$d notifications from %2$s to %3$s</item>
     </plurals>
-    <plurals name="reminder_list_summary">
-        <item quantity="one">%1$d× from %2$s</item>
-        <item quantity="other">%1$d× from %2$s</item>
-    </plurals>
     <string name="reminder_delay_notice">Android may delay a reminder to save battery.</string>
     <string name="reminder_notifications_off">Notifications are off. Enable them to receive your nudges.</string>
     <string name="reminders_card_title">A friendly little nudge</string>
-    <string name="reminders_on_body">Notifications are on. Choose a ritual below to set its time. Completed habits won’t nudge you again that day.</string>
-    <string name="reminders_off_body">Notifications are off. Allow them here, then choose a ritual below to set its time.</string>
+    <string name="reminders_card_body">Tap a habit to choose when Kimi nudges you.</string>
+    <string name="reminders_blocked">Kimi can’t send notifications right now.</string>
+    <string name="action_turn_on">Turn on</string>
+    <string name="reminder_row_off">No reminder</string>
+    <string name="reminder_row_once">Once a day at %1$s</string>
+    <string name="reminder_row_twice">%1$s and %2$s</string>
+    <plurals name="reminder_row_many">
+        <item quantity="one">%1$d a day from %2$s</item>
+        <item quantity="other">%1$d a day from %2$s</item>
+    </plurals>
+    <string name="reminders_quiet_note">Once a habit is done, Kimi stays quiet for the rest of that day.</string>
+    <string name="cd_reminder_for">Reminder for %1$s</string>
     <string name="reminders_empty">Plant your first habit to add a reminder.</string>
-    <string name="reminder_off">Off</string>
     <string name="channel_name">Little ritual reminders</string>
     <string name="channel_description">Gentle reminders for the habits you choose.</string>
     <string name="notification_body">%1$s\nA little step for you. Kimi is cheering you on.</string>
+    <string name="notification_body_no_goal">A little step for you. Kimi is cheering you on.</string>
 
     <!-- Account -->
     <string name="account_card_title_signed_out">A space of your own</string>
@@ -417,7 +462,7 @@
     <string name="err_backup_name">Name must be 1–30 characters.</string>
     <string name="err_invalid_date">Invalid date.</string>
     <string name="err_habit_id">Invalid habit identifier.</string>
-    <string name="err_habit_name">Give your habit a name and a short goal.</string>
+    <string name="err_habit_name">Give your habit a name, and keep its goal under 80 characters.</string>
     <string name="err_habit_style">Invalid habit style.</string>
     <string name="err_habit_reminder">Invalid reminder time.</string>
     <string name="err_habit_reminder_count">Choose between 1 and 24 notifications per day.</string>

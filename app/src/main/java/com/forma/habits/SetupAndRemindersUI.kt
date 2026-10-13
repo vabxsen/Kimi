@@ -20,6 +20,13 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.NotificationsActive
+import androidx.compose.material.icons.rounded.NotificationsOff
+import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -169,6 +176,38 @@ import java.time.format.DateTimeFormatter
     }
 }
 
+/**
+ * One habit's reminder at a glance: its own icon and colour, its name, when it nudges in plain words,
+ * and a switch. Tapping the row opens the time picker; the switch turns the nudge on or off.
+ */
+@Composable private fun ReminderRow(habit: Habit, format: DateTimeFormatter, busy: Boolean, onOpen: () -> Unit, onToggle: (Boolean) -> Unit) {
+    fun clock(minute: Int) = LocalTime.of(minute / 60, minute % 60).format(format)
+    val slots = habit.dailyReminderMinutes()
+    val summary = when (slots.size) {
+        0 -> stringResource(R.string.reminder_row_off)
+        1 -> stringResource(R.string.reminder_row_once, clock(slots.first()))
+        // Two times fit on the line as they are; more than that, the count and the first time.
+        2 -> stringResource(R.string.reminder_row_twice, clock(slots.first()), clock(slots.last()))
+        else -> pluralStringResource(R.plurals.reminder_row_many, slots.size, slots.size, clock(slots.first()))
+    }
+    val press = rememberSquish(.98f)
+    val switchLabel = stringResource(R.string.cd_reminder_for, habit.name)
+    Row(Modifier.fillMaxWidth().squish(press).clip(RoundedCornerShape(18.dp)).background(Overlay)
+        .clickable(press.interaction, LocalIndication.current, role = Role.Button, onClick = onOpen)
+        .padding(start = 10.dp, end = 12.dp, top = 10.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        BubbleIcon(HabitSymbols[habit.icon.coerceIn(HabitSymbols.indices)], TileColors[habit.color.coerceIn(0, 5)], size = 40)
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(habit.name, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(summary, fontSize = 12.sp, lineHeight = 16.sp, color = if (slots.isEmpty()) Quiet else Accent,
+                fontWeight = if (slots.isEmpty()) FontWeight.Normal else FontWeight.Bold)
+        }
+        Spacer(Modifier.width(8.dp))
+        Switch(checked = slots.isNotEmpty(), onCheckedChange = onToggle, enabled = !busy,
+            modifier = Modifier.semantics { contentDescription = switchLabel })
+    }
+}
+
 @Composable fun NotificationSettings(habits: List<Habit>, onSave: (Habit, (Boolean) -> Unit) -> Unit) {
     val context = LocalContext.current
     val allowed = notificationAccess()
@@ -176,25 +215,53 @@ import java.time.format.DateTimeFormatter
     var minutes by rememberSaveable { mutableStateOf<Int?>(null) }
     var count by rememberSaveable { mutableIntStateOf(1) }
     var saving by remember { mutableStateOf(false) }
+    // Which habit's switch is mid-save, so a second tap cannot race the first.
+    var switching by remember { mutableStateOf<String?>(null) }
     val format = localTimeFormatter()
+    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    fun openSystemSettings() = context.startActivity(
+        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))
     PlayCard(Yellow) {
+        // One line of guidance; the gear opens Android's own settings for sounds and channels.
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Rounded.NotificationsActive, null); Spacer(Modifier.width(12.dp))
-            Text(stringResource(R.string.reminders_card_title), style = MaterialTheme.typography.titleMedium)
+            BubbleIcon(Icons.Rounded.NotificationsActive, Overlay)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.reminders_card_title), style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.reminders_card_body), color = Quiet, fontSize = 12.sp, lineHeight = 16.sp)
+            }
+            IconButton(onClick = ::openSystemSettings) {
+                Icon(Icons.Rounded.Tune, stringResource(R.string.action_notification_settings), tint = Ink)
+            }
         }
-        Spacer(Modifier.height(12.dp))
-        Text(stringResource(if (allowed) R.string.reminders_on_body else R.string.reminders_off_body), color = Quiet, fontSize = 12.sp)
-        TextButton(onClick = { context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)) }) { Text(stringResource(R.string.action_notification_settings), fontWeight = FontWeight.Bold) }
-        habits.forEach { habit ->
-            TextButton(onClick = { editingId = habit.id; minutes = habit.reminderMinutes; count = habit.reminderCount }, modifier = Modifier.fillMaxWidth()) {
-                Text(habit.name, modifier = Modifier.weight(1f), color = Ink)
-                Spacer(Modifier.width(12.dp)); Text(habit.reminderMinutes?.let {
-                    pluralStringResource(R.plurals.reminder_list_summary, habit.reminderCount, habit.reminderCount,
-                        LocalTime.of(it / 60, it % 60).format(format))
-                } ?: stringResource(R.string.reminder_off), color = Accent)
+        // Only when Android is blocking Kimi: say so plainly, with the one button that fixes it.
+        if (!allowed) {
+            Spacer(Modifier.height(12.dp))
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Overlay).padding(start = 14.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.NotificationsOff, null, Modifier.size(20.dp), tint = Ink)
+                Spacer(Modifier.width(10.dp))
+                Text(stringResource(R.string.reminders_blocked), Modifier.weight(1f), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                TextButton(onClick = ::openSystemSettings) { Text(stringResource(R.string.action_turn_on), fontWeight = FontWeight.Bold) }
+            }
+        }
+        Spacer(Modifier.height(14.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            habits.forEach { habit ->
+                ReminderRow(habit, format, busy = switching == habit.id,
+                    onOpen = { editingId = habit.id; minutes = habit.reminderMinutes; count = habit.reminderCount }) { on ->
+                    if (on && !Reminders.allowed(context) && Build.VERSION.SDK_INT >= 33) permission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    switching = habit.id
+                    // Switching on starts at 9 am, the same default the editor uses; tap the row to change it.
+                    onSave(habit.copy(reminderMinutes = if (on) normalizedReminderStart(9 * 60, habit.reminderCount) else null)) { switching = null }
+                }
             }
         }
         if (habits.isEmpty()) Text(stringResource(R.string.reminders_empty), color = Quiet, fontSize = 12.sp)
+        else {
+            Spacer(Modifier.height(12.dp))
+            Text(stringResource(R.string.reminders_quiet_note), color = Quiet, fontSize = 11.sp)
+        }
     }
     habits.find { it.id == editingId }?.let { habit ->
         AlertDialog(onDismissRequest = { if (!saving) editingId = null }, title = { Text(habit.name) },

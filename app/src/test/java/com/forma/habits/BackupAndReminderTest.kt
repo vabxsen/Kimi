@@ -1,5 +1,9 @@
 package com.forma.habits
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.DirectionsWalk
+import androidx.compose.material.icons.automirrored.rounded.MenuBook
+import androidx.compose.material.icons.rounded.*
 import org.junit.Assert.*
 import org.junit.Test
 import java.time.LocalDate
@@ -15,6 +19,22 @@ class BackupAndReminderTest {
             listOf(Reflection(monday, 4, "A lovely day 🌻\nSecond line")), "Vaibhav")
         assertEquals(state, BackupCodec.decode(BackupCodec.encode(state)))
     }
+    /** The goal is optional, and every icon in the picker, the newest included, survives a backup. */
+    @Test fun habitWithoutGoalAndNewestIconRoundTrips() {
+        val state = HabitState(listOf(habit.copy(goal = "", icon = HabitSymbols.lastIndex)))
+        val restored = BackupCodec.decode(BackupCodec.encode(state))
+        assertEquals(state, restored)
+        assertEquals("", restored.habits.single().goal)
+    }
+    @Test fun originalIconsKeepTheirPositions() {
+        // Saved habits store an icon's position, so the first nine must never move.
+        val original = listOf(Icons.Rounded.SelfImprovement, Icons.Rounded.WaterDrop, Icons.AutoMirrored.Rounded.MenuBook,
+            Icons.AutoMirrored.Rounded.DirectionsWalk, Icons.Rounded.Bedtime, Icons.Rounded.FitnessCenter, Icons.Rounded.Brush,
+            Icons.Rounded.Spa, Icons.Rounded.SportsEsports)
+        assertEquals(original, HabitSymbols.take(original.size))
+        assertEquals(42, HabitSymbols.size)
+        assertEquals(HabitSymbols.size, HabitSymbols.distinct().size)
+    }
     @Test fun legacyPreviewBackupsRemainReadable() {
         val raw = """{"name":"Alex","demo":true,"habits":[],"checks":{},"journal":[]}"""
         assertTrue(BackupCodec.decode(raw).demo)
@@ -23,7 +43,8 @@ class BackupAndReminderTest {
     @Test fun malformedBackupIsRejected() {
         listOf("{}", "garbage", BackupCodec.encode(HabitState(listOf(habit, habit))),
             BackupCodec.encode(HabitState(listOf(habit.copy(color = 100)))) ,
-            BackupCodec.encode(HabitState(listOf(habit.copy(icon = 9)))),
+            BackupCodec.encode(HabitState(listOf(habit.copy(icon = HabitSymbols.size)))),
+            BackupCodec.encode(HabitState(listOf(habit.copy(name = "  ")))),
             BackupCodec.encode(HabitState(listOf(habit), mapOf(monday.toString() to setOf("unknown")))),
             BackupCodec.encode(HabitState(listOf(habit))).replace("\"version\": 4", "\"version\": 99"),
             BackupCodec.encode(HabitState(journal = listOf(Reflection(monday, 9, "Invalid")))),

@@ -39,7 +39,7 @@ class KimiFlowTest {
     @Test fun createCompleteEditAndDeleteHabit() {
         compose.onNodeWithText("+ New habit").performClick()
         compose.onNodeWithText("Habit name").performTextInput("Practice guitar")
-        compose.onNodeWithText("A small, specific goal").performTextInput("Ten minutes")
+        compose.onNodeWithText("A small, specific goal (optional)").performTextInput("Ten minutes")
         compose.onNodeWithText("Let’s make it a habit").performScrollTo().performClick()
         waitFor { store.state.value.habits.size == 1 }
         compose.waitForIdle()
@@ -50,7 +50,7 @@ class KimiFlowTest {
         compose.onNodeWithContentDescription("Edit Practice guitar").performClick()
         compose.onNodeWithText("Habit name").performTextReplacement("Play guitar")
         compose.onNodeWithText("Habit name").performImeAction()
-        compose.onNodeWithText("A small, specific goal").performImeAction()
+        compose.onNodeWithText("A small, specific goal (optional)").performImeAction()
         compose.onNodeWithText("Weekdays", substring = false).performScrollTo().performClick()
         waitFor { runCatching { compose.onNodeWithText("Weekdays", substring = false).assertIsSelected() }.isSuccess }
         compose.onNodeWithText("Save my changes").performScrollTo().performClick()
@@ -67,6 +67,47 @@ class KimiFlowTest {
         assertTrue(store.state.value.checks.isEmpty())
     }
 
+    @Test fun habitCanBeCreatedWithoutAGoalAndANewIcon() {
+        compose.onNodeWithText("+ New habit").performClick()
+        compose.onNodeWithText("Habit name").performTextInput("Cook dinner")
+        compose.onNodeWithText("Habit name").performImeAction()
+        compose.onNodeWithContentDescription("Cooking").performScrollTo().performClick()
+        compose.onNodeWithContentDescription("Cooking").assertIsSelected()
+        compose.onNodeWithText("Let’s make it a habit").performScrollTo().assertIsEnabled().performClick()
+        waitFor { store.state.value.habits.size == 1 }
+        val saved = store.state.value.habits.single()
+        assertEquals("Cook dinner", saved.name)
+        assertEquals("", saved.goal)
+        assertEquals("Cooking", context.resources.getStringArray(R.array.habit_icon_names)[saved.icon])
+    }
+
+    @Test fun colorThemeCanBeChosenInSettings() {
+        compose.onNodeWithContentDescription("Open settings").performClick()
+        compose.onNode(hasScrollAction()).performScrollToNode(hasTestTag("palette_sunset"))
+        compose.onNodeWithTag("palette_kimi").assertIsSelected()
+        compose.onNodeWithTag("palette_ocean").performClick()
+        compose.runOnIdle { assertEquals(KimiTheme.Ocean, ThemeSetting.theme) }
+        compose.onNodeWithTag("palette_ocean").assertIsSelected()
+        compose.onNodeWithTag("palette_monochrome").performClick()
+        compose.runOnIdle { assertEquals(KimiTheme.Monochrome, ThemeSetting.theme) }
+        // Leave the device on the default theme for the tests that follow.
+        compose.onNodeWithTag("palette_kimi").performClick()
+        compose.runOnIdle { assertEquals(KimiTheme.Kimi, ThemeSetting.theme) }
+    }
+
+    @Test fun reminderSwitchTurnsANudgeOnAndOff() {
+        runBlocking { store.update { HabitState(habits = listOf(Habit(name = "Stretch", goal = "")), name = "Alex") } }
+        waitFor { store.state.value.habits.size == 1 }
+        compose.onNodeWithContentDescription("Open settings").performClick()
+        compose.onNode(hasScrollAction()).performScrollToNode(hasContentDescription("Reminder for Stretch"))
+        compose.onNodeWithText("No reminder", substring = false).assertExists()
+        compose.onNodeWithContentDescription("Reminder for Stretch").performClick()
+        waitFor { store.state.value.habits.single().reminderMinutes == 9 * 60 }
+        compose.onNodeWithContentDescription("Reminder for Stretch").assertIsOn()
+        compose.onNodeWithContentDescription("Reminder for Stretch").performClick()
+        waitFor { store.state.value.habits.single().reminderMinutes == null }
+    }
+
     @Test fun habitEditorSavesMultipleDailyNotifications() {
         android.os.ParcelFileDescriptor.AutoCloseInputStream(
             InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(
@@ -75,8 +116,8 @@ class KimiFlowTest {
         ).use { it.readBytes() }
         compose.onNodeWithText("+ New habit").performClick()
         compose.onNodeWithText("Habit name").performTextInput("Drink water")
-        compose.onNodeWithText("A small, specific goal").performTextInput("Stay hydrated")
-        compose.onNodeWithText("A small, specific goal").performImeAction()
+        compose.onNodeWithText("A small, specific goal (optional)").performTextInput("Stay hydrated")
+        compose.onNodeWithText("A small, specific goal (optional)").performImeAction()
         compose.onNodeWithContentDescription("Habit reminder").performScrollTo().performClick()
         compose.onNodeWithText("Notifications per day").performScrollTo()
         compose.onNodeWithTag("reminder_count_picker").performScrollTo()
@@ -261,7 +302,7 @@ class KimiFlowTest {
         assertTrue(store.state.value.checks.isEmpty())
         assertTrue(store.state.value.journal.isEmpty())
         compose.onNodeWithText("Habit name").assertExists().performTextInput("Morning walk")
-        compose.onNodeWithText("A small, specific goal").performTextInput("Walk for ten minutes")
+        compose.onNodeWithText("A small, specific goal (optional)").performTextInput("Walk for ten minutes")
         compose.onNodeWithText("Let’s make it a habit").performScrollTo().performClick()
         waitFor { store.state.value.habits.size == 1 }
         assertEquals("Morning walk", store.state.value.habits.single().name)
