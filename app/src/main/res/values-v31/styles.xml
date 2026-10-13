@@ -6,6 +6,7 @@
         <item name="android:colorAccent">#7255D9</item>
         <item name="android:windowBackground">#FFF9F2</item>
         <item name="android:windowSplashScreenBackground">#FFF9F2</item>
-        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_splash</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_splash_animated</item>
+        <item name="android:windowSplashScreenAnimationDuration">1000</item>
     </style>
 </resources>

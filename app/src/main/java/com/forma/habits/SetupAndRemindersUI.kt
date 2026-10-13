@@ -25,7 +25,11 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
@@ -55,7 +59,19 @@ import java.time.format.DateTimeFormatter
             // First impression: the mascot opens petal by petal, then settles into its idle sway.
             // Starts after Android's own window fade-in, which would otherwise hide the first petals.
             val bloom by rememberGrow(6f, 1400, 400)
-            Flower(Modifier.size(135.dp).align(Alignment.CenterHorizontally), bloom = bloom, alive = true)
+            // It brightens as a name takes shape, and gives a little nod at every letter.
+            val reduced = reducedMotion()
+            val nod = remember { Animatable(0f) }
+            LaunchedEffect(name) {
+                if (name.isEmpty() || reduced) return@LaunchedEffect
+                nod.snapTo(1f)
+                nod.animateTo(0f, spring(dampingRatio = .35f, stiffness = Spring.StiffnessMedium))
+            }
+            val mood = when (name.trim().length) { 0 -> 2; in 1..2 -> 3; else -> 4 }
+            Flower(Modifier.size(135.dp).align(Alignment.CenterHorizontally).graphicsLayer {
+                rotationZ = nod.value * 7f
+                translationY = -nod.value * 5.dp.toPx()
+            }, bloom = bloom, alive = true, mood = mood)
             Spacer(Modifier.height(20.dp))
             Text(stringResource(R.string.welcome_title), style = MaterialTheme.typography.headlineLarge)
             Spacer(Modifier.height(12.dp)); Text(stringResource(R.string.welcome_body), color = Quiet)

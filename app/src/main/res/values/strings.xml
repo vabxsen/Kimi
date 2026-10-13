@@ -62,6 +62,11 @@
         <item quantity="one">%1$d day streak</item>
         <item quantity="other">%1$d day streak</item>
     </plurals>
+    <plurals name="milestone_title">
+        <item quantity="one">%1$d day in a row!</item>
+        <item quantity="other">%1$d days in a row!</item>
+    </plurals>
+    <string name="milestone_caption">%1$s is becoming part of you.</string>
     <plurals name="habit_count">
         <item quantity="one">%1$d habit</item>
         <item quantity="other">%1$d habits</item>

@@ -19,6 +19,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -168,7 +169,10 @@ val LocalToday = compositionLocalOf { LocalDate.now() }
             }
             }
             }
-            if (vm.busy) LinearProgressIndicator(Modifier.fillMaxWidth().align(Alignment.TopCenter), color = Accent)
+            // A small petal spinner in a chip, floating over the top of the page while work is in flight.
+            if (vm.busy) Box(Modifier.align(Alignment.TopCenter).padding(top = 6.dp).clip(CircleShape).background(Paper).padding(6.dp)) {
+                PetalSpinner(Modifier.size(22.dp))
+            }
         }
     }
     }

@@ -179,9 +179,10 @@ class SpaceViewModels : ViewModel() {
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding()) {
             Row(Modifier.fillMaxWidth().padding(12.dp, 5.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(enabled = !vm.busy, onClick = onClose) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.cd_back_to_kimi)) }
-                Text(stringResource(R.string.account_screen_title), style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.account_screen_title), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                // In the header rather than above the form, so nothing below jumps while it spins.
+                if (vm.busy) PetalSpinner(Modifier.padding(end = 12.dp))
             }
-            if (vm.busy) LinearProgressIndicator(Modifier.fillMaxWidth(), color = Accent)
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(23.dp, 12.dp, 23.dp, 24.dp),
                 verticalArrangement = Arrangement.spacedBy(18.dp)) {
                 PlayCard(Lavender) {

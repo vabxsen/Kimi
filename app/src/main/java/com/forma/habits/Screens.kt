@@ -23,7 +23,15 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.layout.onSizeChanged
+import kotlinx.coroutines.delay
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.graphicsLayer
@@ -135,21 +143,64 @@ private const val StripFutureDays = 7L
         if (dayDone && !wasDone) { celebrations++; haptics.performHapticFeedback(HapticFeedbackType.LongPress) }
         wasDone = dayDone
     }
+    // A streak reaching 7, 30 or 100 days gets its own moment, once per habit and milestone. Only
+    // habits already on screen count, so a sync or restore that brings in a long streak stays quiet.
+    var milestoneShows by remember { mutableIntStateOf(0) }
+    var milestone by remember { mutableStateOf(0 to "") }
+    var lastStreaks by remember { mutableStateOf(stats.streaks) }
+    val celebrated = remember { mutableSetOf<String>() }
+    LaunchedEffect(stats.streaks) {
+        val reached = state.habits.firstNotNullOfOrNull { habit ->
+            val before = lastStreaks[habit.id] ?: return@firstNotNullOfOrNull null
+            val now = stats.streaks[habit.id] ?: 0
+            StreakMilestones.lastOrNull { before < it && now >= it && celebrated.add("${habit.id}/$it") }?.let { it to habit.name }
+        }
+        lastStreaks = stats.streaks
+        // A beat after the check-in pop, so the two moments do not land on top of each other.
+        if (reached != null) { delay(650); milestone = reached; milestoneShows++ }
+    }
+    val reduced = reducedMotion()
+    val list = rememberLazyListState()
+    val cascade = rememberCascade()
+    val arrivals = rememberArrivals { state.habits.map { it.id } }
+    var headerHeight by remember { mutableIntStateOf(1) }
+    val gap = with(LocalDensity.current) { 14.dp.toPx() }
+    // How far the page has moved past the greeting. Read only inside layer blocks, so scrolling
+    // redraws the header and banner without recomposing the screen.
+    fun scrolled(): Float = when (list.firstVisibleItemIndex) {
+        0 -> list.firstVisibleItemScrollOffset.toFloat()
+        1 -> headerHeight + gap + list.firstVisibleItemScrollOffset
+        else -> Float.MAX_VALUE
+    }
     Box {
-    LazyColumn(contentPadding = PaddingValues(23.dp, 10.dp, 23.dp, 22.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    LazyColumn(state = list, contentPadding = PaddingValues(23.dp, 10.dp, 23.dp, 22.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            // The greeting drifts up more slowly than the page, shrinking and fading as it goes.
+            Row(Modifier.fillMaxWidth().cascaded(cascade.entrance(0)).onSizeChanged { headerHeight = it.height.coerceAtLeast(1) }
+                .graphicsLayer {
+                    if (reduced) return@graphicsLayer
+                    val moved = scrolled().coerceAtMost(headerHeight.toFloat())
+                    val fraction = moved / headerHeight
+                    transformOrigin = TransformOrigin(0f, .5f)
+                    alpha = 1f - .85f * fraction
+                    scaleX = 1f - .1f * fraction; scaleY = scaleX
+                    // A gentle lag; much more and the fading subtitle peeks out from behind the banner.
+                    translationY = moved * .25f
+                }, verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(today.format(ShortDate).uppercase(), fontSize = 10.sp, color = Quiet, letterSpacing = 1.6.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(7.dp)); Text(stringResource(R.string.today_greeting), style = MaterialTheme.typography.headlineLarge)
                     Spacer(Modifier.height(5.dp)); Text(stringResource(R.string.today_subtitle, state.name), color = Quiet, fontSize = 12.sp)
                 }
+                SkyBadge(Modifier.size(width = 96.dp, height = 62.dp))
             }
         }
         item {
-            // The banner flower's petals fill as the day's habits are ticked off.
+            // The banner flower's petals fill as the day's habits are ticked off, and it drifts
+            // behind the banner as the page scrolls.
             val dayProgress = if (state.isRestDay(date)) null else state.count(date).toFloat() / state.due(date).size
-            BoxWithConstraints(Modifier.fillMaxWidth().clip(RoundedCornerShape(27.dp)).background(Lavender).padding(18.dp)) {
+            val parallax = Modifier.graphicsLayer { if (!reduced) translationY = scrolled().coerceAtMost(900f) * .3f }
+            BoxWithConstraints(Modifier.fillMaxWidth().cascaded(cascade.entrance(1)).clip(RoundedCornerShape(27.dp)).background(Lavender).padding(18.dp)) {
                 val expandedText = maxWidth < 300.dp || LocalDensity.current.fontScale > 1.2f
                 Column(Modifier.fillMaxWidth(if (expandedText) 1f else .64f)) {
                     Pill(stringResource(R.string.today_banner_pill), Overlay)
@@ -161,13 +212,13 @@ private const val StripFutureDays = 7L
                         Text(if (state.isRestDay(date)) stringResource(R.string.today_banner_rest)
                             else pluralStringResource(R.plurals.today_banner_progress, state.due(date).size, state.count(date), state.due(date).size), fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
-                    if (expandedText) Flower(Modifier.align(Alignment.End).size(86.dp), progress = dayProgress, alive = true)
+                    if (expandedText) Flower(Modifier.align(Alignment.End).size(86.dp).then(parallax), progress = dayProgress, alive = true)
                 }
-                if (!expandedText) Flower(Modifier.align(Alignment.CenterEnd).size(111.dp).offset(x = 9.dp), progress = dayProgress, alive = true)
+                if (!expandedText) Flower(Modifier.align(Alignment.CenterEnd).size(111.dp).offset(x = 9.dp).then(parallax), progress = dayProgress, alive = true)
             }
         }
         item {
-            BoxWithConstraints {
+            BoxWithConstraints(Modifier.cascaded(cascade.entrance(2))) {
                 val restDay = state.isRestDay(date)
                 // The streak rolls like an odometer and the percentage counts toward its new value.
                 val streakValue: @Composable () -> Unit = {
@@ -200,7 +251,7 @@ private const val StripFutureDays = 7L
             // A scrolling strip rather than one fixed week, so recent days stay reachable without
             // leaving Today. Cells keep the width they had when exactly seven filled the row, so
             // the page looks unchanged until you actually drag it.
-            BoxWithConstraints {
+            BoxWithConstraints(Modifier.cascaded(cascade.entrance(3))) {
                 val dayWidth = (maxWidth - 7.dp * 6) / 7
                 val strip = rememberLazyListState()
                 val centre = with(LocalDensity.current) { ((maxWidth - dayWidth) / 2).roundToPx() }
@@ -221,13 +272,14 @@ private const val StripFutureDays = 7L
                         val d = today.minusDays(StripPastDays - index); val selected = d == date
                         val cover = (1f - abs(pill.value - index)).coerceIn(0f, 1f)
                         val dayLabel = stringResource(if (selected) R.string.cd_day_selected else R.string.cd_day, d.format(ShortDate))
-                        Column(Modifier.width(dayWidth).clip(dayShape).background(Paper)
+                        val press = rememberSquish(.9f)
+                        Column(Modifier.width(dayWidth).squish(press).clip(dayShape).background(Paper)
                             .drawBehind {
                                 val shift = (pill.value - index) * step
                                 if (abs(shift) < size.width) drawRoundRect(purple, Offset(shift, 0f), size, CornerRadius(17.dp.toPx()))
                             }
                             .then(if (cover > .5f) Modifier else Modifier.lightCardBorder(dayShape))
-                            .clickable(enabled = !d.isAfter(today), role = Role.Button) { dateString = d.toString() }
+                            .clickable(press.interaction, LocalIndication.current, enabled = !d.isAfter(today), role = Role.Button) { dateString = d.toString() }
                             .semantics { contentDescription = dayLabel }
                             .padding(vertical = 9.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(weekdayInitial(d.dayOfWeek), fontSize = 10.sp, color = lerp(Quiet, OnAccent, cover))
@@ -240,6 +292,7 @@ private const val StripFutureDays = 7L
             }
         }
         item {
+            Column(Modifier.cascaded(cascade.entrance(4))) {
             SectionTitle(if (date == today) stringResource(R.string.today_section) else date.format(ShortDate), stringResource(R.string.action_new_habit), onNew)
             if (date != today && state.due(date).isNotEmpty()) {
                 Text(stringResource(R.string.checkins_today_only), color = Quiet, fontSize = 11.sp)
@@ -256,9 +309,16 @@ private const val StripFutureDays = 7L
                         border = if (LocalKimiPalette.current.dark || filter == item) null else BorderStroke(1.dp, LightControlOutline))
                 }
             }
+            }
         }
         val habits = state.due(date).filter { filter == "All" || it.time == filter }
-        items(habits, key = { it.id }) { habit -> HabitRow(habit, state, date, { onToggle(habit, date) }) }
+        // Rows slide into place when the filter or the list changes, and a habit planted since the
+        // screen opened sprouts up instead of just appearing.
+        itemsIndexed(habits, key = { _, habit -> habit.id }) { index, habit ->
+            val fresh = remember { arrivals.isNew(habit.id) }
+            HabitRow(habit, state, date, { onToggle(habit, date) },
+                listMotion().cascaded(cascade.entrance(5 + index)).sprouted(rememberSprout(fresh)))
+        }
         if (habits.isEmpty()) item {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 EmptySpace(stringResource(R.string.today_empty_title), stringResource(
@@ -269,10 +329,11 @@ private const val StripFutureDays = 7L
         if (state.demo) item { Text(stringResource(R.string.demo_footer_today), color = Quiet, fontSize = 10.sp, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) }
     }
     DayCompleteCelebration(celebrations)
+    MilestoneMoment(milestoneShows, milestone.first, milestone.second)
     }
 }
 
-@Composable fun HabitRow(habit: Habit, state: HabitState, date: LocalDate, onToggle: () -> Unit) {
+@Composable fun HabitRow(habit: Habit, state: HabitState, date: LocalDate, onToggle: () -> Unit, modifier: Modifier = Modifier) {
     val today = LocalToday.current
     val checked = state.done(habit.id, date)
     val haptics = LocalHapticFeedback.current
@@ -286,10 +347,12 @@ private const val StripFutureDays = 7L
         wasChecked = checked
         if (fresh) burst.fire()
     }
-    Row(Modifier.fillMaxWidth()
+    val press = rememberSquish(.97f)
+    Row(modifier.fillMaxWidth().squish(press)
         .drawBurst(burst) { Offset(size.width - 39.dp.toPx(), size.height / 2) }
         .clip(RoundedCornerShape(22.dp)).background(background)
-        .toggleable(value = checked, enabled = date == today, role = Role.Checkbox, onValueChange = {
+        .toggleable(value = checked, interactionSource = press.interaction, indication = LocalIndication.current,
+            enabled = date == today, role = Role.Checkbox, onValueChange = {
             haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove); onToggle()
         }).semantics { contentDescription = toggleLabel }.padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
         BubbleIcon(HabitSymbols[habit.icon.coerceIn(HabitSymbols.indices)], Overlay, size = 44)
@@ -306,16 +369,21 @@ private const val StripFutureDays = 7L
     val today = LocalToday.current
     val stats = rememberHabitStats(state, today)
     var query by rememberSaveable { mutableStateOf("") }
+    val cascade = rememberCascade()
+    val arrivals = rememberArrivals { state.habits.map { it.id } }
     LazyColumn(contentPadding = PaddingValues(23.dp, 17.dp, 23.dp, 24.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
         item { PageTitle(stringResource(R.string.habits_title), stringResource(R.string.habits_subtitle)) }
         item {
             OutlinedTextField(query, { query = it }, label = { Text(stringResource(R.string.habits_search_label)) }, leadingIcon = { Icon(Icons.Rounded.Search, null) },
-                modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), singleLine = true)
+                modifier = Modifier.fillMaxWidth().cascaded(cascade.entrance(0)), shape = RoundedCornerShape(18.dp), singleLine = true)
         }
         item { Text(pluralStringResource(R.plurals.habits_collection_count, state.habits.size, state.habits.size), style = MaterialTheme.typography.titleLarge) }
-        items(state.habits.filter { it.name.contains(query, true) }, key = { it.id }) { h ->
+        // Search results slide together as the query narrows them, and a new habit sprouts in.
+        itemsIndexed(state.habits.filter { it.name.contains(query, true) }, key = { _, h -> h.id }) { index, h ->
             val editLabel = stringResource(R.string.cd_edit_habit, h.name)
-            PlayCard(TileColors[h.color.coerceIn(0, 5)], Modifier.semantics { contentDescription = editLabel }, { onEdit(h) }) {
+            val fresh = remember { arrivals.isNew(h.id) }
+            PlayCard(TileColors[h.color.coerceIn(0, 5)], listMotion().cascaded(cascade.entrance(1 + index)).sprouted(rememberSprout(fresh))
+                .semantics { contentDescription = editLabel }, { onEdit(h) }) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     BubbleIcon(HabitSymbols[h.icon.coerceIn(HabitSymbols.indices)], Overlay, size = 51)
                     Spacer(Modifier.width(12.dp)); Column(Modifier.weight(1f)) { Text(h.name, style = MaterialTheme.typography.titleMedium); Text(h.goal, color = Quiet, fontSize = 11.sp) }
@@ -401,12 +469,15 @@ private const val StripFutureDays = 7L
                 Column {
                 val offset = shown.atDay(1).dayOfWeek.value - 1
                 val cells = (offset + shown.lengthOfMonth() + 6) / 7 * 7
-                (0 until cells).chunked(7).forEach { week ->
+                (0 until cells).chunked(7).forEachIndexed { row, week ->
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                        week.forEach { n ->
+                        week.forEachIndexed { column, n ->
                             val day = n - offset + 1
                             if (day !in 1..shown.lengthOfMonth()) Box(Modifier.weight(1f).height(44.dp))
                             else {
+                                // Days pop in on a diagonal sweep from the top-left whenever a month arrives.
+                                val pop = rememberGrow(1f, 300, delayMillis = (row + column) * 24)
+                                val press = rememberSquish(.88f)
                                 val d = shown.atDay(day); val pct = state.percent(d); val selected = d == date
                                 val rest = state.isRestDay(d)
                                 val dayLabel = if (rest) stringResource(R.string.cd_calendar_day_rest, d.format(ShortDate))
@@ -414,9 +485,15 @@ private const val StripFutureDays = 7L
                                 // A rest day stays unfilled so it never reads as a day you missed.
                                 val fill by animateColorAsState(if (selected) Purple else if (rest) Color.Transparent else if (pct == 100) Mint else if (pct > 0) Lavender else Cream, label = "day fill")
                                 val ink by animateColorAsState(if (selected) OnAccent else if (rest) Quiet.copy(alpha = .72f) else Ink, label = "day ink")
-                                Box(Modifier.weight(1f).height(44.dp).clip(RoundedCornerShape(13.dp))
+                                Box(Modifier.weight(1f).height(44.dp)
+                                    .graphicsLayer {
+                                        val p = pop.value
+                                        val s = (.55f + .45f * easeOutBack(p)) * press.scale.value
+                                        scaleX = s; scaleY = s; alpha = p
+                                    }
+                                    .clip(RoundedCornerShape(13.dp))
                                     .background(fill)
-                                    .clickable(role = Role.Button) { dateString = d.toString() }
+                                    .clickable(press.interaction, LocalIndication.current, role = Role.Button) { dateString = d.toString() }
                                     .semantics { contentDescription = dayLabel }, contentAlignment = Alignment.Center) {
                                     Text(day.toString(), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = ink)
                                 }
@@ -447,7 +524,7 @@ private const val StripFutureDays = 7L
             SectionTitle(date.format(ShortDate), stringResource(R.string.action_today)) { monthString = YearMonth.from(today).toString(); dateString = today.toString() }
             if (date != today && state.due(date).isNotEmpty()) Text(stringResource(R.string.checkins_today_only), color = Quiet, fontSize = 11.sp)
         }
-        items(state.due(date), key = { it.id }) { HabitRow(it, state, date) { onToggle(it, date) } }
+        items(state.due(date), key = { it.id }) { HabitRow(it, state, date, { onToggle(it, date) }, listMotion()) }
         if (state.due(date).isEmpty()) item { EmptySpace(stringResource(R.string.calendar_empty_title), stringResource(R.string.calendar_empty_body)) }
     }
 }
@@ -461,10 +538,11 @@ private const val StripFutureDays = 7L
     val count by rememberGrow(summary.wins.toFloat())
     val percent by rememberGrow(summary.percent.toFloat(), 1100)
     val best by rememberGrow(stats.bestStreak.toFloat())
+    val cascade = rememberCascade()
     LazyColumn(contentPadding = PaddingValues(23.dp, 17.dp, 23.dp, 24.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
         item { PageTitle(stringResource(R.string.insights_title), stringResource(R.string.insights_subtitle)) }
         item {
-            PlayCard(Purple) {
+            PlayCard(Purple, Modifier.cascaded(cascade.entrance(0))) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(stringResource(R.string.insights_energy_label), color = OnAccent, fontSize = 10.sp, letterSpacing = 1.sp)
@@ -476,13 +554,13 @@ private const val StripFutureDays = 7L
             }
         }
         item {
-            Row(Modifier.then(if (enlargedText) Modifier.height(IntrinsicSize.Min) else Modifier), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(Modifier.cascaded(cascade.entrance(1)).then(if (enlargedText) Modifier.height(IntrinsicSize.Min) else Modifier), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 PlayCard(Yellow, Modifier.weight(1f).then(if (enlargedText) Modifier.fillMaxHeight() else Modifier)) { Icon(Icons.Rounded.Bolt, null); Spacer(Modifier.height(9.dp)); Text("${count.roundToInt()}", style = MaterialTheme.typography.headlineMedium); Text(stringResource(R.string.insights_wins), fontSize = 11.sp, color = Quiet) }
                 PlayCard(Pink, Modifier.weight(1f).then(if (enlargedText) Modifier.fillMaxHeight() else Modifier)) { Flame(stats.bestStreak > 0); Spacer(Modifier.height(9.dp)); Text("${best.roundToInt()}", style = MaterialTheme.typography.headlineMedium); Text(stringResource(R.string.insights_best_streak), fontSize = 11.sp, color = Quiet) }
             }
         }
         item {
-            PlayCard(Paper) {
+            PlayCard(Paper, Modifier.cascaded(cascade.entrance(2))) {
                 Text(stringResource(R.string.insights_week_chart), style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(24.dp))
                 Row(Modifier.fillMaxWidth().then(if (enlargedText) Modifier.heightIn(min = 165.dp) else Modifier.height(165.dp)), horizontalArrangement = Arrangement.spacedBy(11.dp), verticalAlignment = Alignment.Bottom) {
@@ -505,10 +583,10 @@ private const val StripFutureDays = 7L
             }
         }
         item { SectionTitle(stringResource(R.string.insights_habits_section)) }
-        items(state.habits, key = { it.id }) { habit ->
+        itemsIndexed(state.habits, key = { _, habit -> habit.id }) { index, habit ->
             val pct = summary.consistency[habit.id] ?: 0
             val fill = rememberGrow(pct / 100f, 800, 150)
-            PlayCard(TileColors[habit.color.coerceIn(0, 5)]) {
+            PlayCard(TileColors[habit.color.coerceIn(0, 5)], listMotion().cascaded(cascade.entrance(3 + index))) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(HabitSymbols[habit.icon.coerceIn(HabitSymbols.indices)], null, Modifier.size(24.dp)); Spacer(Modifier.width(10.dp))
                     Text(habit.name, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, fontSize = 13.sp)
@@ -556,6 +634,19 @@ private val MoodIcons = listOf(Icons.Rounded.SentimentVeryDissatisfied, Icons.Ro
     val scroll = rememberLazyListState()
     val scope = rememberCoroutineScope()
     fun editDate(date: LocalDate) { onEditDate(date); scope.launch { scroll.animateScrollToItem(0) } }
+    val reduced = reducedMotion()
+    val cascade = rememberCascade()
+    val arrivals = rememberArrivals { state.journal.map { it.date.toString() } }
+    // Saving folds a paper copy of the note shut and drops it toward the history below. The real
+    // field stays put underneath, so nothing the person typed ever disappears from view.
+    val fold = remember { Animatable(1f) }
+    var folded by remember { mutableStateOf("") }
+    fun save() {
+        onSave(mood, text)
+        if (reduced) return
+        folded = text
+        scope.launch { fold.snapTo(0f); fold.animateTo(1f, tween(700, easing = LinearEasing)) }
+    }
     LazyColumn(state = scroll, contentPadding = PaddingValues(23.dp, 17.dp, 23.dp, 24.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
         item { PageTitle(stringResource(R.string.journal_title), stringResource(R.string.journal_subtitle)) }
         if (draftDate != today || draftDates.isNotEmpty()) item {
@@ -565,7 +656,7 @@ private val MoodIcons = listOf(Icons.Rounded.SentimentVeryDissatisfied, Icons.Ro
             }
         }
         item {
-            PlayCard(Pink) {
+            PlayCard(Pink, Modifier.cascaded(cascade.entrance(0))) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) { Text(stringResource(R.string.journal_moods_title), style = MaterialTheme.typography.titleLarge); Spacer(Modifier.height(8.dp)); Text(stringResource(R.string.journal_moods_body), fontSize = 12.sp, color = Quiet) }
                     Flower(Modifier.size(100.dp), mood = mood, petal = Petal, alive = true)
@@ -579,22 +670,55 @@ private val MoodIcons = listOf(Icons.Rounded.SentimentVeryDissatisfied, Icons.Ro
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                 MoodIcons.forEachIndexed { index, icon ->
                     val tile by animateColorAsState(if (index == mood) Yellow else Paper, label = "mood tile")
-                    Column(Modifier.weight(1f).clip(RoundedCornerShape(18.dp)).background(tile)
-                        .semantics { selected = index == mood }.clickable(role = Role.RadioButton) { onDraft(index, text) }.padding(vertical = 13.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    val press = rememberSquish(.9f)
+                    Column(Modifier.weight(1f).squish(press).clip(RoundedCornerShape(18.dp)).background(tile)
+                        .semantics { selected = index == mood }
+                        .clickable(press.interaction, LocalIndication.current, role = Role.RadioButton) { onDraft(index, text) }.padding(vertical = 13.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         HopIcon(icon, index == mood, Modifier.size(28.dp), names[index]); Spacer(Modifier.height(8.dp)); Text(names[index], fontSize = 9.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
         }
         item {
-            OutlinedTextField(text, { onDraft(mood, it.take(10000)) }, label = { Text(stringResource(R.string.journal_field_label)) }, placeholder = { Text(stringResource(R.string.journal_field_placeholder)) },
-                modifier = Modifier.fillMaxWidth().heightIn(min = 180.dp), shape = RoundedCornerShape(22.dp), minLines = 5)
-            Spacer(Modifier.height(14.dp)); MainButton(stringResource(R.string.action_save_reflection), enabled = text.isNotBlank()) { onSave(mood, text) }
+            Box {
+                OutlinedTextField(text, { onDraft(mood, it.take(10000)) }, label = { Text(stringResource(R.string.journal_field_label)) }, placeholder = { Text(stringResource(R.string.journal_field_placeholder)) },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 180.dp), shape = RoundedCornerShape(22.dp), minLines = 5)
+                if (fold.isRunning) Box(Modifier.matchParentSize()
+                    .graphicsLayer {
+                        val p = fold.value
+                        // First the page folds up toward its top edge, then it tips and falls away.
+                        val closing = easeOutCubic((p / .45f).coerceIn(0f, 1f))
+                        val falling = ((p - .35f) / .65f).coerceIn(0f, 1f)
+                        transformOrigin = TransformOrigin(.5f, 0f)
+                        scaleY = 1f - .82f * closing
+                        scaleX = 1f - .12f * closing
+                        rotationX = 35f * closing
+                        translationY = falling * falling * 260.dp.toPx()
+                        alpha = 1f - falling
+                    }
+                    .clip(RoundedCornerShape(22.dp)).background(Paper).lightCardBorder(RoundedCornerShape(22.dp)).padding(16.dp)) {
+                    Text(folded, style = MaterialTheme.typography.bodyMedium, color = Quiet, maxLines = 6)
+                }
+            }
+            Spacer(Modifier.height(14.dp)); MainButton(stringResource(R.string.action_save_reflection), enabled = text.isNotBlank()) { save() }
             Spacer(Modifier.height(10.dp)); Text(stringResource(R.string.journal_privacy), color = Quiet, fontSize = 10.sp, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
         }
         item { SectionTitle(stringResource(R.string.journal_history_section)) }
-        items(state.journal.sortedByDescending { it.date }, key = { it.date.toString() }) { entry ->
-            PlayCard(Paper) {
+        itemsIndexed(state.journal.sortedByDescending { it.date }, key = { _, entry -> entry.date.toString() }) { index, entry ->
+            // A new entry sprouts in where the folded note lands; an edited one gives a little bounce.
+            val fresh = remember { arrivals.isNew(entry.date.toString()) }
+            val bounce = remember { Animatable(1f) }
+            var shown by remember { mutableStateOf(entry.text to entry.mood) }
+            LaunchedEffect(entry.text, entry.mood) {
+                if (shown == (entry.text to entry.mood)) return@LaunchedEffect
+                shown = entry.text to entry.mood
+                if (reduced) return@LaunchedEffect
+                delay(380)
+                bounce.snapTo(.94f)
+                bounce.animateTo(1f, spring(dampingRatio = .4f, stiffness = Spring.StiffnessMediumLow))
+            }
+            PlayCard(Paper, listMotion().cascaded(cascade.entrance(3 + index)).sprouted(rememberSprout(fresh))
+                .graphicsLayer { scaleX = bounce.value; scaleY = bounce.value }) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(entry.date.format(ShortDate), fontWeight = FontWeight.Bold, fontSize = 12.sp, modifier = Modifier.weight(1f))
                     Pill(moodNames()[entry.mood.coerceIn(0, 4)], Yellow, MoodIcons[entry.mood.coerceIn(0, 4)])
@@ -636,22 +760,24 @@ private val MoodIcons = listOf(Icons.Rounded.SentimentVeryDissatisfied, Icons.Ro
      * never reopens with a live field and the keyboard climbing over the page.
      */
     var editingName by remember(state.name) { mutableStateOf(false) }
+    // The cards rise in one after another as the page opens.
+    val cascade = rememberCascade()
     LazyColumn(contentPadding = PaddingValues(23.dp, 17.dp, 23.dp, 24.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
         item { PageTitle(stringResource(R.string.settings_title), stringResource(R.string.settings_subtitle)) }
         item {
-            PlayCard(Lavender) {
+            PlayCard(Lavender, Modifier.cascaded(cascade.entrance(0))) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Flower(Modifier.size(85.dp)); Spacer(Modifier.width(17.dp))
+                    Flower(Modifier.size(85.dp), alive = true); Spacer(Modifier.width(17.dp))
                     Column(Modifier.weight(1f)) { Text(stringResource(R.string.settings_team, state.name), style = MaterialTheme.typography.headlineMedium); Text(stringResource(R.string.settings_team_caption), color = Quiet, fontSize = 12.sp) }
                 }
             }
         }
-        item { NameCard(state.name, editingName, { editingName = it }, onRename) }
-        item { AccountCard(account, onAccount) }
-        if (syncable) item { SyncStatusCard(syncing, syncFailed, syncError, onRetrySync) }
-        item { AppearanceCard() }
-        item { NotificationSettings(state.habits, onSaveHabit) }
-        item { DataRecoveryCard(damaged, onExport, onRestore, onReset) }
+        item { Box(Modifier.cascaded(cascade.entrance(1))) { NameCard(state.name, editingName, { editingName = it }, onRename) } }
+        item { Box(Modifier.cascaded(cascade.entrance(2))) { AccountCard(account, onAccount) } }
+        if (syncable) item { Box(Modifier.cascaded(cascade.entrance(3))) { SyncStatusCard(syncing, syncFailed, syncError, onRetrySync) } }
+        item { Box(Modifier.cascaded(cascade.entrance(4))) { AppearanceCard() } }
+        item { Box(Modifier.cascaded(cascade.entrance(5))) { NotificationSettings(state.habits, onSaveHabit) } }
+        item { Box(Modifier.cascaded(cascade.entrance(6))) { DataRecoveryCard(damaged, onExport, onRestore, onReset) } }
         if (state.demo) item { Text(stringResource(R.string.demo_footer_settings), color = Quiet, fontSize = 11.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) }
         item { UpdateCard() }
         item { AboutCard { credits = true } }
@@ -675,9 +801,17 @@ private val MoodIcons = listOf(Icons.Rounded.SentimentVeryDissatisfied, Icons.Ro
         syncing -> R.string.syncing_body
         else -> R.string.synced_body
     })
+    // The arrows turn while a sync runs, and the icon pops into a cloud with a tick when it is done.
+    val turning = if (syncing && !failed && !reducedMotion()) {
+        rememberInfiniteTransition(label = "sync").animateFloat(0f, -360f, infiniteRepeatable(tween(1100, easing = LinearEasing)), label = "sync turn")
+    } else null
     PlayCard(if (failed) Peach else Blue) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            BubbleIcon(icon, Overlay)
+            AnimatedContent(icon, transitionSpec = {
+                (scaleIn(spring(dampingRatio = .45f, stiffness = Spring.StiffnessMedium)) + fadeIn()) togetherWith (scaleOut() + fadeOut())
+            }, label = "sync icon") { shown ->
+                BubbleIcon(shown, Overlay, iconModifier = Modifier.graphicsLayer { rotationZ = turning?.value ?: 0f })
+            }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(title, style = MaterialTheme.typography.titleMedium)

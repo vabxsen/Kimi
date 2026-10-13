@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The launch bloom (API 31+ splash): the orange centre pops, six petals open clockwise from the
+     upper right, then the face appears. Generated to match the in-app Flower's proportions. -->
+<animated-vector xmlns:android="http://schemas.android.com/apk/res/android" xmlns:aapt="http://schemas.android.com/aapt">
+    <aapt:attr name="android:drawable">
+        <vector android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+            <group android:name="petal1" android:pivotX="54" android:pivotY="54" android:scaleX="0" android:scaleY="0">
+                <path android:fillColor="#FFE696" android:pathData="M56.88,54.00a14.76,14.76 0 1,0 29.52,0a14.76,14.76 0 1,0 -29.52,0Z"/>
+            </group>
+            <group android:name="petal2" android:pivotX="54" android:pivotY="54" android:scaleX="0" android:scaleY="0">
+                <path android:fillColor="#FFE696" android:pathData="M48.06,69.28a14.76,14.76 0 1,0 29.52,0a14.76,14.76 0 1,0 -29.52,0Z"/>
+            </group>
+            <group android:name="petal3" android:pivotX="54" android:pivotY="54" android:scaleX="0" android:scaleY="0">
+                <path android:fillColor="#FFE696" android:pathData="M30.42,69.28a14.76,14.76 0 1,0 29.52,0a14.76,14.76 0 1,0 -29.52,0Z"/>
+            </group>
+            <group android:name="petal4" android:pivotX="54" android:pivotY="54" android:scaleX="0" android:scaleY="0">
+                <path android:fillColor="#FFE696" android:pathData="M21.60,54.00a14.76,14.76 0 1,0 29.52,0a14.76,14.76 0 1,0 -29.52,0Z"/>
+            </group>
+            <group android:name="petal5" android:pivotX="54" android:pivotY="54" android:scaleX="0" android:scaleY="0">
+                <path android:fillColor="#FFE696" android:pathData="M30.42,38.72a14.76,14.76 0 1,0 29.52,0a14.76,14.76 0 1,0 -29.52,0Z"/>
+            </group>
+            <group android:name="petal0" android:pivotX="54" android:pivotY="54" android:scaleX="0" android:scaleY="0">
+                <path android:fillColor="#FFE696" android:pathData="M48.06,38.72a14.76,14.76 0 1,0 29.52,0a14.76,14.76 0 1,0 -29.52,0Z"/>
+            </group>
+            <group android:name="core" android:pivotX="54" android:pivotY="54" android:scaleX="0" android:scaleY="0">
+                <path android:fillColor="#FFAD73" android:pathData="M36.00,54.00a18.00,18.00 0 1,0 36.00,0a18.00,18.00 0 1,0 -36.00,0Z"/>
+            </group>
+            <path android:name="cheeks" android:fillColor="#F88972" android:fillAlpha="0" android:pathData="M40.90,57.24a2.30,2.30 0 1,0 4.61,0a2.30,2.30 0 1,0 -4.61,0ZM62.50,57.24a2.30,2.30 0 1,0 4.61,0a2.30,2.30 0 1,0 -4.61,0Z"/>
+            <path android:name="face" android:strokeColor="#33283E" android:strokeAlpha="0" android:strokeWidth="1.94"
+                android:strokeLineCap="round" android:fillColor="#00000000" android:pathData="M47.88,50.04V53.64M60.12,50.04V53.64M47.88,60.12Q54.00,67.61 60.12,60.12"/>
+        </vector>
+    </aapt:attr>
+    <target android:name="core">
+        <aapt:attr name="android:animation">
+            <set>
+                <objectAnimator android:propertyName="scaleX" android:valueFrom="0" android:valueTo="1" android:valueType="floatType" android:startOffset="0" android:duration="320" android:interpolator="@android:interpolator/overshoot"/>
+                <objectAnimator android:propertyName="scaleY" android:valueFrom="0" android:valueTo="1" android:valueType="floatType" android:startOffset="0" android:duration="320" android:interpolator="@android:interpolator/overshoot"/>
+            </set>
+        </aapt:attr>
+    </target>
+    <target android:name="petal0">
+        <aapt:attr name="android:animation">
+            <set>
+                <objectAnimator android:propertyName="scaleX" android:valueFrom="0" android:valueTo="1" android:valueType="floatType" android:startOffset="160" android:duration="360" android:interpolator="@android:interpolator/overshoot"/>
+                <objectAnimator android:propertyName="scaleY" android:valueFrom="0" android:valueTo="1" android:valueType="floatType" android:startOffset="160" android:duration="360" android:interpolator="@android:interpolator/overshoot"/>
+            </set>
+        </aapt:attr>
+    </target>
+    <target android:name="petal1">
+        <aapt:attr name="android:animation">
+            <set>
+                <objectAnimator android:propertyName="scaleX" android:valueFrom="0" android:valueTo="1" android:valueType="floatType" android:startOffset="240" android:duration="360" android:interpolator="@android:interpolator/overshoot"/>
+                <objectAnimator android:propertyName="scaleY" android:valueFrom="0" android:valueTo="1" android:valueType="floatType" android:startOffset="240" android:duration="360" android:interpolator="@android:interpolator/overshoot"/>
+            </set>
+        </aapt:attr>
+    </target>
+    <target android:name="petal2">
+        <aapt:attr name="android:animation">
+            <set>
+                <objectAnimator android:propertyName="scaleX" android:valueFrom="0" android:valueTo="1" android:valueType="floatType" android:startOffset="320" android:duration="360" android:interpolator="@android:interpolator/overshoot"/>
+                <objectAnimator android:propertyName="scaleY" android:valueFrom="0" android:valueTo="1" android:valueType="floatType" android:startOffset="320" android:duration="360" android:interpolator="@android:interpolator/overshoot"/>
+            </set>
+        </aapt:attr>
+    </target>
+    <target android:name="petal3">
+        <aapt:attr name="android:animation">
+            <set>
+                <objectAnimator android:propertyName="scaleX" android:valueFrom="0" android:valueTo="1" android:valueType="floatType" android:startOffset="400" android:duration="360" android:interpolator="@android:interpolator/overshoot"/>
+                <objectAnimator android:propertyName="scaleY" android:valueFrom="0" android:valueTo="1" android:valueType="floatType" android:startOffset="400" android:duration="360" android:interpolator="@android:interpolator/overshoot"/>
+            </set>
+        </aapt:attr>
+    </target>
+    <target android:name="petal4">
+        <aapt:attr name="android:animation">
+            <set>
+                <objectAnimator android:propertyName="scaleX" android:valueFrom="0" android:valueTo="1" android:valueType="floatType" android:startOffset="480" android:duration="360" android:interpolator="@android:interpolator/overshoot"/>
+                <objectAnimator android:propertyName="scaleY" android:valueFrom="0" android:valueTo="1" android:valueType="floatType" android:startOffset="480" android:duration="360" android:interpolator="@android:interpolator/overshoot"/>
+            </set>
+        </aapt:attr>
+    </target>
+    <target android:name="petal5">
+        <aapt:attr name="android:animation">
+            <set>
+                <objectAnimator android:propertyName="scaleX" android:valueFrom="0" android:valueTo="1" android:valueType="floatType" android:startOffset="560" android:duration="360" android:interpolator="@android:interpolator/overshoot"/>
+                <objectAnimator android:propertyName="scaleY" android:valueFrom="0" android:valueTo="1" android:valueType="floatType" android:startOffset="560" android:duration="360" android:interpolator="@android:interpolator/overshoot"/>
+            </set>
+        </aapt:attr>
+    </target>
+    <target android:name="cheeks">
+        <aapt:attr name="android:animation">
+            <objectAnimator android:propertyName="fillAlpha" android:valueFrom="0" android:valueTo="1" android:valueType="floatType"
+                android:startOffset="520" android:duration="240" android:interpolator="@android:interpolator/fast_out_slow_in"/>
+        </aapt:attr>
+    </target>
+    <target android:name="face">
+        <aapt:attr name="android:animation">
+            <objectAnimator android:propertyName="strokeAlpha" android:valueFrom="0" android:valueTo="1" android:valueType="floatType"
+                android:startOffset="560" android:duration="240" android:interpolator="@android:interpolator/fast_out_slow_in"/>
+        </aapt:attr>
+    </target>
+</animated-vector>

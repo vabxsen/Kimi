@@ -113,9 +113,9 @@ class UpdateViewModel(application: Application) : AndroidViewModel(application) 
         }
         Spacer(Modifier.height(12.dp))
         when (state) {
-            is UpdateState.Working -> {
-                LinearProgressIndicator(Modifier.fillMaxWidth(), color = Accent)
-                Spacer(Modifier.height(10.dp))
+            is UpdateState.Working -> Row(verticalAlignment = Alignment.CenterVertically) {
+                PetalSpinner()
+                Spacer(Modifier.width(10.dp))
                 Text(stringResource(R.string.update_checking), style = MaterialTheme.typography.bodyMedium)
             }
             is UpdateState.UpToDate -> Text(
@@ -134,8 +134,9 @@ class UpdateViewModel(application: Application) : AndroidViewModel(application) 
                 }
             }
             is UpdateState.Downloading -> {
+                // A real fraction gets a real bar; before the first bytes arrive, the petals spin.
                 if (state.fraction > 0f) LinearProgressIndicator({ state.fraction }, Modifier.fillMaxWidth(), color = Accent)
-                else LinearProgressIndicator(Modifier.fillMaxWidth(), color = Accent)
+                else PetalSpinner()
                 Spacer(Modifier.height(10.dp))
                 Text(stringResource(R.string.update_downloading, (state.fraction * 100).toInt()),
                     style = MaterialTheme.typography.bodyMedium)

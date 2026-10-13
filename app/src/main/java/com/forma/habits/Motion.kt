@@ -92,10 +92,10 @@ internal fun easeOutBack(t: Float): Float {
     return 1f + (c + 1f) * x * x * x + c * x * x
 }
 
-private fun easeOutCubic(t: Float): Float = 1f - (1f - t).pow(3)
+internal fun easeOutCubic(t: Float): Float = 1f - (1f - t).pow(3)
 
 /** Fixed, saturated colours: pastel confetti would vanish against Kimi's pastel cards in either theme. */
-private val ConfettiColors = listOf(
+internal val ConfettiColors = listOf(
     Color(0xFFFFC94D), Color(0xFFFF8A65), Color(0xFFF06292),
     Color(0xFF7C5CE0), Color(0xFF4DB6AC), Color(0xFF64B5F6)
 )
@@ -105,7 +105,7 @@ internal class Confetto(
     val color: Color, val round: Boolean, val drift: Float
 )
 
-private fun confetti(count: Int, seed: Int): List<Confetto> {
+internal fun confetti(count: Int, seed: Int): List<Confetto> {
     val random = Random(seed)
     return List(count) { i ->
         Confetto(

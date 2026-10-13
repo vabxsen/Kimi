@@ -47,7 +47,11 @@ import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.lerp
 import kotlin.math.PI
@@ -154,8 +158,30 @@ private val RoundedFont = FontFamily(
     Font(R.font.nunito_extra_bold, FontWeight.ExtraBold)
 )
 
+// Short and eased, so little time is spent at the greyish midpoint where both palettes meet.
+private const val ThemeBlendMillis = 380
+
+/**
+ * Light and dark blend into each other instead of snapping: every token glides to its new colour.
+ * [KimiPalette.dark] flips at once, since it picks between layouts rather than colours.
+ */
+@Composable private fun blendedPalette(target: KimiPalette): KimiPalette {
+    val spec = if (reducedMotion()) snap() else tween<Color>(ThemeBlendMillis, easing = FastOutSlowInEasing)
+    @Composable fun blend(color: Color, label: String) = animateColorAsState(color, spec, label = label).value
+    return KimiPalette(
+        cream = blend(target.cream, "cream"), surface = blend(target.surface, "surface"), ink = blend(target.ink, "ink"),
+        onInk = blend(target.onInk, "onInk"), quiet = blend(target.quiet, "quiet"), purple = blend(target.purple, "purple"),
+        accent = blend(target.accent, "accent"), onAccent = blend(target.onAccent, "onAccent"),
+        highlight = blend(target.highlight, "highlight"), overlay = blend(target.overlay, "overlay"),
+        petal = blend(target.petal, "petal"), danger = blend(target.danger, "danger"),
+        lavender = blend(target.lavender, "lavender"), blue = blend(target.blue, "blue"), yellow = blend(target.yellow, "yellow"),
+        mint = blend(target.mint, "mint"), pink = blend(target.pink, "pink"), peach = blend(target.peach, "peach"),
+        verified = blend(target.verified, "verified"), dark = target.dark
+    )
+}
+
 @Composable fun FormaTheme(content: @Composable () -> Unit) {
-    val palette = if (kimiDarkTheme()) DarkPalette else LightPalette
+    val palette = blendedPalette(if (kimiDarkTheme()) DarkPalette else LightPalette)
     val defaults = Typography()
     val base = defaults.copy(
         bodyLarge = defaults.bodyLarge.copy(fontFamily = RoundedFont),
@@ -275,17 +301,18 @@ private class FlowerIdle(val sway: State<Float>, val breath: State<Float>, val e
     }
 }
 
-@Composable fun BubbleIcon(icon: ImageVector, background: Color, modifier: Modifier = Modifier, size: Int = 48) {
+@Composable fun BubbleIcon(icon: ImageVector, background: Color, modifier: Modifier = Modifier, size: Int = 48, iconModifier: Modifier = Modifier) {
     val shape = RoundedCornerShape((size * .32).dp)
     Box(modifier.size(size.dp).clip(shape).background(background)
         .then(if (background == Paper) Modifier.lightCardBorder(shape) else Modifier), contentAlignment = Alignment.Center) {
-        Icon(icon, null, Modifier.size((size * .51).dp), tint = Ink)
+        Icon(icon, null, iconModifier.size((size * .51).dp), tint = Ink)
     }
 }
 @Composable fun Pill(text: String, color: Color = Paper, icon: ImageVector? = null, onClick: (() -> Unit)? = null) {
-    Row(Modifier.clip(CircleShape).background(color)
+    val press = rememberSquish(.93f)
+    Row(Modifier.squish(press).clip(CircleShape).background(color)
         .then(if (color == Paper) Modifier.lightCardBorder(CircleShape) else Modifier)
-        .then(if (onClick != null) Modifier.clickable(role = Role.Button, onClick = onClick) else Modifier)
+        .then(if (onClick != null) Modifier.clickable(press.interaction, LocalIndication.current, role = Role.Button, onClick = onClick) else Modifier)
         .padding(horizontal = 13.dp, vertical = if (onClick != null) 13.dp else 7.dp), horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
         if (icon != null) Icon(icon, null, Modifier.size(15.dp), tint = Ink)
         Text(text, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Ink)
@@ -303,9 +330,12 @@ private class FlowerIdle(val sway: State<Float>, val breath: State<Float>, val e
     Text(description, color = Quiet, style = MaterialTheme.typography.bodyMedium)
 }
 @Composable fun PlayCard(color: Color, modifier: Modifier = Modifier, onClick: (() -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
-    Column(modifier.fillMaxWidth().clip(RoundedCornerShape(25.dp)).background(color)
+    // Only tappable cards dip when pressed; a static card has nothing to say to a finger.
+    val press = rememberSquish(.97f)
+    Column(modifier.fillMaxWidth().then(if (onClick != null) Modifier.squish(press) else Modifier)
+        .clip(RoundedCornerShape(25.dp)).background(color)
         .then(if (color == Paper) Modifier.lightCardBorder(RoundedCornerShape(25.dp)) else Modifier)
-        .then(if (onClick != null) Modifier.clickable(role = Role.Button, onClick = onClick) else Modifier)
+        .then(if (onClick != null) Modifier.clickable(press.interaction, LocalIndication.current, role = Role.Button, onClick = onClick) else Modifier)
         .padding(20.dp), content = content)
 }
 @Composable fun EmptySpace(title: String, text: String) {
@@ -316,9 +346,14 @@ private class FlowerIdle(val sway: State<Float>, val breath: State<Float>, val e
     }
 }
 @Composable fun MainButton(text: String, modifier: Modifier = Modifier, enabled: Boolean = true, onClick: () -> Unit) {
-    Button(onClick, modifier.fillMaxWidth().heightIn(min = 54.dp), shape = RoundedCornerShape(18.dp), enabled = enabled,
-        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 16.dp)) {
+    // The button dips and its arrow leans forward while pressed, as if it were about to go.
+    val press = rememberSquish(.95f)
+    Button(onClick, modifier.fillMaxWidth().heightIn(min = 54.dp).squish(press), shape = RoundedCornerShape(18.dp), enabled = enabled,
+        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 16.dp), interactionSource = press.interaction) {
         Text(text, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-        Spacer(Modifier.width(10.dp)); Icon(Icons.AutoMirrored.Rounded.ArrowForward, null, Modifier.size(19.dp))
+        Spacer(Modifier.width(10.dp))
+        Icon(Icons.AutoMirrored.Rounded.ArrowForward, null, Modifier.size(19.dp).graphicsLayer {
+            translationX = (1f - press.scale.value) * 90.dp.toPx()
+        })
     }
 }
