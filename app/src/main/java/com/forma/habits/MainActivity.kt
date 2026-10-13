@@ -1,6 +1,9 @@
 package com.forma.habits
 
+import android.os.Build
 import android.os.Bundle
+import android.os.SystemClock
+import androidx.annotation.RequiresApi
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.ComponentActivity
@@ -50,6 +53,7 @@ import java.time.LocalDate
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) holdSplashUntilBloomed()
         ThemeSetting.load(this)
         enableEdgeToEdge()
         setContent {
@@ -65,7 +69,28 @@ class MainActivity : ComponentActivity() {
             FormaTheme { KimiRoot() }
         }
     }
+
+    /**
+     * Android removes the splash the moment Kimi draws its first frame. On a quick phone that is
+     * before the flower has finished blooming, so it vanished half open. Taking over the exit keeps
+     * the splash up for whatever is left of the bloom (never more than its 750 ms), then fades it.
+     */
+    @RequiresApi(Build.VERSION_CODES.S)
+    private fun holdSplashUntilBloomed() {
+        splashScreen.setOnExitAnimationListener { splash ->
+            val started = splash.iconAnimationStart?.toEpochMilli()
+            val length = splash.iconAnimationDuration?.toMillis() ?: 0L
+            // The start is stamped on one of two clocks depending on the Android build: an uptime
+            // value is tiny next to a wall-clock one, so compare against whichever it came from.
+            val now = if (started != null && started < 100_000_000_000L) SystemClock.uptimeMillis() else System.currentTimeMillis()
+            val remaining = if (started == null) 0L else (started + length - now).coerceIn(0L, length)
+            splash.animate().alpha(0f).setStartDelay(remaining).setDuration(SplashFadeMillis)
+                .withEndAction { splash.remove() }.start()
+        }
+    }
 }
+
+private const val SplashFadeMillis = 180L
 
 enum class Page { Today, Habits, Calendar, Insights, Journal, Settings }
 val LocalToday = compositionLocalOf { LocalDate.now() }
