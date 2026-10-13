@@ -203,45 +203,6 @@ class KimiFlowTest {
         waitFor { store.state.value.name == "Taylor" }
     }
 
-    @Test fun settingsExposesBackupRestoreAndResetControls() {
-        compose.onNodeWithContentDescription("Open settings").performClick()
-        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Your data", substring = false))
-        compose.onNodeWithText("Your data", substring = false).assertExists()
-        compose.onNodeWithText("Export my space", substring = false).performScrollTo().assertIsEnabled()
-        compose.onNodeWithText("Restore backup", substring = false).performScrollTo().assertIsEnabled()
-        compose.onNodeWithText("Start with a clean space", substring = false).performScrollTo().performClick()
-        compose.onNodeWithText("Start over?", substring = false).assertExists()
-        compose.onNodeWithText("Cancel", substring = false).performClick()
-    }
-
-    @Test fun damagedStoreCanBeResetThroughSettings() {
-        scenario.close()
-        AccountSession.testOwner = "damaged-${java.util.UUID.randomUUID()}"
-        val preferences = context.getSharedPreferences(AccountSession.preferenceName("forma"), 0)
-        assertTrue(preferences.edit()
-            .putString("state", "not valid Kimi JSON")
-            .remove("previous_good")
-            .putLong("updated_at", 7L)
-            .commit())
-
-        scenario = ActivityScenario.launch(MainActivity::class.java)
-        compose.waitForIdle()
-        compose.onNodeWithContentDescription("Open settings").performClick()
-        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Recovery needed", substring = false))
-        compose.onNodeWithText("Recovery needed", substring = false).assertExists()
-        compose.onNodeWithText("Export my space", substring = false).performScrollTo().assertIsNotEnabled()
-        compose.onNodeWithText("Restore backup", substring = false).performScrollTo().assertIsEnabled()
-        compose.onNodeWithText("Start with a clean space", substring = false).performScrollTo().performClick()
-        compose.onNodeWithText("Start over?", substring = false).assertExists()
-        compose.onNodeWithText("Reset this space", substring = false).performClick()
-
-        waitFor { !store.damaged }
-        val saved = preferences.getString("state", null)
-        assertNotNull(saved)
-        assertEquals(store.state.value, BackupCodec.decode(saved!!))
-        compose.onNodeWithText("Your data", substring = false).performScrollTo().assertExists()
-    }
-
     @Test fun backupAndRestoreRoundTripInRealAndroidStorage() = runBlocking {
         val h = Habit(name = "Read", goal = "Ten pages")
         val content = HabitState(listOf(h), mapOf(LocalDate.now().toString() to setOf(h.id)), listOf(Reflection(LocalDate.now(), 3, "A real win")))

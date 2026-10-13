@@ -190,10 +190,6 @@
     <string name="sync_failed_title">Couldn’t sync</string>
     <string name="sync_failed_body">Everything is saved on this device. Retry when you’re back online.</string>
     <string name="err_sync_failed">Everything is saved on this device, but Kimi couldn’t sync it. Check your connection and retry.</string>
-    <string name="data_title">Your data</string>
-    <string name="data_body">Keep a portable copy, restore a backup, or start fresh.</string>
-    <string name="recovery_needed_title">Recovery needed</string>
-    <string name="recovery_needed_body">Kimi couldn’t read this space. Restore a backup or reset it to keep using the app.</string>
     <!-- Updates -->
     <string name="update_title">Keep Kimi fresh</string>
     <string name="update_current">You’re on %1$s</string>
@@ -332,9 +328,6 @@
     <string name="action_save_changes">Save my changes</string>
     <string name="action_save_reflection">Keep this little moment</string>
     <string name="action_restore_backup">Restore backup</string>
-    <string name="action_export_space">Export my space</string>
-    <string name="action_reset_space">Start with a clean space</string>
-    <string name="action_reset_confirm">Reset this space</string>
     <string name="action_retry_sync">Retry sync</string>
     <string name="action_keep_current_space">Keep current space</string>
     <string name="action_lets_grow">Start tracking my habits</string>
@@ -369,8 +362,6 @@
     <string name="dialog_delete_habit_body">This removes the habit and its check-in history. There’s always room for a new beginning.</string>
     <string name="dialog_restore_title">Bring your space back?</string>
     <string name="dialog_restore_body">This backup belongs to %1$s: %2$s, %3$s, and %4$s. Restoring replaces your current space. Export it first if you want to keep both.</string>
-    <string name="dialog_reset_title">Start over?</string>
-    <string name="dialog_reset_body">This permanently removes the habits, check-ins, reflections, drafts, and recovery copies in this space. Export first if you may want them later.</string>
     <string name="dialog_delete_reflection_title">Delete this moment?</string>
     <string name="dialog_delete_reflection_body">This reflection will be removed from your journal.</string>
     <string name="dialog_sign_out_title">See you soon?</string>
@@ -386,9 +377,7 @@
     <string name="msg_reflection_saved">Your little moment is saved.</string>
     <string name="msg_reflection_deleted">Reflection deleted.</string>
     <string name="msg_renamed">Looking good, %1$s!</string>
-    <string name="msg_reset">A blank page. A brand-new beginning.</string>
     <string name="msg_welcome">Welcome to your little happy place!</string>
-    <string name="msg_backup_saved">Your Kimi backup is saved.</string>
     <string name="msg_restored">Your space is restored. Welcome back!</string>
     <string name="msg_account_created">Your account is ready. You can verify your email below.</string>
     <string name="msg_account_created_no_name">Your account is ready. Your name could not be updated; try again below.</string>
@@ -403,19 +392,17 @@
     <string name="msg_account_deleted">Your account and its local space have been deleted. Guest data is kept.</string>
     <string name="msg_account_deleted_partial">Your account was deleted, but local cleanup failed. Clear Kimi’s storage in Android Settings to remove the remaining device data. Export your guest space first.</string>
     <string name="notice_recovered">Your last safe save was recovered. The damaged copy has been kept.</string>
-    <string name="notice_damaged">Your saved file could not be read. It has been kept intact. Restore a backup or reset your space in Settings.</string>
+    <string name="notice_damaged">Your saved file could not be read, so it has been kept untouched. To start over, clear Kimi’s storage in your phone’s settings.</string>
 
     <!-- Errors -->
     <string name="err_generic_save">That change could not be saved. Please try again.</string>
     <string name="err_collection_full">Your collection is full. Remove a habit before adding another.</string>
-    <string name="err_damaged_locked">Restore a backup or reset in Settings before making changes.</string>
+    <string name="err_damaged_locked">Your saved file is damaged, so changes can’t be saved. Clear Kimi’s storage in your phone’s settings to start over.</string>
     <string name="err_sync_too_large">Your space is too large to sync. Export a backup and remove some older entries.</string>
     <string name="err_space_full">Your space is full. Export a backup before removing older entries.</string>
     <string name="err_disk_write">Could not save to this device. Free some storage and try again.</string>
     <string name="err_erase_failed">The account was deleted, but local data could not be removed. Clear Kimi’s storage in Android Settings.</string>
-    <string name="err_file_write">The chosen file cannot be written.</string>
     <string name="err_file_read">Cannot read this file.</string>
-    <string name="err_backup_save">Backup could not be saved. Try another location.</string>
     <string name="err_backup_read">This backup could not be read. Choose a valid Kimi JSON backup (up to 8 MB). Your current data is unchanged.</string>
     <string name="err_backup_too_large">Backup is larger than 8 MB.</string>
     <string name="err_backup_version">This backup needs a newer version of Kimi.</string>

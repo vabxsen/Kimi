@@ -107,7 +107,6 @@ val LocalToday = compositionLocalOf { LocalDate.now() }
     val reduced = reducedMotion()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val restore = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { it?.let(vm::readBackup) }
-    val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { it?.let(vm::exportBackup) }
     DisposableEffect(lifecycle) {
         val observer = LifecycleEventObserver { _, event -> if (event == Lifecycle.Event.ON_RESUME) vm.refreshDate() }
         lifecycle.addObserver(observer)
@@ -181,15 +180,11 @@ val LocalToday = compositionLocalOf { LocalDate.now() }
                     onSaveHabit = vm::saveHabit,
                     account = account,
                     onAccount = onAccount,
-                    damaged = vm.damaged,
                     syncable = vm.syncable,
                     syncing = vm.syncing,
                     syncFailed = vm.syncFailed,
                     syncError = vm.syncError,
-                    onRetrySync = vm::syncNow,
-                    onExport = { export.launch("Kimi-backup-${LocalDate.now()}.json") },
-                    onRestore = { restore.launch(arrayOf("application/json", "text/*", "application/octet-stream")) },
-                    onReset = vm::reset
+                    onRetrySync = vm::syncNow
                 )
             }
             }

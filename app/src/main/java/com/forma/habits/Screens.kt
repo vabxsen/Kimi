@@ -742,15 +742,11 @@ private val MoodIcons = listOf(Icons.Rounded.SentimentVeryDissatisfied, Icons.Ro
     onSaveHabit: (Habit, (Boolean) -> Unit) -> Unit,
     account: KimiAccount? = null,
     onAccount: () -> Unit = {},
-    damaged: Boolean = false,
     syncable: Boolean = false,
     syncing: Boolean = false,
     syncFailed: Boolean = false,
     syncError: String? = null,
-    onRetrySync: () -> Unit = {},
-    onExport: () -> Unit = {},
-    onRestore: () -> Unit = {},
-    onReset: () -> Unit = {}
+    onRetrySync: () -> Unit = {}
 ) {
     var credits by remember { mutableStateOf(false) }
     /**
@@ -777,7 +773,6 @@ private val MoodIcons = listOf(Icons.Rounded.SentimentVeryDissatisfied, Icons.Ro
         if (syncable) item { Box(Modifier.cascaded(cascade.entrance(3))) { SyncStatusCard(syncing, syncFailed, syncError, onRetrySync) } }
         item { Box(Modifier.cascaded(cascade.entrance(4))) { AppearanceCard() } }
         item { Box(Modifier.cascaded(cascade.entrance(5))) { NotificationSettings(state.habits, onSaveHabit) } }
-        item { Box(Modifier.cascaded(cascade.entrance(6))) { DataRecoveryCard(damaged, onExport, onRestore, onReset) } }
         if (state.demo) item { Text(stringResource(R.string.demo_footer_settings), color = Quiet, fontSize = 11.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) }
         item { UpdateCard() }
         item { AboutCard { credits = true } }
@@ -825,47 +820,6 @@ private val MoodIcons = listOf(Icons.Rounded.SentimentVeryDissatisfied, Icons.Ro
             }
         }
     }
-}
-
-@Composable private fun DataRecoveryCard(
-    damaged: Boolean,
-    onExport: () -> Unit,
-    onRestore: () -> Unit,
-    onReset: () -> Unit
-) {
-    var confirmReset by rememberSaveable { mutableStateOf(false) }
-    PlayCard(if (damaged) Peach else Mint) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            BubbleIcon(if (damaged) Icons.Rounded.Warning else Icons.Rounded.Lock, Overlay)
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(stringResource(if (damaged) R.string.recovery_needed_title else R.string.data_title), style = MaterialTheme.typography.titleMedium)
-                Text(stringResource(if (damaged) R.string.recovery_needed_body else R.string.data_body), color = Quiet, style = MaterialTheme.typography.bodyMedium)
-            }
-        }
-        Spacer(Modifier.height(12.dp))
-        OutlinedButton(onClick = onExport, enabled = !damaged, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp), shape = RoundedCornerShape(15.dp)) {
-            Text(stringResource(R.string.action_export_space))
-        }
-        Spacer(Modifier.height(8.dp))
-        OutlinedButton(onClick = onRestore, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp), shape = RoundedCornerShape(15.dp)) {
-            Text(stringResource(R.string.action_restore_backup))
-        }
-        TextButton(onClick = { confirmReset = true }, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.action_reset_space), color = Danger)
-        }
-    }
-    if (confirmReset) AlertDialog(
-        onDismissRequest = { confirmReset = false },
-        title = { Text(stringResource(R.string.dialog_reset_title)) },
-        text = { Text(stringResource(R.string.dialog_reset_body)) },
-        confirmButton = {
-            TextButton(onClick = { confirmReset = false; onReset() }) {
-                Text(stringResource(R.string.action_reset_confirm), color = Danger)
-            }
-        },
-        dismissButton = { TextButton(onClick = { confirmReset = false }) { Text(stringResource(R.string.action_cancel)) } }
-    )
 }
 
 private const val WaterRippleDurationMillis = 380

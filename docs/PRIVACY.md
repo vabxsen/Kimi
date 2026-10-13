@@ -29,8 +29,8 @@ If you use an account, each account gets its own separate local space on the dev
 gets another. Signing out leaves that account's data on the device for next time.
 
 **As a guest there is no cloud copy.** Uninstalling Kimi, or clearing its storage in Android
-Settings, permanently deletes everything. Export a backup first if you want to keep it. If you are
-signed in, your synced space is restored when you sign in again.
+Settings, permanently deletes everything. If you are signed in, your synced space is restored when
+you sign in again.
 
 ## What leaves your device
 
@@ -67,8 +67,7 @@ account. This is what lets your habits appear on a new phone.
 - Deleting your account deletes this document.
 - Guest use never touches Firestore at all.
 
-If you would rather nothing was uploaded, use Kimi as a guest and move data yourself with
-*Export my space*.
+If you would rather nothing was uploaded, use Kimi as a guest.
 
 ### App integrity
 
@@ -127,26 +126,24 @@ journal content is never sold, shared with anyone else, or used for advertising 
 Kimi requests no access to contacts, location, camera, microphone, storage or any other sensitive
 permission.
 
-## Backups you create
+## Backups
 
-**Export my space** writes a JSON file to a location you choose using Android's document picker. The
-file contains your name, habits, schedules, check-ins and saved reflections in readable form.
+Kimi no longer creates backup files. Backups made by earlier versions are JSON files containing
+your name, habits, schedules, check-ins and saved reflections in readable form, and they stay
+wherever you saved them, outside Kimi's control.
 
-Once written, that file is outside Kimi's control. If you place it in a synced folder it will be
-copied wherever that folder syncs. Choose a location you trust.
-
-**Restore a backup** reads a file you select. Kimi validates it fully before replacing anything, and
-an invalid file never overwrites your current data.
+When you first set Kimi up, **Already have a Kimi backup?** reads a file you select. Kimi validates
+it fully before using it, and an invalid file never overwrites your current data.
 
 ## Deleting your data
 
-- **Local data:** Settings → *Start with a clean space*, or uninstall the app.
+- **Local data:** clear Kimi's storage in Android Settings, or uninstall the app.
 - **Your account:** Settings → your account → *Delete my account*. This permanently deletes your
   Firebase identity, your synced space in Firestore, and that account's habits, check-ins, journal
   and drafts on this device.
 
-Deleting an account cannot reach backups you exported earlier, or data on other devices where you
-were signed in. Delete those yourself.
+Deleting an account cannot reach backup files you saved with an earlier version, or data on other
+devices where you were signed in. Delete those yourself.
 
 ## Children
 

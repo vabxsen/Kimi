@@ -59,7 +59,6 @@ class FormaViewModel(application: Application) : AndroidViewModel(application) {
     }
     /** Sync exists only for a signed-in space; guests stay entirely local. */
     val syncable get() = store.owner.isNotEmpty()
-    val damaged get() = store.damaged
 
     /** Earlier days with an unsaved journal draft, newest first. Kept as state so composition never reads prefs. */
     var draftDates by mutableStateOf<List<LocalDate>>(emptyList())
@@ -204,9 +203,6 @@ class FormaViewModel(application: Application) : AndroidViewModel(application) {
         demand(name.isNotBlank() && name.trim().length <= 30, R.string.err_name_length)
         it.copy(name = name.trim())
     }
-    fun reset() = change(text(R.string.msg_reset), replaceDamaged = true, eraseHistory = true, onComplete = { saved ->
-        if (saved) { draftPrefs.edit { clear() }; loadDraft(today); refreshDraftDates() }
-    }) { HabitState(name = it.name).adoptingRevisionsOf(it) }
     fun start(name: String, onStarted: () -> Unit = {}) = change(text(R.string.msg_welcome), onComplete = { if (it) onStarted() }) {
         demand(name.isNotBlank() && name.trim().length <= 30, R.string.err_name_length)
         HabitState(name = name.trim(), onboarded = true)
@@ -229,22 +225,6 @@ class FormaViewModel(application: Application) : AndroidViewModel(application) {
             .filter { it != today && !draftPrefs.getString(it.toString(), null).isNullOrBlank() }.sortedDescending()
     }
 
-    fun exportBackup(uri: Uri) {
-        viewModelScope.launch {
-            try {
-                withContext(Dispatchers.IO) {
-                    getApplication<Application>().contentResolver.openOutputStream(uri, "wt")?.use {
-                        it.write(BackupCodec.encode(store.state.value).toByteArray(Charsets.UTF_8))
-                    } ?: throw KimiMessage(R.string.err_file_write)
-                }
-                tell(text(R.string.msg_backup_saved))
-            } catch (e: CancellationException) {
-                throw e
-            } catch (_: Exception) {
-                tell(text(R.string.err_backup_save))
-            }
-        }
-    }
     fun readBackup(uri: Uri) {
         if (busy) return
         beginTask()

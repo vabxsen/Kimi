@@ -35,14 +35,14 @@ The app is fully native—there is no WebView—and its interface includes light
 | 📅 **Calendar** | Browse previous and upcoming months, then review the habits completed on any date. |
 | 📊 **Insights** | See seven-day completion, weekly wins, current streaks, and 30-day consistency. |
 | 📖 **Journal** | Record a mood and one private reflection per day, with resilient draft recovery. |
-| ⚙️ **Settings** | Choose a theme, manage reminders and accounts, export or restore data, and check for updates. |
+| ⚙️ **Settings** | Choose a theme, manage reminders and accounts, and check for updates. |
 
 Additional details:
 
 - A focused first-run flow that starts with a blank space and opens the habit editor.
 - Automatic, light, and dark appearance modes.
 - Optional habit reminders on scheduled, incomplete days.
-- Local JSON export with validation and preview before restore.
+- Restore an earlier Kimi backup from the welcome screen, validated and previewed first.
 - Optional Firebase account sync across devices.
 - Email/password and Google sign-in.
 - Manual, certificate-verified updates from GitHub Releases.
@@ -78,7 +78,7 @@ Kimi is designed to work without an account:
 - **Spaces stay separate.** Guest data and each signed-in account have independent data stores.
 - **No ads or analytics.** Kimi does not include advertising or behavioral analytics.
 - **Crash reports are limited.** Release builds use Firebase Crashlytics, but never attach habit or journal content; debug builds do not report crashes.
-- **Backups are readable.** Exports are JSON files containing personal data, so save them somewhere you trust.
+- **Backups are readable.** Backup files made by earlier versions are JSON containing personal data, so keep them somewhere you trust.
 
 See the complete [Privacy Policy](docs/PRIVACY.md) for data handling details.
 
@@ -87,7 +87,6 @@ See the complete [Privacy Policy](docs/PRIVACY.md) for data handling details.
 - Check-ins can only be changed on the current day; past and future dates are read-only.
 - Schedule edits apply from the edit date onward, preserving historical statistics.
 - Deleting a habit also deletes its check-ins.
-- Resetting a space removes its habits, history, reflections, drafts, and recovery copies.
 - Appearance is stored per device and is not included in backups or switched with accounts.
 - Bottom navigation retains screen state, and Android Back closes transient UI before returning to Today.
 
