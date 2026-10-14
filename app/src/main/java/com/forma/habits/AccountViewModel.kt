@@ -18,8 +18,10 @@ import com.google.firebase.auth.*
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.tasks.await
 
 /** Firebase owns credential persistence. Passwords and tokens never enter Kimi backups. */
@@ -37,6 +39,9 @@ internal object AccountSession {
 /** Which sentence a finished sign-in should show. */
 enum class Welcome { Created, Returned }
 
+/** What the account screen is busy with, or whose result [AccountViewModel.message] holds. */
+enum class AccountTask { PasswordReset, Other }
+
 data class KimiAccount(val uid: String, val email: String, val name: String, val verified: Boolean, val passwordProvider: Boolean)
 
 class AccountViewModel(application: Application) : AndroidViewModel(application) {
@@ -50,6 +55,9 @@ class AccountViewModel(application: Application) : AndroidViewModel(application)
     var message by mutableStateOf<String?>(null)
         private set
     var error by mutableStateOf(false)
+        private set
+    /** Lets a result appear beside the button that asked for it rather than out of sight. */
+    var task by mutableStateOf<AccountTask?>(null)
         private set
     /**
      * Set when a sign-in completes, so the UI can confirm it and get out of the way instead of
@@ -67,9 +75,9 @@ class AccountViewModel(application: Application) : AndroidViewModel(application)
     }
     fun clearMessage() { message = null; error = false }
     fun dismissWelcome() { welcome = null }
-    private fun action(refreshAccount: Boolean = true, block: suspend () -> String?) {
+    private fun action(refreshAccount: Boolean = true, task: AccountTask = AccountTask.Other, block: suspend () -> String?) {
         if (busy) return
-        busy = true; clearMessage()
+        busy = true; clearMessage(); this.task = task
         viewModelScope.launch {
             try {
                 message = block()
@@ -144,10 +152,13 @@ class AccountViewModel(application: Application) : AndroidViewModel(application)
             // Account creation must not fail just because its first cloud upload is temporarily offline.
         }
     }
-    fun resetPassword(email: String) = action {
+    fun resetPassword(email: String) = action(task = AccountTask.PasswordReset) {
         val address = email.trim()
         demand(android.util.Patterns.EMAIL_ADDRESS.matcher(address).matches(), R.string.err_invalid_email)
-        try { auth.sendPasswordResetEmail(address).await() }
+        // A request that never answers would otherwise leave every account button disabled with no
+        // word of why.
+        try { withTimeout(20_000) { auth.sendPasswordResetEmail(address).await() } }
+        catch (_: TimeoutCancellationException) { throw KimiMessage(R.string.err_auth_network) }
         catch (_: FirebaseAuthInvalidUserException) { /* Same response for unknown accounts. */ }
         // Only your own signed-in address gets the direct wording; for any other, it would reveal which emails have accounts.
         if (address.equals(auth.currentUser?.email, ignoreCase = true)) text(R.string.msg_reset_sent_to_you, address)

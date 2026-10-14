@@ -158,6 +158,16 @@ class AccountFlowTest {
         assertNull(auth.currentUser)
     }
 
+    @Test fun resetPasswordButtonAnswersRightUnderIt() {
+        action { vm.createAccount("Reset tester", email, password) }
+        openAccount("Manage account")
+        compose.onNodeWithText("Reset my password").performScrollTo().performClick()
+        waitFor { compose.onAllNodesWithTag("reset_result").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("reset_result").assertIsDisplayed().assertTextContains(email, substring = true)
+        oobCode("PASSWORD_RESET")
+        compose.onNodeWithText("Reset my password").assertIsEnabled()
+    }
+
     @Test fun googleAccountCanAddPasswordAndKeepTheSameIdentity() {
         val googleToken = """{"sub":"google-${UUID.randomUUID()}","email":"$email","email_verified":true,"name":"Google tester"}"""
         runBlocking {

@@ -394,6 +394,7 @@
     <string name="action_refresh_account">Refresh account</string>
     <string name="action_save_account_name">Save account name</string>
     <string name="action_reset_password">Reset my password</string>
+    <string name="action_reset_sending">Sending reset link…</string>
     <string name="action_add_password">Add email &amp; password sign-in</string>
     <string name="action_add_password_now">Add password</string>
     <string name="action_sign_out">Sign out</string>

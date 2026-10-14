@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
@@ -151,6 +152,20 @@ class SpaceViewModels : ViewModel() {
         } })
 }
 
+private val AccountViewModel.resetting get() = busy && task == AccountTask.PasswordReset
+
+/**
+ * A password reset's answer, right under the button that asked for it. In the card at the top it
+ * was usually scrolled out of sight, so tapping the button looked like it did nothing at all.
+ */
+@Composable private fun ResetResult(vm: AccountViewModel, requester: BringIntoViewRequester) {
+    if (vm.task != AccountTask.PasswordReset) return
+    val message = vm.message ?: return
+    Text(message, style = MaterialTheme.typography.bodyMedium,
+        modifier = Modifier.fillMaxWidth().bringIntoViewRequester(requester).testTag("reset_result")
+            .clip(RoundedCornerShape(16.dp)).background(if (vm.error) Peach else Mint).padding(14.dp, 12.dp))
+}
+
 @Composable fun AccountScreen(vm: AccountViewModel, onClose: () -> Unit) {
     val context = LocalContext.current
     val user = vm.account
@@ -202,7 +217,8 @@ class SpaceViewModels : ViewModel() {
                     Spacer(Modifier.height(10.dp))
                     Text(stringResource(R.string.account_no_sync_body), style = MaterialTheme.typography.bodyMedium)
                 }
-                vm.message?.let { message ->
+                // A password reset answers under its own button instead (see ResetResult).
+                if (vm.task != AccountTask.PasswordReset) vm.message?.let { message ->
                     PlayCard(if (vm.error) Peach else Mint, Modifier.bringIntoViewRequester(messageRequester)) { Text(message, style = MaterialTheme.typography.bodyMedium) }
                 }
                 if (user == null) {
@@ -238,7 +254,12 @@ class SpaceViewModels : ViewModel() {
                         MainButton(stringResource(if (create) R.string.action_create_account else R.string.action_sign_in), enabled = !vm.busy && email.isNotBlank() && password.isNotEmpty() && (!create || (name.isNotBlank() && password.length >= 8 && password == confirmPassword))) {
                             if (create) vm.createAccount(name, email, password) else vm.emailSignIn(email, password)
                         }
-                        if (!create) TextButton(onClick = { vm.resetPassword(email) }, enabled = !vm.busy, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.action_forgot_password)) }
+                        if (!create) {
+                            TextButton(onClick = { vm.resetPassword(email) }, enabled = !vm.busy, modifier = Modifier.fillMaxWidth()) {
+                                Text(stringResource(if (vm.resetting) R.string.action_reset_sending else R.string.action_forgot_password))
+                            }
+                            ResetResult(vm, messageRequester)
+                        }
                         TextButton(onClick = { create = !create; vm.clearMessage() }, enabled = !vm.busy, modifier = Modifier.fillMaxWidth()) {
                             Text(stringResource(if (create) R.string.action_switch_to_sign_in else R.string.action_switch_to_create))
                         }
@@ -256,8 +277,9 @@ class SpaceViewModels : ViewModel() {
                         MainButton(stringResource(R.string.action_save_account_name), enabled = !vm.busy && name.isNotBlank() && name.trim() != user.name) { vm.updateName(name) }
                         if (user.passwordProvider) {
                             TextButton(enabled = !vm.busy, onClick = { vm.resetPassword(user.email) }, modifier = Modifier.fillMaxWidth()) {
-                                Text(stringResource(R.string.action_reset_password))
+                                Text(stringResource(if (vm.resetting) R.string.action_reset_sending else R.string.action_reset_password))
                             }
+                            ResetResult(vm, messageRequester)
                         } else {
                             Text(stringResource(R.string.account_add_password_body, user.email), style = MaterialTheme.typography.bodyMedium, color = Quiet)
                             TextButton(enabled = !vm.busy, onClick = {
