@@ -48,6 +48,7 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathMeasure
@@ -246,22 +247,80 @@ private const val CelebrationMillis = 1500
     }, label = "rolling") { content(it) }
 }
 
-/** The streak flame. It flickers while there is a streak to keep alive and rests when there is none. */
-@Composable fun Flame(lit: Boolean, modifier: Modifier = Modifier, tint: Color = Ink) {
-    val flicker = if (lit && !reducedMotion()) {
+/** How grown a streak's flame is: 0 under a week, then 1 from 7 days, 2 from 30 and 3 from 100. */
+internal fun flameTier(streak: Int): Int = StreakMilestones.count { streak >= it }
+
+/** Each tier burns hotter: ink, then orange, red and finally a violet-blue. Dark enough to read on the pastel cards. */
+private val FlameColors = listOf(Color.Unspecified, Color(0xFFE0601A), Color(0xFFD63A2F), Color(0xFF5B4FE0))
+private val FlameScales = listOf(1f, 1.08f, 1.16f, 1.24f)
+
+/**
+ * The streak flame. It flickers while there is a streak to keep alive and rests when there is none.
+ * Given a [streak], it grows with it: bigger and hotter at 7, 30 and 100 days, throwing more embers,
+ * with a glow behind it from 30. Reaching a new tier on screen makes it flare up with a thud.
+ */
+@Composable fun Flame(lit: Boolean, modifier: Modifier = Modifier, tint: Color = Color.Unspecified, streak: Int = 0) {
+    val reduced = reducedMotion()
+    val tier = if (lit) flameTier(streak) else 0
+    val mono = LocalKimiPalette.current.mono
+    val color = when {
+        tint != Color.Unspecified -> tint
+        tier == 0 || mono -> Ink
+        else -> FlameColors[tier]
+    }
+    val flicker = if (lit && !reduced) {
         rememberInfiniteTransition(label = "flame")
             .animateFloat(0f, 1f, infiniteRepeatable(tween(1400, easing = LinearEasing)), label = "flicker")
     } else null
-    Icon(Icons.Rounded.LocalFireDepartment, null, modifier.graphicsLayer {
-        val f = flicker?.value ?: return@graphicsLayer
-        val turn = 2f * PI.toFloat() * f
-        // Whole-number frequencies only, so the loop joins up without a visible jump.
-        val wave = sin(turn) * .6f + sin(turn * 3f) * .4f
-        transformOrigin = TransformOrigin(.5f, 1f)
-        scaleY = 1f + wave * .08f
-        scaleX = 1f - wave * .03f
-        rotationZ = sin(turn * 2f) * 4f
-    }, tint = tint)
+    val flare = remember { Animatable(0f) }
+    val haptics = rememberHaptics()
+    var shownTier by remember { mutableStateOf(tier) }
+    LaunchedEffect(tier) {
+        val grew = tier > shownTier
+        shownTier = tier
+        if (grew && !reduced) {
+            haptics.play(Feel.Thud)
+            flare.snapTo(1f)
+            flare.animateTo(0f, spring(dampingRatio = .35f, stiffness = Spring.StiffnessLow))
+        }
+    }
+    val grown = FlameScales[tier]
+    Icon(Icons.Rounded.LocalFireDepartment, null, modifier
+        .graphicsLayer {
+            transformOrigin = TransformOrigin(.5f, 1f)
+            scaleX = grown * (1f + .35f * flare.value); scaleY = scaleX
+        }
+        .drawWithContent {
+            val f = flicker?.value ?: 0f
+            val turn = 2f * PI.toFloat() * f
+            if (tier >= 2) {
+                val pulse = .8f + .2f * sin(turn * 2f)
+                val glow = size.minDimension * .75f * pulse
+                val at = Offset(size.width / 2, size.height * .62f)
+                drawCircle(Brush.radialGradient(listOf(color.copy(alpha = .3f), Color.Transparent), at, glow), glow, at)
+            }
+            drawContent()
+            if (flicker == null || tier == 0) return@drawWithContent
+            // Embers rise from the tip and fade, each on its own whole-number lap of the loop.
+            val unit = size.minDimension
+            repeat(tier * 2) { i ->
+                val seed = i * .618034f % 1f
+                val rise = (f * (1 + i % 2) + seed) % 1f
+                val x = size.width * (.5f + (seed - .5f) * .5f) + sin((rise * 2f + seed) * 2f * PI.toFloat()) * unit * .08f
+                val y = size.height * .15f - rise * unit * .55f
+                drawCircle(color.copy(alpha = (1f - rise) * .85f), unit * (.045f + .025f * (1f - rise)), Offset(x, y))
+            }
+        }
+        .graphicsLayer {
+            val f = flicker?.value ?: return@graphicsLayer
+            val turn = 2f * PI.toFloat() * f
+            // Whole-number frequencies only, so the loop joins up without a visible jump.
+            val wave = sin(turn) * .6f + sin(turn * 3f) * .4f
+            transformOrigin = TransformOrigin(.5f, 1f)
+            scaleY = 1f + wave * .08f
+            scaleX = 1f - wave * .03f
+            rotationZ = sin(turn * 2f) * 4f
+        }, tint = color)
 }
 
 /** An icon that gives a little hop when it becomes selected, but not when the screen first appears. */

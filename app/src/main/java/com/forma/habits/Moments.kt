@@ -30,11 +30,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.PathOperation
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.lerp
@@ -82,7 +84,6 @@ private val Stars = listOf(
             .animateFloat(0f, 1f, infiniteRepeatable(tween(SkyTurnMillis, easing = LinearEasing)), label = "sky turn")
     } else null
     val palette = LocalKimiPalette.current
-    val cream = palette.cream
     val trail = palette.quiet.copy(alpha = .3f)
     // By day the moon and stars borrow the theme's accent, softened toward the page.
     val moon = if (palette.dark) Color(0xFFF3E9C6) else lerp(palette.accent, palette.cream, .45f)
@@ -121,8 +122,11 @@ private val Stars = listOf(
                 val glow = .3f + .7f * (.5f + .5f * sin(2f * PI.toFloat() * (t * 4f + phase)))
                 drawSparkle(star.copy(alpha = glow), Offset(size.width * x, size.height * y), 3.2.dp.toPx() * (.7f + .3f * glow))
             }
-            drawCircle(moon, 8.dp.toPx(), body)
-            drawCircle(cream, 7.5.dp.toPx(), body + Offset(3.6.dp.toPx(), -2.6.dp.toPx()))
+            // A true crescent, cut out of the disc: a page-coloured circle laid over it would show
+            // against the living sky behind Today.
+            val disc = Path().apply { addOval(Rect(body, 8.dp.toPx())) }
+            val bite = Path().apply { addOval(Rect(body + Offset(3.6.dp.toPx(), -2.6.dp.toPx()), 7.5.dp.toPx())) }
+            drawPath(Path().apply { op(disc, bite, PathOperation.Difference) }, moon)
         }
     }
 }

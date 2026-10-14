@@ -31,6 +31,7 @@ import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.layout.onSizeChanged
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -40,6 +41,8 @@ import androidx.compose.foundation.gestures.snapping.SnapPosition
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.pointerInput
@@ -83,12 +86,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.path
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
@@ -151,13 +152,15 @@ private val LensLift = 3.dp
     val date = LocalDate.parse(dateString)
     var filter by rememberSaveable { mutableStateOf("All") }
     // Celebrates the moment the day is finished, not every later visit to a finished day.
-    val haptics = LocalHapticFeedback.current
+    val haptics = rememberHaptics()
     val dayDone = !state.isRestDay(today) && state.percent(today) == 100
     var celebrations by remember { mutableIntStateOf(0) }
     var wasDone by remember { mutableStateOf(dayDone) }
     LaunchedEffect(dayDone) {
-        if (dayDone && !wasDone) { celebrations++; haptics.performHapticFeedback(HapticFeedbackType.LongPress) }
+        val finished = dayDone && !wasDone
         wasDone = dayDone
+        // Felt in step with the confetti and the flower's pop.
+        if (finished) { celebrations++; haptics.pattern(*DayCompleteBeats) }
     }
     // A streak reaching 7, 30 or 100 days gets its own moment, once per habit and milestone. Only
     // habits already on screen count, so a sync or restore that brings in a long streak stays quiet.
@@ -173,7 +176,7 @@ private val LensLift = 3.dp
         }
         lastStreaks = stats.streaks
         // A beat after the check-in pop, so the two moments do not land on top of each other.
-        if (reached != null) { delay(650); milestone = reached; milestoneShows++ }
+        if (reached != null) { delay(650); milestone = reached; milestoneShows++; haptics.pattern(*MilestoneBeats) }
     }
     val reduced = reducedMotion()
     val list = rememberLazyListState()
@@ -240,7 +243,7 @@ private val LensLift = 3.dp
                 val streakValue: @Composable () -> Unit = {
                     Rolling(stats.bestStreak) { n -> Text(pluralStringResource(R.plurals.streak_days, n, n), fontSize = 14.sp, fontWeight = FontWeight.Bold) }
                 }
-                val streakIcon: @Composable () -> Unit = { Flame(stats.bestStreak > 0, Modifier.size(28.dp)) }
+                val streakIcon: @Composable () -> Unit = { Flame(stats.bestStreak > 0, Modifier.size(28.dp), streak = stats.bestStreak) }
                 val streakCaption = stringResource(R.string.today_streak_caption)
                 val shownPercent by animateIntAsState(state.percent(date), tween(600), label = "percent complete")
                 val progressText = if (restDay) stringResource(R.string.today_rest_day) else stringResource(R.string.today_percent_complete, shownPercent)
@@ -288,7 +291,7 @@ private val LensLift = 3.dp
                 LaunchedEffect(strip, reduced) {
                     if (reduced) return@LaunchedEffect
                     snapshotFlow { strip.centredIndex() }.filterNotNull().distinctUntilChanged().drop(1).collect {
-                        if (strip.isScrollInProgress) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        if (strip.isScrollInProgress) haptics.play(Feel.Tick)
                     }
                 }
                 // A released fling settles with a day in the middle, under the lens, not between two.
@@ -370,11 +373,15 @@ private val LensLift = 3.dp
     }
 }
 
+/** How far a habit row must be dragged, as a share of its width, before letting go ticks it. */
+private const val SwipeCommit = .42f
+
 @Composable fun HabitRow(habit: Habit, state: HabitState, date: LocalDate, onToggle: () -> Unit, modifier: Modifier = Modifier,
     onEdit: (() -> Unit)? = null) {
     val today = LocalToday.current
     val checked = state.done(habit.id, date)
-    val haptics = LocalHapticFeedback.current
+    val haptics = rememberHaptics()
+    val reduced = reducedMotion()
     val background by animateColorAsState(TileColors[habit.color.coerceIn(0, 5)], label = "habit color")
     val toggleLabel = stringResource(if (checked) R.string.cd_undo_habit else R.string.cd_complete_habit, habit.name)
     // Pops only on a fresh tick, never for a habit that was already done when the row appeared.
@@ -385,14 +392,66 @@ private val LensLift = 3.dp
         wasChecked = checked
         if (fresh) burst.fire()
     }
+    // Swipe to complete: drag the row right and its contents follow your finger while the colour
+    // deepens behind them. Past the line there is a catch you can feel and the tick fills in; let go
+    // there and the habit is ticked (or unticked) as the row springs back.
+    val swipe = remember { Animatable(0f) }
+    var armed by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val toggleNow by rememberUpdatedState(onToggle)
+    val wash = lerp(background, Ink, .16f)
+    val mark = Ink
+    val markInk = OnInk
+    val drag = if (date != today) Modifier else Modifier.pointerInput(checked) {
+        var dragged = 0f
+        detectHorizontalDragGestures(
+            onDragStart = { dragged = swipe.value },
+            onDragEnd = {
+                scope.launch {
+                    if (armed) { haptics.play(Feel.Confirm); toggleNow() }
+                    swipe.animateTo(0f, if (reduced) snap() else spring(dampingRatio = .55f, stiffness = Spring.StiffnessMediumLow))
+                    armed = false
+                }
+            },
+            onDragCancel = { scope.launch { swipe.animateTo(0f); armed = false } }
+        ) { change, amount ->
+            change.consume()
+            dragged = (dragged + amount).coerceIn(0f, size.width.toFloat())
+            scope.launch { swipe.snapTo(dragged) }
+            val past = dragged >= size.width * SwipeCommit
+            if (past != armed) { armed = past; haptics.play(if (past) Feel.Threshold else Feel.Tick) }
+        }
+    }
     val press = rememberSquish(.97f)
-    Row(modifier.fillMaxWidth().squish(press)
-        .drawBurst(burst) { Offset(size.width - 39.dp.toPx(), size.height / 2) }
+    Box(modifier.fillMaxWidth().squish(press)
+        .drawBurst(burst) { Offset(size.width - 39.dp.toPx() + swipe.value, size.height / 2) }
         .clip(RoundedCornerShape(22.dp)).background(background)
+        .drawBehind {
+            val w = swipe.value
+            if (w <= 0f) return@drawBehind
+            drawRect(wash, size = Size(w, size.height))
+            // The mark waiting in the uncovered strip: an outline that fills once it is far enough.
+            val reach = (w / (size.width * SwipeCommit)).coerceIn(0f, 1f)
+            val r = 14.dp.toPx() * (.55f + .45f * reach)
+            val at = Offset((w / 2).coerceAtLeast(r + 6.dp.toPx()).coerceAtMost(w - r - 6.dp.toPx()).coerceAtLeast(0f), size.height / 2)
+            if (armed) drawCircle(mark, r, at) else drawCircle(mark.copy(alpha = .45f + .4f * reach), r, at, style = Stroke(1.6.dp.toPx()))
+            val ink = if (armed) markInk else mark.copy(alpha = .45f + .4f * reach)
+            val stroke = Stroke(r * .2f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+            if (checked) {
+                // Undoing: a little arrow turning back.
+                drawArc(ink, -30f, -260f, false, at - Offset(r * .45f, r * .45f), Size(r * .9f, r * .9f), style = stroke)
+                drawLine(ink, at + Offset(r * .39f, -r * .22f), at + Offset(r * .45f, -r * .5f), stroke.width, StrokeCap.Round)
+                drawLine(ink, at + Offset(r * .39f, -r * .22f), at + Offset(r * .12f, -r * .2f), stroke.width, StrokeCap.Round)
+            } else drawPath(Path().apply {
+                moveTo(at.x - r * .42f, at.y + r * .04f); lineTo(at.x - r * .12f, at.y + r * .34f); lineTo(at.x + r * .44f, at.y - r * .26f)
+            }, ink, style = stroke)
+        }
+        .then(drag)
         .toggleable(value = checked, interactionSource = press.interaction, indication = LocalIndication.current,
             enabled = date == today, role = Role.Checkbox, onValueChange = {
-            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove); onToggle()
-        }).semantics { contentDescription = toggleLabel }.padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
+            haptics.play(if (checked) Feel.Off else Feel.On); onToggle()
+        }).semantics { contentDescription = toggleLabel }) {
+    Row(Modifier.fillMaxWidth().graphicsLayer { translationX = swipe.value }.padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
         BubbleIcon(HabitSymbols[habit.icon.coerceIn(HabitSymbols.indices)], Overlay, size = 44)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
@@ -409,6 +468,7 @@ private val LensLift = 3.dp
             }
         }
         Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) { CheckCircle(checked) }
+    }
     }
 }
 
@@ -596,20 +656,28 @@ private val LensLift = 3.dp
                         Spacer(Modifier.height(10.dp)); Text(stringResource(R.string.percent_value, percent.roundToInt()), color = Highlight, fontWeight = FontWeight.ExtraBold, fontSize = 49.sp)
                         Text(stringResource(R.string.insights_consistency), color = OnAccent, fontSize = 12.sp)
                     }
-                    Flower(Modifier.size(119.dp), petal = Petal, alive = true)
+                    // The ring sweeps round in step with the number counting up beside it.
+                    ScoreRing(percent / 100f, Modifier.size(124.dp)) { Flower(Modifier.size(92.dp), petal = Petal, alive = true) }
                 }
             }
         }
         item {
             Row(Modifier.cascaded(cascade.entrance(1)).then(if (enlargedText) Modifier.height(IntrinsicSize.Min) else Modifier), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 PlayCard(Yellow, Modifier.weight(1f).then(if (enlargedText) Modifier.fillMaxHeight() else Modifier)) { Icon(Icons.Rounded.Bolt, null); Spacer(Modifier.height(9.dp)); Text("${count.roundToInt()}", style = MaterialTheme.typography.headlineMedium); Text(stringResource(R.string.insights_wins), fontSize = 11.sp, color = Quiet) }
-                PlayCard(Pink, Modifier.weight(1f).then(if (enlargedText) Modifier.fillMaxHeight() else Modifier)) { Flame(stats.bestStreak > 0); Spacer(Modifier.height(9.dp)); Text("${best.roundToInt()}", style = MaterialTheme.typography.headlineMedium); Text(stringResource(R.string.insights_best_streak), fontSize = 11.sp, color = Quiet) }
+                PlayCard(Pink, Modifier.weight(1f).then(if (enlargedText) Modifier.fillMaxHeight() else Modifier)) { Flame(stats.bestStreak > 0, streak = stats.bestStreak); Spacer(Modifier.height(9.dp)); Text("${best.roundToInt()}", style = MaterialTheme.typography.headlineMedium); Text(stringResource(R.string.insights_best_streak), fontSize = 11.sp, color = Quiet) }
             }
         }
         item {
             PlayCard(Paper, Modifier.cascaded(cascade.entrance(2))) {
                 Text(stringResource(R.string.insights_week_chart), style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(24.dp))
+                // The bars rise one after another, then a line traces across their tops with a dot
+                // landing on each, showing the shape of the week at a glance.
+                val rises = summary.week.mapIndexed { i, day -> rememberGrow(if (day.rest) 0f else day.percent.toFloat(), 700, delayMillis = i * 70) }
+                val trace = rememberGrow(1f, 900, delayMillis = 650)
+                val trend = rememberTrendPoints(summary.week.size)
+                Box(Modifier.fillMaxWidth()) {
+                TrendLine(trend, trace, rises, Modifier.matchParentSize().onPlaced { trend.chart = it })
                 Row(Modifier.fillMaxWidth().then(if (enlargedText) Modifier.heightIn(min = 165.dp) else Modifier.height(165.dp)), horizontalArrangement = Arrangement.spacedBy(11.dp), verticalAlignment = Alignment.Bottom) {
                     summary.week.forEachIndexed { i, day ->
                         val barLabel = if (day.rest) stringResource(R.string.cd_chart_bar_rest, day.date.format(ShortDate))
@@ -617,15 +685,20 @@ private val LensLift = 3.dp
                         Column(Modifier.weight(1f).semantics { contentDescription = barLabel }, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom) {
                             // A rest day shows a dash and a flat marker; charting it as 0% would
                             // make a perfect week look like it collapsed every weekend.
-                            val rise by rememberGrow(if (day.rest) 0f else day.percent.toFloat(), 700, delayMillis = i * 70)
+                            val rise by rises[i]
+                            if (day.rest) trend.bars[i] = null
                             Text(if (day.rest) stringResource(R.string.rest_marker) else stringResource(R.string.percent_value, rise.roundToInt()),
                                 fontSize = 9.sp, color = Quiet); Spacer(Modifier.height(7.dp))
                             // Scaled so a 100% bar plus both labels fits the 165dp chart; 1.05 pushed that day's letter below the rest.
-                            Box(Modifier.fillMaxWidth().height(if (day.rest) 4.dp else (rise * .95f + 4).dp).clip(RoundedCornerShape(11.dp))
+                            Box(Modifier.fillMaxWidth().height(if (day.rest) 4.dp else (rise * .95f + 4).dp)
+                                .then(if (day.rest) Modifier else Modifier.onPlaced { trend.bars[i] = it })
+                                .clip(RoundedCornerShape(11.dp))
                                 .background(if (day.rest) Quiet.copy(alpha = .25f) else if (i == 6) Purple else TileColors[i % 6]))
                             Spacer(Modifier.height(9.dp)); Text(weekdayInitial(day.date.dayOfWeek), fontSize = 10.sp, color = Quiet)
                         }
                     }
+                }
+                TrendDots(trend, trace, rises, Modifier.matchParentSize())
                 }
             }
         }
@@ -633,13 +706,15 @@ private val LensLift = 3.dp
         itemsIndexed(state.habits, key = { _, habit -> habit.id }) { index, habit ->
             val pct = summary.consistency[habit.id] ?: 0
             val fill = rememberGrow(pct / 100f, 800, 150)
+            // A glint runs along the bar once it has filled.
+            val shine = rememberGrow(if (pct > 0) 1f else 0f, 700, 1000)
             PlayCard(TileColors[habit.color.coerceIn(0, 5)], listMotion().cascaded(cascade.entrance(3 + index))) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(HabitSymbols[habit.icon.coerceIn(HabitSymbols.indices)], null, Modifier.size(24.dp)); Spacer(Modifier.width(10.dp))
                     Text(habit.name, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, fontSize = 13.sp)
                     Text(stringResource(R.string.percent_value, pct), fontWeight = FontWeight.Bold)
                 }
-                Spacer(Modifier.height(12.dp)); LinearProgressIndicator(progress = { fill.value }, modifier = Modifier.fillMaxWidth().height(7.dp).clip(CircleShape), color = Ink, trackColor = Overlay, drawStopIndicator = {})
+                Spacer(Modifier.height(12.dp)); ShineBar(fill.value, shine, Modifier.fillMaxWidth().height(7.dp))
             }
         }
         item { Text(stringResource(R.string.insights_footnote), color = Quiet, fontSize = 10.sp) }

@@ -8,6 +8,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
+import androidx.compose.ui.geometry.Offset
 import kotlinx.coroutines.runBlocking
 import org.junit.*
 import org.junit.Assert.*
@@ -79,6 +80,26 @@ class KimiFlowTest {
         assertEquals("Cook dinner", saved.name)
         assertEquals("", saved.goal)
         assertEquals("Cooking", context.resources.getStringArray(R.array.habit_icon_names)[saved.icon])
+    }
+
+    @Test fun habitCanBeCompletedAndUndoneBySwiping() {
+        runBlocking { store.update { HabitState(habits = listOf(Habit(name = "Stretch", goal = "Five minutes")), name = "Alex") } }
+        waitFor { store.state.value.habits.size == 1 }
+        val id = store.state.value.habits.single().id
+        // A short drag springs back without ticking anything.
+        compose.onNodeWithContentDescription("Complete Stretch").performScrollTo().performTouchInput {
+            swipe(centerLeft + Offset(20f, 0f), centerLeft + Offset(width * .2f, 0f), 300)
+        }
+        compose.waitForIdle()
+        assertEquals(0, store.state.value.count(LocalDate.now()))
+        compose.onNodeWithContentDescription("Complete Stretch").performTouchInput {
+            swipe(centerLeft + Offset(20f, 0f), centerRight - Offset(20f, 0f), 300)
+        }
+        waitFor { store.state.value.done(id, LocalDate.now()) }
+        compose.onNodeWithContentDescription("Undo Stretch").performTouchInput {
+            swipe(centerLeft + Offset(20f, 0f), centerRight - Offset(20f, 0f), 300)
+        }
+        waitFor { !store.state.value.done(id, LocalDate.now()) }
     }
 
     @Test fun habitCanBeEditedStraightFromToday() {

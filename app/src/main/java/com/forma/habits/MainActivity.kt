@@ -15,6 +15,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -34,6 +35,7 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -129,7 +131,12 @@ val LocalToday = compositionLocalOf { LocalDate.now() }
             SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding())
         }
     } else {
-    Scaffold(containerColor = Cream, snackbarHost = { SnackbarHost(snackbar) },
+    // Today's sky glows behind the top of the screen, status bar and wordmark included, and fades
+    // away on the other tabs.
+    val sky by animateFloatAsState(if (page == Page.Today) 1f else 0f, tween(if (reduced) 0 else 450), label = "sky")
+    Box(Modifier.fillMaxSize().background(Cream)) {
+    if (sky > 0f) LivingSky(Modifier.fillMaxWidth().height(340.dp).graphicsLayer { alpha = sky })
+    Scaffold(containerColor = Color.Transparent, snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 23.dp, vertical = 5.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
@@ -194,6 +201,7 @@ val LocalToday = compositionLocalOf { LocalDate.now() }
                 PetalSpinner(Modifier.size(22.dp))
             }
         }
+    }
     }
     }
     if (sheetOpen) {
