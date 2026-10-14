@@ -258,9 +258,13 @@ private val FlameScales = listOf(1f, 1.08f, 1.16f, 1.24f)
  * The streak flame. It flickers while there is a streak to keep alive and rests when there is none.
  * Given a [streak], it grows with it: bigger and hotter at 7, 30 and 100 days, throwing more embers,
  * with a glow behind it from 30. Reaching a new tier on screen makes it flare up with a thud.
+ *
+ * [atRisk] (an evening with nothing ticked yet) shrinks it to a pale, sputtering little flame with
+ * no embers. When that ends on screen, because something got ticked, it roars back with a flare.
  */
-@Composable fun Flame(lit: Boolean, modifier: Modifier = Modifier, tint: Color = Color.Unspecified, streak: Int = 0) {
+@Composable fun Flame(lit: Boolean, modifier: Modifier = Modifier, tint: Color = Color.Unspecified, streak: Int = 0, atRisk: Boolean = false) {
     val reduced = reducedMotion()
+    val weak by animateFloatAsState(if (atRisk && lit) 1f else 0f, tween(if (reduced) 0 else 700), label = "flame at risk")
     val tier = if (lit) flameTier(streak) else 0
     val mono = LocalKimiPalette.current.mono
     val color = when {
@@ -284,23 +288,36 @@ private val FlameScales = listOf(1f, 1.08f, 1.16f, 1.24f)
             flare.animateTo(0f, spring(dampingRatio = .35f, stiffness = Spring.StiffnessLow))
         }
     }
+    var wasAtRisk by remember { mutableStateOf(atRisk) }
+    LaunchedEffect(atRisk) {
+        val saved = wasAtRisk && !atRisk
+        wasAtRisk = atRisk
+        if (saved && lit && !reduced) {
+            haptics.play(Feel.Confirm)
+            flare.snapTo(1f)
+            flare.animateTo(0f, spring(dampingRatio = .3f, stiffness = Spring.StiffnessLow))
+        }
+    }
     val grown = FlameScales[tier]
     Icon(Icons.Rounded.LocalFireDepartment, null, modifier
         .graphicsLayer {
             transformOrigin = TransformOrigin(.5f, 1f)
-            scaleX = grown * (1f + .35f * flare.value); scaleY = scaleX
+            scaleX = grown * (1f + .35f * flare.value) * (1f - .2f * weak); scaleY = scaleX
+            // A flame running low burns pale and gutters now and then.
+            val turn = 2f * PI.toFloat() * (flicker?.value ?: 0f)
+            alpha = 1f - weak * (.3f + .2f * (.5f + .5f * sin(turn * 5f)))
         }
         .drawWithContent {
             val f = flicker?.value ?: 0f
             val turn = 2f * PI.toFloat() * f
-            if (tier >= 2) {
+            if (tier >= 2 && weak < 1f) {
                 val pulse = .8f + .2f * sin(turn * 2f)
                 val glow = size.minDimension * .75f * pulse
                 val at = Offset(size.width / 2, size.height * .62f)
-                drawCircle(Brush.radialGradient(listOf(color.copy(alpha = .3f), Color.Transparent), at, glow), glow, at)
+                drawCircle(Brush.radialGradient(listOf(color.copy(alpha = .3f * (1f - weak)), Color.Transparent), at, glow), glow, at)
             }
             drawContent()
-            if (flicker == null || tier == 0) return@drawWithContent
+            if (flicker == null || tier == 0 || weak > .5f) return@drawWithContent
             // Embers rise from the tip and fade, each on its own whole-number lap of the loop.
             val unit = size.minDimension
             repeat(tier * 2) { i ->
@@ -316,10 +333,12 @@ private val FlameScales = listOf(1f, 1.08f, 1.16f, 1.24f)
             val turn = 2f * PI.toFloat() * f
             // Whole-number frequencies only, so the loop joins up without a visible jump.
             val wave = sin(turn) * .6f + sin(turn * 3f) * .4f
+            // Running low, it shivers faster and harder, like a candle in a draught.
+            val shiver = sin(turn * 7f) * weak
             transformOrigin = TransformOrigin(.5f, 1f)
-            scaleY = 1f + wave * .08f
+            scaleY = 1f + wave * .08f + shiver * .1f
             scaleX = 1f - wave * .03f
-            rotationZ = sin(turn * 2f) * 4f
+            rotationZ = sin(turn * 2f) * 4f + shiver * 7f
         }, tint = color)
 }
 

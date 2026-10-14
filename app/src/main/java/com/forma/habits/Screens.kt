@@ -31,6 +31,8 @@ import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.layout.onSizeChanged
 import kotlinx.coroutines.delay
@@ -40,6 +42,7 @@ import kotlinx.coroutines.flow.filterNotNull
 import androidx.compose.foundation.gestures.snapping.SnapPosition
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Path
@@ -47,7 +50,10 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.pointerInput
 import java.time.temporal.ChronoUnit
+import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.sin
 import kotlin.math.roundToInt
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
@@ -111,6 +117,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.launch
@@ -151,6 +158,7 @@ private val LensLift = 3.dp
     var dateString by rememberSaveable(today) { mutableStateOf(today.toString()) }
     val date = LocalDate.parse(dateString)
     var filter by rememberSaveable { mutableStateOf("All") }
+    var storyOpen by rememberSaveable { mutableStateOf(false) }
     // Celebrates the moment the day is finished, not every later visit to a finished day.
     val haptics = rememberHaptics()
     val dayDone = !state.isRestDay(today) && state.percent(today) == 100
@@ -179,9 +187,19 @@ private val LensLift = 3.dp
         if (reached != null) { delay(650); milestone = reached; milestoneShows++; haptics.pattern(*MilestoneBeats) }
     }
     val reduced = reducedMotion()
+    // The hour, kept current while Today is on screen, for anything that changes with the evening.
+    val hour by produceState(LocalTime.now().hour) { while (true) { delay(60_000); value = LocalTime.now().hour } }
     val list = rememberLazyListState()
     val cascade = rememberCascade()
     val arrivals = rememberArrivals { state.habits.map { it.id } }
+    // A habit just added is brought into view, so its seed lands where it can be seen.
+    var knownHabits by remember { mutableStateOf(state.habits.map { it.id }.toSet()) }
+    LaunchedEffect(state.habits) {
+        val ids = state.habits.map { it.id }.toSet()
+        val added = (ids - knownHabits).firstOrNull()
+        knownHabits = ids
+        if (added != null && state.due(date).any { it.id == added && (filter == "All" || it.time == filter) }) list.revealArrival(added)
+    }
     var headerHeight by remember { mutableIntStateOf(1) }
     val gap = with(LocalDensity.current) { 14.dp.toPx() }
     // How far the page has moved past the greeting. Read only inside layer blocks, so scrolling
@@ -215,7 +233,8 @@ private val LensLift = 3.dp
             }
         }
         item {
-            // The banner flower's petals fill as the day's habits are ticked off, and it drifts
+            // The banner flower naps on a day with nothing scheduled and giggles when poked.
+            // Its petals fill as the day's habits are ticked off, and it drifts
             // behind the banner as the page scrolls.
             val dayProgress = if (state.isRestDay(date)) null else state.count(date).toFloat() / state.due(date).size
             val parallax = Modifier.graphicsLayer { if (!reduced) translationY = scrolled().coerceAtMost(900f) * .3f }
@@ -231,9 +250,23 @@ private val LensLift = 3.dp
                         Text(if (state.isRestDay(date)) stringResource(R.string.today_banner_rest)
                             else pluralStringResource(R.plurals.today_banner_progress, state.due(date).size, state.count(date), state.due(date).size), fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
-                    if (expandedText) Flower(Modifier.align(Alignment.End).size(86.dp).then(parallax), progress = dayProgress, alive = true)
+                    if (expandedText) Mascot(Modifier.align(Alignment.End).size(86.dp).then(parallax), progress = dayProgress, sleeping = state.isRestDay(date))
                 }
-                if (!expandedText) Flower(Modifier.align(Alignment.CenterEnd).size(111.dp).offset(x = 9.dp).then(parallax), progress = dayProgress, alive = true)
+                if (!expandedText) Mascot(Modifier.align(Alignment.CenterEnd).size(111.dp).offset(x = 9.dp).then(parallax), progress = dayProgress, sleeping = state.isRestDay(date))
+            }
+        }
+        // On Sundays, once the week has a tick in it, its story is ready to play.
+        if (today.dayOfWeek == java.time.DayOfWeek.SUNDAY && state.weekStory(today).ticks > 0) item {
+            PlayCard(Purple, Modifier.cascaded(cascade.entrance(2)), onClick = { storyOpen = true }) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Flower(Modifier.size(48.dp), alive = true)
+                    Spacer(Modifier.width(14.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(stringResource(R.string.story_card_title), color = OnAccent, style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(R.string.story_card_body), color = OnAccent.copy(alpha = .85f), fontSize = 12.sp)
+                    }
+                    Icon(Icons.Rounded.PlayArrow, null, tint = OnAccent)
+                }
             }
         }
         item {
@@ -243,8 +276,10 @@ private val LensLift = 3.dp
                 val streakValue: @Composable () -> Unit = {
                     Rolling(stats.bestStreak) { n -> Text(pluralStringResource(R.plurals.streak_days, n, n), fontSize = 14.sp, fontWeight = FontWeight.Bold) }
                 }
-                val streakIcon: @Composable () -> Unit = { Flame(stats.bestStreak > 0, Modifier.size(28.dp), streak = stats.bestStreak) }
-                val streakCaption = stringResource(R.string.today_streak_caption)
+                // In the evening with nothing ticked, the flame runs low and the caption asks for help.
+                val atRisk = state.streakAtRisk(today, hour, stats.bestStreak)
+                val streakIcon: @Composable () -> Unit = { Flame(stats.bestStreak > 0, Modifier.size(28.dp), streak = stats.bestStreak, atRisk = atRisk) }
+                val streakCaption = stringResource(if (atRisk) R.string.today_streak_caption_risk else R.string.today_streak_caption)
                 val shownPercent by animateIntAsState(state.percent(date), tween(600), label = "percent complete")
                 val progressText = if (restDay) stringResource(R.string.today_rest_day) else stringResource(R.string.today_percent_complete, shownPercent)
                 val progressValue: @Composable () -> Unit = { Text(progressText, fontSize = 14.sp, fontWeight = FontWeight.Bold) }
@@ -357,7 +392,7 @@ private val LensLift = 3.dp
         itemsIndexed(habits, key = { _, habit -> habit.id }) { index, habit ->
             val fresh = remember { arrivals.isNew(habit.id) }
             HabitRow(habit, state, date, { onToggle(habit, date) },
-                listMotion().cascaded(cascade.entrance(5 + index)).sprouted(rememberSprout(fresh)), onEdit = { onEdit(habit) })
+                listMotion().cascaded(cascade.entrance(5 + index)).sprouted(rememberSprout(fresh, seed = true)), onEdit = { onEdit(habit) })
         }
         if (habits.isEmpty()) item {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -369,6 +404,7 @@ private val LensLift = 3.dp
         if (state.demo) item { Text(stringResource(R.string.demo_footer_today), color = Quiet, fontSize = 10.sp, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) }
     }
     DayCompleteCelebration(celebrations)
+    if (storyOpen) WeekStoryDialog(state, today) { storyOpen = false }
     MilestoneMoment(milestoneShows, milestone.first, milestone.second)
     }
 }
@@ -423,7 +459,7 @@ private const val SwipeCommit = .42f
         }
     }
     val press = rememberSquish(.97f)
-    Box(modifier.fillMaxWidth().squish(press)
+    Box(modifier.gustTracked(habit.id, TileColors[habit.color.coerceIn(0, 5)]).fillMaxWidth().squish(press)
         .drawBurst(burst) { Offset(size.width - 39.dp.toPx() + swipe.value, size.height / 2) }
         .clip(RoundedCornerShape(22.dp)).background(background)
         .drawBehind {
@@ -478,7 +514,16 @@ private const val SwipeCommit = .42f
     var query by rememberSaveable { mutableStateOf("") }
     val cascade = rememberCascade()
     val arrivals = rememberArrivals { state.habits.map { it.id } }
-    LazyColumn(contentPadding = PaddingValues(23.dp, 17.dp, 23.dp, 24.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+    val list = rememberLazyListState()
+    // A habit just added is brought into view, so its seed lands where it can be seen.
+    var knownHabits by remember { mutableStateOf(state.habits.map { it.id }.toSet()) }
+    LaunchedEffect(state.habits) {
+        val ids = state.habits.map { it.id }.toSet()
+        val added = (ids - knownHabits).firstOrNull()
+        knownHabits = ids
+        if (added != null && state.habits.any { it.id == added && it.name.contains(query, true) }) list.revealArrival(added)
+    }
+    LazyColumn(state = list, contentPadding = PaddingValues(23.dp, 17.dp, 23.dp, 24.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
         item { PageTitle(stringResource(R.string.habits_title), stringResource(R.string.habits_subtitle)) }
         item {
             OutlinedTextField(query, { query = it }, label = { Text(stringResource(R.string.habits_search_label)) }, leadingIcon = { Icon(Icons.Rounded.Search, null) },
@@ -489,11 +534,13 @@ private const val SwipeCommit = .42f
         itemsIndexed(state.habits.filter { it.name.contains(query, true) }, key = { _, h -> h.id }) { index, h ->
             val editLabel = stringResource(R.string.cd_edit_habit, h.name)
             val fresh = remember { arrivals.isNew(h.id) }
-            PlayCard(TileColors[h.color.coerceIn(0, 5)], listMotion().cascaded(cascade.entrance(1 + index)).sprouted(rememberSprout(fresh))
+            PlayCard(TileColors[h.color.coerceIn(0, 5)], listMotion().cascaded(cascade.entrance(1 + index)).sprouted(rememberSprout(fresh, seed = true)).gustTracked(h.id, TileColors[h.color.coerceIn(0, 5)])
                 .semantics { contentDescription = editLabel }, { onEdit(h) }) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     BubbleIcon(HabitSymbols[h.icon.coerceIn(HabitSymbols.indices)], Overlay, size = 51)
                     Spacer(Modifier.width(12.dp)); Column(Modifier.weight(1f)) { Text(h.name, style = MaterialTheme.typography.titleMedium); if (h.goal.isNotBlank()) Text(h.goal, color = Quiet, fontSize = 11.sp) }
+                    // Its plant: grows with how often it was done this month, droops after a miss.
+                    HabitPlant(plantStage(state.monthOfDone(h, today)), state.wilting(h, today), Modifier.size(width = 50.dp, height = 62.dp))
                     Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Edit, null, Modifier.size(21.dp)) }
                 }
                 Spacer(Modifier.height(18.dp))
@@ -558,6 +605,10 @@ private const val SwipeCommit = .42f
                 Spacer(Modifier.height(12.dp))
                 // Months slide in from the side you are heading to, by arrow or by a sideways swipe.
                 val swipe = with(LocalDensity.current) { 56.dp.toPx() }
+                // Perfect days glow gold, breathing slowly together.
+                val glowBreath = if (!reduced) rememberInfiniteTransition(label = "perfect days")
+                    .animateFloat(0f, 1f, infiniteRepeatable(tween(2400, easing = LinearEasing)), label = "glow") else null
+                val gold = if (LocalKimiPalette.current.mono) Color(0xFFB4B4B9) else Color(0xFFFFC94D)
                 AnimatedContent(month, Modifier.pointerInput(monthString) {
                     var drag = 0f
                     detectHorizontalDragGestures(onDragStart = { drag = 0f }, onDragEnd = {
@@ -592,14 +643,37 @@ private const val SwipeCommit = .42f
                                 // A rest day stays unfilled so it never reads as a day you missed.
                                 val fill by animateColorAsState(if (selected) Purple else if (rest) Color.Transparent else if (pct == 100) Mint else if (pct > 0) Lavender else Cream, label = "day fill")
                                 val ink by animateColorAsState(if (selected) OnAccent else if (rest) Quiet.copy(alpha = .72f) else Ink, label = "day ink")
+                                // Each day's colour soaks outward from its middle like ink into paper,
+                                // in a wave a beat behind the pop.
+                                val soak = rememberGrow(1f, 560, delayMillis = 120 + (row + column) * 30)
+                                val perfect = pct == 100 && !rest && !selected
                                 Box(Modifier.weight(1f).height(44.dp)
                                     .graphicsLayer {
                                         val p = pop.value
                                         val s = (.55f + .45f * easeOutBack(p)) * press.scale.value
                                         scaleX = s; scaleY = s; alpha = p
                                     }
+                                    .drawBehind {
+                                        if (!perfect) return@drawBehind
+                                        val breath = glowBreath?.value?.let { .5f + .5f * sin(it * 2f * PI.toFloat()) } ?: .5f
+                                        val r = size.maxDimension * (.62f + .08f * breath)
+                                        drawCircle(Brush.radialGradient(listOf(gold.copy(alpha = .5f + .2f * breath), Color.Transparent), center, r), r, center)
+                                    }
                                     .clip(RoundedCornerShape(13.dp))
-                                    .background(fill)
+                                    .drawBehind {
+                                        val s = easeOutCubic(soak.value)
+                                        if (s >= 1f) { drawRect(fill); return@drawBehind }
+                                        if (s <= 0f) return@drawBehind
+                                        // A round blot with a few irregular bleeds at its edge, which
+                                        // grows until it fills the day.
+                                        val r = size.maxDimension * .78f * s
+                                        drawCircle(fill, r, center)
+                                        for (k in 0 until 5) {
+                                            val a = (k * 72f + day * 37f) * PI.toFloat() / 180f
+                                            drawCircle(fill, r * (.32f + .08f * ((day + k) % 3)), center + Offset(cos(a), sin(a)) * r * .85f)
+                                        }
+                                    }
+                                    .then(if (perfect) Modifier.border(1.5.dp, gold, RoundedCornerShape(13.dp)) else Modifier)
                                     .clickable(press.interaction, LocalIndication.current, role = Role.Button) { dateString = d.toString() }
                                     .semantics { contentDescription = dayLabel }, contentAlignment = Alignment.Center) {
                                     Text(day.toString(), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = ink)
@@ -614,7 +688,7 @@ private const val SwipeCommit = .42f
                 Spacer(Modifier.height(8.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
                     LegendDot(Lavender, stringResource(R.string.calendar_legend_some))
-                    LegendDot(Mint, stringResource(R.string.calendar_legend_all))
+                    LegendDot(Mint, stringResource(R.string.calendar_legend_all), ring = gold)
                     LegendDot(Quiet.copy(alpha = .55f), stringResource(R.string.calendar_legend_rest))
                 }
             }
@@ -641,6 +715,7 @@ private const val SwipeCommit = .42f
     val enlargedText = LocalDensity.current.fontScale > 1.2f
     val stats = rememberHabitStats(state, today)
     val summary = rememberInsights(state, today)
+    var storyOpen by rememberSaveable { mutableStateOf(false) }
     // The page arrives with its numbers counting up and its bars growing in, one after another.
     val count by rememberGrow(summary.wins.toFloat())
     val percent by rememberGrow(summary.percent.toFloat(), 1100)
@@ -700,6 +775,11 @@ private const val SwipeCommit = .42f
                 }
                 TrendDots(trend, trace, rises, Modifier.matchParentSize())
                 }
+                // Any day of the week, the story of the last seven days can be played from here.
+                if (summary.wins > 0) {
+                    Spacer(Modifier.height(16.dp))
+                    Pill(stringResource(R.string.action_play_week), Yellow, Icons.Rounded.PlayArrow) { storyOpen = true }
+                }
             }
         }
         item { SectionTitle(stringResource(R.string.insights_habits_section)) }
@@ -719,11 +799,12 @@ private const val SwipeCommit = .42f
         }
         item { Text(stringResource(R.string.insights_footnote), color = Quiet, fontSize = 10.sp) }
     }
+    if (storyOpen) WeekStoryDialog(state, today) { storyOpen = false }
 }
 
-@Composable private fun LegendDot(color: Color, label: String) {
+@Composable private fun LegendDot(color: Color, label: String, ring: Color? = null) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-        Box(Modifier.size(8.dp).background(color, CircleShape))
+        Box(Modifier.size(if (ring != null) 10.dp else 8.dp).background(color, CircleShape).then(if (ring != null) Modifier.border(1.5.dp, ring, CircleShape) else Modifier))
         Text(label, fontSize = 10.sp, color = Quiet)
     }
 }
@@ -781,7 +862,17 @@ private val MoodIcons = listOf(Icons.Rounded.SentimentVeryDissatisfied, Icons.Ro
             PlayCard(Pink, Modifier.cascaded(cascade.entrance(0))) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) { Text(stringResource(R.string.journal_moods_title), style = MaterialTheme.typography.titleLarge); Spacer(Modifier.height(8.dp)); Text(stringResource(R.string.journal_moods_body), fontSize = 12.sp, color = Quiet) }
-                    Flower(Modifier.size(100.dp), mood = mood, petal = Petal, alive = true)
+                    // Its face reshapes to each mood picked, with a little bounce as it does.
+                    val moodBounce = remember { Animatable(1f) }
+                    var moodShown by remember { mutableIntStateOf(mood) }
+                    LaunchedEffect(mood) {
+                        if (mood != moodShown && !reduced) {
+                            moodBounce.snapTo(.86f)
+                            moodBounce.animateTo(1f, spring(dampingRatio = .4f, stiffness = Spring.StiffnessMediumLow))
+                        }
+                        moodShown = mood
+                    }
+                    Flower(Modifier.size(100.dp).graphicsLayer { scaleX = moodBounce.value; scaleY = moodBounce.value }, mood = mood, petal = Petal, alive = true)
                 }
             }
         }
@@ -1074,7 +1165,8 @@ private val BoldCheck = ImageVector.Builder(
     val context = LocalContext.current
     PlayCard(Paper) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            BubbleIcon(Icons.Rounded.Info, Overlay); Spacer(Modifier.width(12.dp))
+            // Kimi's own icon, drawing itself; tap it to watch again.
+            DotKLogo(Modifier.size(48.dp)); Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(stringResource(R.string.about_title), style = MaterialTheme.typography.titleMedium)
                 Text(stringResource(R.string.about_body), color = Quiet, fontSize = 11.sp)
@@ -1198,14 +1290,26 @@ private const val PrivacyPolicyUrl = "https://github.com/vabxsen/Kimi/blob/main/
         Spacer(Modifier.height(18.dp))
         AppearanceLabel(stringResource(R.string.settings_mode_label))
         Spacer(Modifier.height(8.dp))
-        ModeSwitcher(ThemeMode.entries.indexOf(ThemeSetting.mode)) { ThemeSetting.set(context, it) }
+        // Each choice spreads its colours out from where it was tapped.
+        val ripple = LocalThemeRipple.current
+        val places = remember { mutableMapOf<Any, androidx.compose.ui.geometry.Rect>() }
+        fun from(key: Any, part: Float = .5f): Offset = places[key]?.let { Offset(it.left + it.width * part, it.center.y) } ?: Offset.Zero
+        Box(Modifier.onGloballyPositioned { places["mode"] = it.boundsInRoot() }) {
+            ModeSwitcher(ThemeMode.entries.indexOf(ThemeSetting.mode)) { mode ->
+                val at = from("mode", (ThemeMode.entries.indexOf(mode) + .5f) / ThemeMode.entries.size)
+                ripple?.change(at) { ThemeSetting.set(context, mode) } ?: ThemeSetting.set(context, mode)
+            }
+        }
         Spacer(Modifier.height(18.dp))
         AppearanceLabel(stringResource(R.string.settings_theme_label))
         Spacer(Modifier.height(8.dp))
         KimiTheme.entries.chunked(2).forEach { pair ->
             Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 pair.forEach { theme ->
-                    ThemeTile(theme, paletteFor(theme, dark), ThemeSetting.theme == theme, Modifier.weight(1f)) { ThemeSetting.set(context, theme) }
+                    ThemeTile(theme, paletteFor(theme, dark), ThemeSetting.theme == theme,
+                        Modifier.weight(1f).onGloballyPositioned { places[theme] = it.boundsInRoot() }) {
+                        ripple?.change(from(theme)) { ThemeSetting.set(context, theme) } ?: ThemeSetting.set(context, theme)
+                    }
                 }
             }
         }

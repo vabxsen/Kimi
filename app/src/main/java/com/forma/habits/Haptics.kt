@@ -32,17 +32,16 @@ enum class Feel { Tick, On, Off, Threshold, Confirm, Thud }
     }
 
     private fun constantFor(feel: Feel): Int {
-        val sdk = Build.VERSION.SDK_INT
         return when (feel) {
-            Feel.Tick -> if (sdk >= 34) HapticFeedbackConstants.SEGMENT_TICK else HapticFeedbackConstants.CLOCK_TICK
-            Feel.On -> if (sdk >= 34) HapticFeedbackConstants.TOGGLE_ON else HapticFeedbackConstants.VIRTUAL_KEY
-            Feel.Off -> if (sdk >= 34) HapticFeedbackConstants.TOGGLE_OFF else HapticFeedbackConstants.CLOCK_TICK
+            Feel.Tick -> if (Build.VERSION.SDK_INT >= 34) HapticFeedbackConstants.SEGMENT_TICK else HapticFeedbackConstants.CLOCK_TICK
+            Feel.On -> if (Build.VERSION.SDK_INT >= 34) HapticFeedbackConstants.TOGGLE_ON else HapticFeedbackConstants.VIRTUAL_KEY
+            Feel.Off -> if (Build.VERSION.SDK_INT >= 34) HapticFeedbackConstants.TOGGLE_OFF else HapticFeedbackConstants.CLOCK_TICK
             Feel.Threshold -> when {
-                sdk >= 34 -> HapticFeedbackConstants.GESTURE_THRESHOLD_ACTIVATE
-                sdk >= 30 -> HapticFeedbackConstants.GESTURE_START
+                Build.VERSION.SDK_INT >= 34 -> HapticFeedbackConstants.GESTURE_THRESHOLD_ACTIVATE
+                Build.VERSION.SDK_INT >= 30 -> HapticFeedbackConstants.GESTURE_START
                 else -> HapticFeedbackConstants.CONTEXT_CLICK
             }
-            Feel.Confirm -> if (sdk >= 30) HapticFeedbackConstants.CONFIRM else HapticFeedbackConstants.LONG_PRESS
+            Feel.Confirm -> if (Build.VERSION.SDK_INT >= 30) HapticFeedbackConstants.CONFIRM else HapticFeedbackConstants.LONG_PRESS
             Feel.Thud -> HapticFeedbackConstants.LONG_PRESS
         }
     }

@@ -50,6 +50,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
 import java.time.LocalDate
 
 class MainActivity : ComponentActivity() {
@@ -62,13 +63,16 @@ class MainActivity : ComponentActivity() {
             val dark = kimiDarkTheme()
             // System bar icons have to follow Kimi's own light/dark choice, not just the device's.
             LaunchedEffect(dark) {
+                // While a theme ripple is still spreading, the top of the screen shows the old colours,
+                // so the icons wait for it to finish.
+                snapshotFlow { ThemeBlend.instant }.first { !it }
                 val transparent = android.graphics.Color.TRANSPARENT
                 this@MainActivity.enableEdgeToEdge(
                     statusBarStyle = if (dark) SystemBarStyle.dark(transparent) else SystemBarStyle.light(transparent, transparent),
                     navigationBarStyle = if (dark) SystemBarStyle.dark(transparent) else SystemBarStyle.light(transparent, transparent)
                 )
             }
-            FormaTheme { KimiRoot() }
+            FormaTheme { ThemeRippleHost { KimiRoot() } }
         }
     }
 
@@ -122,7 +126,8 @@ val LocalToday = compositionLocalOf { LocalDate.now() }
     BackHandler(page != Page.Today && !sheetOpen) { page = Page.Today }
     LaunchedEffect(Unit) { vm.events.collectLatest { snackbar.currentSnackbarData?.dismiss(); snackbar.showSnackbar(it, withDismissAction = true) } }
     fun edit(habit: Habit?) { editingId = habit?.id; sheetOpen = true }
-    CompositionLocalProvider(LocalToday provides vm.today) {
+    val gust = remember { PetalGust() }
+    CompositionLocalProvider(LocalToday provides vm.today, LocalPetalGust provides gust) {
     if (!state.onboarded) {
         Box(Modifier.fillMaxSize()) {
             WelcomeScreen(vm.busy, { name -> vm.start(name) { edit(null) } }, onAccount) {
@@ -202,6 +207,8 @@ val LocalToday = compositionLocalOf { LocalDate.now() }
             }
         }
     }
+    // A deleted habit's petals blow away over everything, once the sheet has gone.
+    PetalGustOverlay(gust)
     }
     }
     if (sheetOpen) {
@@ -214,7 +221,7 @@ val LocalToday = compositionLocalOf { LocalDate.now() }
     deleteId?.let { id ->
         AlertDialog(onDismissRequest = { deleteId = null }, title = { Text(stringResource(R.string.dialog_delete_habit_title)) },
             text = { Text(stringResource(R.string.dialog_delete_habit_body)) },
-            confirmButton = { TextButton(enabled = !vm.busy, onClick = { vm.deleteHabit(id) { deleteId = null; sheetOpen = false } }) { Text(stringResource(R.string.action_delete_habit)) } },
+            confirmButton = { TextButton(enabled = !vm.busy, onClick = { vm.deleteHabit(id) { deleteId = null; sheetOpen = false; gust.blow(id) } }) { Text(stringResource(R.string.action_delete_habit)) } },
             dismissButton = { TextButton(onClick = { deleteId = null }) { Text(stringResource(R.string.action_keep_it)) } })
     }
     vm.pendingRestore?.let { backup ->

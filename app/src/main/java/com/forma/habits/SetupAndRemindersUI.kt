@@ -60,7 +60,8 @@ import java.time.format.DateTimeFormatter
     Column(Modifier.fillMaxSize().background(Cream).safeDrawingPadding().imePadding().verticalScroll(rememberScrollState())
         .padding(23.dp, 28.dp), verticalArrangement = Arrangement.spacedBy(22.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Flower(Modifier.size(40.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.app_name) + stringResource(R.string.app_wordmark_dot), style = MaterialTheme.typography.headlineLarge)
+            // The app icon draws itself beside the name: the first thing a new person sees.
+            DotKLogo(Modifier.size(40.dp)); Spacer(Modifier.width(10.dp)); Text(stringResource(R.string.app_name) + stringResource(R.string.app_wordmark_dot), style = MaterialTheme.typography.headlineLarge)
         }
         PlayCard(Lavender) {
             // First impression: the mascot opens petal by petal, then settles into its idle sway.

@@ -7,6 +7,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -16,13 +17,16 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathOperation
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.dp
+import java.time.LocalDate
 import java.time.LocalTime
 import kotlin.math.PI
+import kotlin.math.cos
 import kotlin.math.sin
 
 /**
@@ -98,11 +102,13 @@ private val SkyStars = listOf(
     Triple(.93f, .14f, .9f), Triple(.12f, .4f, .25f), Triple(.45f, .46f, .65f), Triple(.88f, .44f, .05f)
 )
 
-@Composable fun LivingSky(modifier: Modifier = Modifier, now: () -> LocalTime = LocalTime::now) {
+@Composable fun LivingSky(modifier: Modifier = Modifier, now: () -> LocalTime = LocalTime::now,
+    season: Season = remember { seasonFor(LocalDate.now().monthValue) }) {
     val reduced = reducedMotion()
     val transition = if (!reduced) rememberInfiniteTransition(label = "living sky") else null
     val drift = transition?.animateFloat(0f, 1f, infiniteRepeatable(tween(CloudLoopMillis, easing = LinearEasing)), label = "clouds")
     val twinkle = transition?.animateFloat(0f, 1f, infiniteRepeatable(tween(SkyTwinkleMillis, easing = LinearEasing)), label = "twinkle")
+    val fall = transition?.animateFloat(0f, 1f, infiniteRepeatable(tween(SeasonLoopMillis, easing = LinearEasing)), label = "season")
     val palette = LocalKimiPalette.current
     val dark = palette.dark
     val starColor = if (dark) Color(0xFFF3E9C6) else lerp(palette.accent, palette.cream, .2f)
@@ -130,6 +136,129 @@ private val SkyStars = listOf(
             val lap = ((drift?.value ?: 0f) * cloud.laps + cloud.phase) % 1f
             val x = -width + (size.width + width * 2f) * lap
             drawCloud(cloudColor.copy(alpha = cloudAlpha), Offset(x, size.height * cloud.y), width)
+        }
+        // A few things on the air for the time of year. Still frames would only look stuck, so
+        // with animations removed there are none.
+        val t = fall?.value ?: return@Canvas
+        drawSeason(season, t, night, dark, palette.mono)
+    }
+}
+
+/** The time of year, by the month (northern seasons). */
+enum class Season { Spring, Summer, Autumn, Winter }
+
+internal fun seasonFor(month: Int): Season = when (month) {
+    3, 4, 5 -> Season.Spring
+    6, 7, 8 -> Season.Summer
+    9, 10, 11 -> Season.Autumn
+    else -> Season.Winter
+}
+
+private const val SeasonLoopMillis = 30_000
+
+/**
+ * One drifting thing: where it starts across the sky, how many times it crosses per loop (a whole
+ * number, so the loop joins up), where in its fall it begins, its size, how far it sways, how many
+ * times it tumbles per crossing, and which of its season's colours it takes.
+ */
+private class Drifter(val x: Float, val laps: Int, val phase: Float, val size: Float, val sway: Float, val turns: Int, val tint: Int)
+
+private fun drifters(count: Int, seed: Int): List<Drifter> {
+    val r = kotlin.random.Random(seed)
+    return List(count) { i ->
+        Drifter((i + r.nextFloat()) / count, 2 + r.nextInt(2), r.nextFloat(), .7f + r.nextFloat() * .6f,
+            .02f + r.nextFloat() * .04f, 1 + r.nextInt(2), r.nextInt(4))
+    }
+}
+
+private val Leaves = drifters(7, seed = 3)
+private val Petals = drifters(9, seed = 5)
+private val Flakes = drifters(16, seed = 8)
+private val Fluff = drifters(5, seed = 13)
+private val Fireflies = drifters(7, seed = 21)
+
+private val LeafColors = listOf(Color(0xFFE8833A), Color(0xFFC9503A), Color(0xFFE3B23C), Color(0xFFA8653A))
+private val PetalColors = listOf(Color(0xFFF48FB1), Color(0xFFF7A8C4), Color(0xFFEC7AA5), Color(0xFFF5A0BE))
+private val FireflyColor = Color(0xFFDDF27A)
+/** Deeper, so a firefly still shows against a pale night sky in the light themes. */
+private val FireflyDayColor = Color(0xFFB5CC2E)
+
+/** A leaf one unit tall, pointing up, with its midrib. */
+private val UnitLeaf: Path by lazy { Path().apply {
+    moveTo(0f, -1f); cubicTo(.75f, -.55f, .6f, .55f, 0f, 1f); cubicTo(-.6f, .55f, -.75f, -.55f, 0f, -1f); close()
+} }
+/** A cherry petal one unit tall: rounder than a leaf, with a little notch at its tip. */
+private val UnitPetal: Path by lazy { Path().apply {
+    moveTo(0f, 1f); cubicTo(-.85f, .55f, -.8f, -.75f, -.18f, -.95f); lineTo(0f, -.75f); lineTo(.18f, -.95f)
+    cubicTo(.8f, -.75f, .85f, .55f, 0f, 1f); close()
+} }
+
+private fun DrawScope.drawSeason(season: Season, t: Float, night: Float, dark: Boolean, mono: Boolean) {
+    val unit = 6.dp.toPx()
+    fun tone(c: Color) = if (mono) grey(c) else c
+    // Falling things fade in at the top and out as the sky fades into the page.
+    fun edge(p: Float) = (p / .08f).coerceAtMost(1f) * (1f - ((p - .62f) / .38f).coerceIn(0f, 1f))
+    fun fallen(d: Drifter): Pair<Float, Offset> {
+        val p = (t * d.laps + d.phase) % 1f
+        val wind = if (season == Season.Autumn) .12f * p else 0f
+        val x = (d.x + wind + d.sway * sin(2f * PI.toFloat() * (p * d.turns + d.phase))) * size.width
+        return p to Offset(x, -size.height * .08f + size.height * 1.1f * p)
+    }
+    when (season) {
+        Season.Autumn, Season.Spring -> {
+            val shape = if (season == Season.Autumn) UnitLeaf else UnitPetal
+            val colors = if (season == Season.Autumn) LeafColors else PetalColors
+            (if (season == Season.Autumn) Leaves else Petals).forEach { d ->
+                val (p, at) = fallen(d)
+                val tumble = 2f * PI.toFloat() * p * d.turns
+                val s = unit * d.size * (if (season == Season.Autumn) 1.15f else 1.05f)
+                withTransform({
+                    translate(at.x, at.y)
+                    rotate(sin(tumble) * 55f + d.phase * 360f, Offset.Zero)
+                    // Turning over in the air: it narrows to an edge and widens again.
+                    scale(s * (.35f + .65f * kotlin.math.abs(cos(tumble))), s, Offset.Zero)
+                }) {
+                    drawPath(shape, tone(colors[d.tint]).copy(alpha = edge(p) * if (dark) .75f else .9f))
+                    if (season == Season.Autumn) drawLine(lerp(tone(colors[d.tint]), Color.Black, .3f).copy(alpha = edge(p) * .6f),
+                        Offset(0f, -.85f), Offset(0f, .9f), .12f)
+                }
+            }
+        }
+        Season.Winter -> Flakes.forEach { d ->
+            val (p, at) = fallen(d)
+            val flake = if (dark) Color.White.copy(alpha = .8f) else Color.White
+            drawCircle(flake.copy(alpha = flake.alpha * edge(p)), unit * .42f * d.size, at)
+        }
+        Season.Summer -> {
+            // Dandelion fluff floats up and across by day...
+            if (night < 1f) Fluff.forEach { d ->
+                val p = (t * d.laps + d.phase) % 1f
+                val at = Offset((d.x + .25f * p) % 1f * size.width, size.height * (.85f - .75f * p))
+                val a = (1f - night) * (p / .1f).coerceAtMost(1f) * (1f - p) * if (dark) .5f else .85f
+                val fluff = Color.White.copy(alpha = a)
+                // A faint shadow under the white filaments keeps them visible on a pale blue sky.
+                val shade = Color.Black.copy(alpha = a * .14f)
+                val r = unit * .95f * d.size
+                val drop = Offset(.6.dp.toPx(), .6.dp.toPx())
+                for (k in 0 until 8) {
+                    val angle = (k * 45f + p * 90f) * PI.toFloat() / 180f
+                    val tip = at + Offset(cos(angle), sin(angle)) * r
+                    drawLine(shade, at + drop, tip + drop, r * .08f, StrokeCap.Round)
+                    drawLine(fluff, at, tip, r * .08f, StrokeCap.Round)
+                    drawCircle(fluff, r * .07f, tip)
+                }
+                drawCircle(tone(Color(0xFFA88F6A)).copy(alpha = a), r * .13f, at)
+            }
+            // ...and fireflies wander and blink by night.
+            if (night > 0f) Fireflies.forEach { d ->
+                val turn = 2f * PI.toFloat() * (t * d.laps + d.phase)
+                val home = Offset(d.x * size.width, size.height * (.12f + .5f * ((d.phase * 7f) % 1f)))
+                val at = home + Offset(sin(turn) * unit * 4f, sin(turn * 2f + d.sway * 40f) * unit * 2.5f)
+                val blink = (sin(turn * 3f) * .5f + .5f).let { it * it }
+                val glow = tone(if (dark) FireflyColor else FireflyDayColor)
+                drawCircle(Brush.radialGradient(listOf(glow.copy(alpha = .55f * blink * night), Color.Transparent), at, unit * 1.4f), unit * 1.4f, at)
+                drawCircle(glow.copy(alpha = blink * night), unit * .22f, at)
+            }
         }
     }
 }

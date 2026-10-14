@@ -3,6 +3,7 @@ package com.forma.habits
 import android.os.SystemClock
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -15,14 +16,21 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.sin
 
 /**
  * How things move in response to touch and to lists changing: the springy press, rows that slide
@@ -103,19 +111,66 @@ class Arrivals internal constructor(initial: Collection<String>) {
 /** Rows present when the list first appears never sprout; only ones added afterwards do. */
 @Composable fun rememberArrivals(initial: () -> Collection<String>): Arrivals = remember { Arrivals(initial()) }
 
-/** Grows from 0 for a row that is [fresh], with a little springy overshoot; 1 at once for any other. */
-@Composable fun rememberSprout(fresh: Boolean): State<Float> {
+/**
+ * How a new row arrives. [grow] goes from 0 for a row that is fresh, with a little springy overshoot,
+ * and is 1 at once for any other. With a [seed], a seed first drops from above and lands where the
+ * row will stand ([seed] runs 0 to 1 over the fall), and the row sprouts up out of it.
+ */
+@Stable class Sprout internal constructor(internal val grow: State<Float>, internal val seed: State<Float>?)
+
+private const val SeedFallMillis = 460
+/** New habits usually arrive as the editor sheet slides away; the seed waits until it has gone. */
+internal const val SeedWaitMillis = 350L
+
+@Composable fun rememberSprout(fresh: Boolean, seed: Boolean = false): Sprout {
     val reduced = reducedMotion()
-    val grow = remember { Animatable(if (fresh && !reduced) 0f else 1f) }
+    val growing = fresh && !reduced
+    val grow = remember { Animatable(if (growing) 0f else 1f) }
+    val fall = remember { Animatable(if (growing && seed) 0f else 1f) }
     LaunchedEffect(Unit) {
+        if (fall.value < 1f) {
+            delay(SeedWaitMillis)
+            fall.animateTo(1f, tween(SeedFallMillis, easing = LinearEasing))
+        }
         if (grow.value < 1f) grow.animateTo(1f, spring(dampingRatio = .5f, stiffness = Spring.StiffnessLow))
     }
-    return grow.asState()
+    return remember { Sprout(grow.asState(), if (seed) fall.asState() else null) }
 }
 
-/** A new row sprouts up from its bottom edge, like a seedling. */
-fun Modifier.sprouted(grow: State<Float>): Modifier = graphicsLayer {
-    val g = grow.value
+/**
+ * Brings a just-added row with [key] into view if it is not wholly on screen. New habits join the
+ * end of their list, so scrolling to the end shows them; a row already in full view stays put.
+ */
+suspend fun LazyListState.revealArrival(key: Any) {
+    // Give the new row a frame to be laid out before judging whether it can be seen.
+    withFrameNanos { }
+    val info = layoutInfo
+    val row = info.visibleItemsInfo.firstOrNull { it.key == key }
+    if (row != null && row.offset >= info.viewportStartOffset && row.offset + row.size <= info.viewportEndOffset) return
+    animateScrollToItem((info.totalItemsCount - 1).coerceAtLeast(0))
+}
+
+private val SeedColor = Color(0xFF7A5A3E)
+
+/** A new row sprouts up from its bottom edge, like a seedling, after its seed (if any) has landed. */
+fun Modifier.sprouted(sprout: Sprout): Modifier = drawWithContent {
+    drawContent()
+    val fall = sprout.seed?.value ?: return@drawWithContent
+    val g = sprout.grow.value
+    // Gone once the row has sprouted a little way.
+    val fade = 1f - (g / .35f).coerceIn(0f, 1f)
+    if (fall <= 0f || fade <= 0f) return@drawWithContent
+    // Falls under gravity for most of its time, then bounces once on landing.
+    val landAt = .78f
+    val ground = size.height - 7.dp.toPx()
+    val drop = 110.dp.toPx()
+    val y = if (fall < landAt) ground - drop * (1f - (fall / landAt).let { it * it })
+        else ground - 9.dp.toPx() * sin(PI.toFloat() * (fall - landAt) / (1f - landAt))
+    val r = 5.dp.toPx()
+    val at = Offset(size.width / 2, y)
+    drawOval(SeedColor.copy(alpha = fade * (fall / .12f).coerceAtMost(1f)), Offset(at.x - r * .75f, at.y - r), Size(r * 1.5f, r * 2f))
+}.graphicsLayer {
+    val g = sprout.grow.value
     transformOrigin = TransformOrigin(.5f, 1f)
     scaleX = .55f + .45f * g
     scaleY = .25f + .75f * g

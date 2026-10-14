@@ -27,6 +27,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -274,8 +275,11 @@ private const val ThemeBlendMillis = 380
  * Light and dark blend into each other instead of snapping: every token glides to its new colour.
  * [KimiPalette.dark] flips at once, since it picks between layouts rather than colours.
  */
+/** Set while a theme ripple spreads: the palette then switches at once underneath it instead of fading. */
+internal object ThemeBlend { var instant by mutableStateOf(false) }
+
 @Composable private fun blendedPalette(target: KimiPalette): KimiPalette {
-    val spec = if (reducedMotion()) snap() else tween<Color>(ThemeBlendMillis, easing = FastOutSlowInEasing)
+    val spec = if (reducedMotion() || ThemeBlend.instant) snap() else tween<Color>(ThemeBlendMillis, easing = FastOutSlowInEasing)
     @Composable fun blend(color: Color, label: String) = animateColorAsState(color, spec, label = label).value
     return KimiPalette(
         cream = blend(target.cream, "cream"), surface = blend(target.surface, "surface"), ink = blend(target.ink, "ink"),
@@ -356,6 +360,10 @@ private class FlowerIdle(val sway: State<Float>, val breath: State<Float>, val e
  * picks a smile or a straight line. [progress] (0-1) fills the six petals in turn, so the mascot can
  * double as the day's progress. [bloom] is how many petals are open (0-6), for an opening animation.
  * [alive] adds a gentle sway, breath and blink while the flower is on screen.
+ *
+ * The poses, each 0 to 1 so they can be animated: [asleep] closes the eyes and, with [zzz] (a 0-1
+ * loop), sends Z's drifting up; [dizzy] turns the eyes into spirals; [blush] warms the cheeks.
+ * [spin] turns the petals by that many degrees.
  */
 @Composable fun Flower(
     modifier: Modifier = Modifier,
@@ -364,7 +372,12 @@ private class FlowerIdle(val sway: State<Float>, val breath: State<Float>, val e
     mood: Int? = null,
     progress: Float? = null,
     bloom: Float = 6f,
-    alive: Boolean = false
+    alive: Boolean = false,
+    asleep: Float = 0f,
+    zzz: Float? = null,
+    dizzy: Float = 0f,
+    blush: Float = 0f,
+    spin: Float = 0f
 ) {
     // The mascot is a fixed illustration, not themed UI: a dark face on the orange centre reads
     // correctly on light and dark alike, whereas the theme ink would invert it after dark.
@@ -381,28 +394,64 @@ private class FlowerIdle(val sway: State<Float>, val breath: State<Float>, val e
     Canvas(modifier) {
         val unit = size.minDimension
         val center = Offset(size.width / 2, size.height / 2)
-        val sway = idle?.sway?.value ?: 0f
+        val sway = (idle?.sway?.value ?: 0f) * (1f - asleep) + spin
+        // With a mood, the whole face follows it as it glides: worried brows and wilting, paler
+        // petals towards the low end, eyes squeezed shut with joy at the top.
+        val feeling = if (mood != null) smile.value else null
+        // Only properly low moods worry; "okay" (a slight downturn) keeps a calm face.
+        val woe = feeling?.let { ((-it - .2f) / .6f).coerceIn(0f, 1f) } ?: 0f
+        val joy = feeling?.let { ((it - .9f) / .35f).coerceIn(0f, 1f) } ?: 0f
         scale(idle?.breath?.value ?: 1f, center) {
             for (i in 0..5) {
                 // Petals open and fill clockwise from the upper right.
                 val order = (i + 1) % 6
                 val open = easeOutBack((bloom - order).coerceIn(0f, 1f))
                 if (open <= 0f) continue
-                val color = if (progress == null) petal
-                    else lerp(petal.copy(alpha = petal.alpha * .32f), petal, (filled.value * 6f - order).coerceIn(0f, 1f))
+                val base = if (woe > 0f) lerp(petal, Color(0xFFC9C3B8), .35f * woe) else petal
+                val color = if (progress == null) base
+                    else lerp(base.copy(alpha = base.alpha * .32f), base, (filled.value * 6f - order).coerceIn(0f, 1f))
                 val angle = ((i * 60f + sway) * PI / 180).toFloat()
-                val reach = unit * .245f * open
-                drawCircle(color, unit * .205f * open, center + Offset(cos(angle) * reach, sin(angle) * reach))
+                val reach = unit * .245f * open * (1f - .08f * woe)
+                val droop = Offset(0f, unit * .035f * woe)
+                drawCircle(color, unit * .205f * open * (1f - .06f * woe), center + droop + Offset(cos(angle) * reach, sin(angle) * reach))
             }
             drawCircle(core, unit * .25f, center)
             val stroke = unit * .027f
-            val eyes = idle?.eyes?.value ?: 1f
+            // Open eyes give way to closed ones as the flower falls asleep, or to spirals when dizzy.
+            val open = (idle?.eyes?.value ?: 1f) * (1f - asleep) * (1f - dizzy) * (1f - joy)
             for (x in listOf(-.085f, .085f)) {
-                drawLine(face, center + Offset(unit * x, -unit * (.03f + .025f * eyes)), center + Offset(unit * x, -unit * (.03f - .025f * eyes)), stroke, StrokeCap.Round)
+                val eye = center + Offset(unit * x, -unit * .03f)
+                if (open > .05f) drawLine(face.copy(alpha = open.coerceAtMost(1f)), eye - Offset(0f, unit * .025f * open), eye + Offset(0f, unit * .025f * open), stroke, StrokeCap.Round)
+                // Joy: eyes squeezed into happy arcs.
+                if (joy > 0f) drawPath(Path().apply {
+                    moveTo(eye.x - unit * .04f, eye.y + unit * .012f); quadraticTo(eye.x, eye.y - unit * .036f, eye.x + unit * .04f, eye.y + unit * .012f)
+                }, face.copy(alpha = joy), style = Stroke(stroke, cap = StrokeCap.Round))
+                // Woe: worried brows, their inner ends raised.
+                if (woe > 0f) {
+                    val side = if (x < 0f) -1f else 1f
+                    drawLine(face.copy(alpha = woe), eye + Offset(-side * unit * .015f, -unit * .088f), eye + Offset(side * unit * .045f, -unit * .062f), stroke * .9f, StrokeCap.Round)
+                }
+                // Dizziness wins over sleep: spinning wakes it up.
+                val closed = asleep * (1f - dizzy)
+                if (closed > 0f) drawPath(Path().apply {
+                    moveTo(eye.x - unit * .04f, eye.y); quadraticTo(eye.x, eye.y + unit * .04f, eye.x + unit * .04f, eye.y)
+                }, face.copy(alpha = closed), style = Stroke(stroke, cap = StrokeCap.Round))
+                if (dizzy > 0f) drawPath(Path().apply {
+                    // A loose spiral of two turns, wound outward from the eye's centre, so it still
+                    // reads as a spiral and not a smudge on a small flower.
+                    for (step in 0..32) {
+                        val turn = step / 32f * 4f * PI.toFloat()
+                        val r = unit * .055f * step / 32f
+                        val p = eye + Offset(cos(turn + spin / 30f) * r, sin(turn + spin / 30f) * r)
+                        if (step == 0) moveTo(p.x, p.y) else lineTo(p.x, p.y)
+                    }
+                }, face.copy(alpha = dizzy), style = Stroke(stroke * .6f, cap = StrokeCap.Round))
             }
-            drawCircle(cheek, unit * .032f, center + Offset(-unit * .15f, unit * .045f))
-            drawCircle(cheek, unit * .032f, center + Offset(unit * .15f, unit * .045f))
-            val curve = smile.value
+            val cheekRadius = unit * .032f * (1f + .45f * maxOf(blush, joy * .8f))
+            drawCircle(cheek, cheekRadius, center + Offset(-unit * .15f, unit * .045f))
+            drawCircle(cheek, cheekRadius, center + Offset(unit * .15f, unit * .045f))
+            // Asleep, the smile softens; dizzy, it goes flat.
+            val curve = smile.value * (1f - .7f * asleep) * (1f - dizzy)
             val bend = abs(curve).coerceAtMost(1f)
             val half = unit * (.065f + .02f * bend)
             // A frown sits a little lower, so the face does not look surprised.
@@ -411,6 +460,17 @@ private class FlowerIdle(val sway: State<Float>, val breath: State<Float>, val e
             mouth.moveTo(center.x - half, corners)
             mouth.quadraticTo(center.x, corners + unit * .104f * curve, center.x + half, corners)
             drawPath(mouth, face, style = Stroke(stroke, cap = StrokeCap.Round))
+            // Three Z's drift up and away from a sleeping flower, each fading in and out on its way.
+            if (asleep > 0f && zzz != null) for (k in 0..2) {
+                val phase = (zzz + k / 3f) % 1f
+                val at = center + Offset(unit * (.3f + .16f * phase), -unit * (.26f + .3f * phase))
+                val s = unit * (.05f + .05f * phase)
+                val z = Path().apply {
+                    moveTo(at.x - s / 2, at.y - s / 2); lineTo(at.x + s / 2, at.y - s / 2)
+                    lineTo(at.x - s / 2, at.y + s / 2); lineTo(at.x + s / 2, at.y + s / 2)
+                }
+                drawPath(z, face.copy(alpha = asleep * (1f - dizzy) * sin(PI.toFloat() * phase)), style = Stroke(unit * .02f, cap = StrokeCap.Round, join = StrokeJoin.Round))
+            }
         }
     }
 }

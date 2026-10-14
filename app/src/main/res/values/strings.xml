@@ -144,6 +144,7 @@
     </plurals>
     <string name="today_banner_rest">Nothing scheduled. Rest is progress too.</string>
     <string name="today_streak_caption">Keep your spark!</string>
+    <string name="today_streak_caption_risk">Tick one to keep it!</string>
     <string name="today_percent_complete">%1$d%% complete</string>
     <string name="today_percent_caption">Every little bit counts</string>
     <string name="today_rest_day">Rest day</string>
@@ -491,4 +492,37 @@
     <string name="err_auth_invalid_credentials">Those details couldn’t be verified. Check your email and password, or try Google.</string>
     <string name="err_auth_invalid_user">This account is unavailable. Sign in again or create an account.</string>
     <string name="err_auth_generic">That didn’t go through. Please try again.</string>
+    <!-- The weekly story -->
+    <string name="story_card_title">Your week in bloom</string>
+    <string name="story_card_body">Tap to play your weekly story.</string>
+    <string name="action_play_week">Play your week</string>
+    <string name="story_intro_title">Your week, %1$s</string>
+    <string name="story_intro_range">%1$s to %2$s</string>
+    <plurals name="story_ticks_caption">
+        <item quantity="one">habit ticked off this week</item>
+        <item quantity="other">habits ticked off this week</item>
+    </plurals>
+    <string name="story_best_day_title">Your best day</string>
+    <string name="story_best_day_caption">%1$d%% of your habits, done.</string>
+    <string name="story_no_best_day">A quieter week. Every tick still counts.</string>
+    <plurals name="story_perfect_days">
+        <item quantity="one">%1$d perfect day, everything done</item>
+        <item quantity="other">%1$d perfect days, everything done</item>
+    </plurals>
+    <string name="story_streak_title">Your longest streak</string>
+    <plurals name="story_streak_caption">
+        <item quantity="one">%1$s, %2$d day in a row</item>
+        <item quantity="other">%1$s, %2$d days in a row</item>
+    </plurals>
+    <string name="story_no_streak">Tomorrow is a fresh place to start one.</string>
+    <plurals name="story_top_habit">
+        <item quantity="one">Most loved: %1$s, %2$d time</item>
+        <item quantity="other">Most loved: %1$s, %2$d times</item>
+    </plurals>
+    <string name="story_outro">See you next week.</string>
+    <string name="action_story_done">Done</string>
+    <string name="cd_story_next">Next</string>
+    <string name="cd_story_previous">Previous</string>
+    <string name="cd_story_close">Close your weekly story</string>
+    <string name="cd_story_page">Page %1$d of %2$d</string>
 </resources>
