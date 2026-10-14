@@ -81,6 +81,19 @@ class KimiFlowTest {
         assertEquals("Cooking", context.resources.getStringArray(R.array.habit_icon_names)[saved.icon])
     }
 
+    @Test fun habitCanBeEditedStraightFromToday() {
+        runBlocking { store.update { HabitState(habits = listOf(Habit(name = "Read", goal = "Ten pages")), name = "Alex") } }
+        waitFor { store.state.value.habits.size == 1 }
+        compose.onNodeWithContentDescription("Edit Read").performScrollTo().performClick()
+        compose.onNodeWithText("Save my changes").assertExists()
+        compose.onNodeWithText("Habit name").performTextReplacement("Read a chapter")
+        compose.onNodeWithText("Save my changes").performScrollTo().performClick()
+        waitFor { store.state.value.habits.single().name == "Read a chapter" }
+        // Opening the editor from the row must not have ticked the habit on the way.
+        assertEquals(0, store.state.value.count(LocalDate.now()))
+        compose.onNodeWithContentDescription("Edit Read a chapter").assertExists()
+    }
+
     @Test fun colorThemeCanBeChosenInSettings() {
         compose.onNodeWithContentDescription("Open settings").performClick()
         compose.onNode(hasScrollAction()).performScrollToNode(hasTestTag("palette_sunset"))

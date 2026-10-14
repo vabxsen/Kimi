@@ -144,7 +144,7 @@ private const val LensLargest = 1.12f
 private const val LensFaintest = .62f
 private val LensLift = 3.dp
 
-@Composable fun TodayScreen(state: HabitState, onToggle: (Habit, LocalDate) -> Unit, onNew: () -> Unit) {
+@Composable fun TodayScreen(state: HabitState, onToggle: (Habit, LocalDate) -> Unit, onNew: () -> Unit, onEdit: (Habit) -> Unit = {}) {
     val today = LocalToday.current
     val stats = rememberHabitStats(state, today)
     var dateString by rememberSaveable(today) { mutableStateOf(today.toString()) }
@@ -354,7 +354,7 @@ private val LensLift = 3.dp
         itemsIndexed(habits, key = { _, habit -> habit.id }) { index, habit ->
             val fresh = remember { arrivals.isNew(habit.id) }
             HabitRow(habit, state, date, { onToggle(habit, date) },
-                listMotion().cascaded(cascade.entrance(5 + index)).sprouted(rememberSprout(fresh)))
+                listMotion().cascaded(cascade.entrance(5 + index)).sprouted(rememberSprout(fresh)), onEdit = { onEdit(habit) })
         }
         if (habits.isEmpty()) item {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -370,7 +370,8 @@ private val LensLift = 3.dp
     }
 }
 
-@Composable fun HabitRow(habit: Habit, state: HabitState, date: LocalDate, onToggle: () -> Unit, modifier: Modifier = Modifier) {
+@Composable fun HabitRow(habit: Habit, state: HabitState, date: LocalDate, onToggle: () -> Unit, modifier: Modifier = Modifier,
+    onEdit: (() -> Unit)? = null) {
     val today = LocalToday.current
     val checked = state.done(habit.id, date)
     val haptics = LocalHapticFeedback.current
@@ -397,6 +398,15 @@ private val LensLift = 3.dp
         Column(Modifier.weight(1f)) {
             Text(habit.name, style = MaterialTheme.typography.titleMedium, fontSize = 14.sp)
             if (habit.goal.isNotBlank()) { Spacer(Modifier.height(4.dp)); Text(habit.goal, fontSize = 10.sp, color = Quiet) }
+        }
+        // Every habit can be edited right where it is listed, not only from the Habits tab. The
+        // pencil is its own button, so tapping it never ticks the habit by accident.
+        if (onEdit != null) {
+            IconButton(onClick = onEdit, modifier = Modifier.size(44.dp)) {
+                Box(Modifier.size(34.dp).clip(CircleShape).background(Overlay), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Rounded.Edit, stringResource(R.string.cd_edit_habit, habit.name), Modifier.size(17.dp), tint = Ink)
+                }
+            }
         }
         Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) { CheckCircle(checked) }
     }
@@ -464,7 +474,7 @@ private val LensLift = 3.dp
     }
 }
 
-@Composable fun CalendarScreen(state: HabitState, onToggle: (Habit, LocalDate) -> Unit) {
+@Composable fun CalendarScreen(state: HabitState, onToggle: (Habit, LocalDate) -> Unit, onEdit: (Habit) -> Unit = {}) {
     val today = LocalToday.current
     var monthString by rememberSaveable { mutableStateOf(YearMonth.from(today).toString()) }
     var dateString by rememberSaveable { mutableStateOf(today.toString()) }
@@ -561,7 +571,7 @@ private val LensLift = 3.dp
             SectionTitle(date.format(ShortDate), stringResource(R.string.action_today)) { monthString = YearMonth.from(today).toString(); dateString = today.toString() }
             if (date != today && state.due(date).isNotEmpty()) Text(stringResource(R.string.checkins_today_only), color = Quiet, fontSize = 11.sp)
         }
-        items(state.due(date), key = { it.id }) { HabitRow(it, state, date, { onToggle(it, date) }, listMotion()) }
+        items(state.due(date), key = { it.id }) { HabitRow(it, state, date, { onToggle(it, date) }, listMotion(), onEdit = { onEdit(it) }) }
         if (state.due(date).isEmpty()) item { EmptySpace(stringResource(R.string.calendar_empty_title), stringResource(R.string.calendar_empty_body)) }
     }
 }
