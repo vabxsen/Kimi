@@ -15,7 +15,7 @@ you can read them. Kimi has no analytics, no advertising and no tracking.
 ## What stays on your device
 
 These are stored in Kimi's private app storage. **As a guest they are never uploaded anywhere.**
-If you sign in, everything except the last item is also synced to your account — see
+If you sign in, everything except the last two items is also synced to your account — see
 *Your synced space* below.
 
 - Your display name
@@ -23,7 +23,10 @@ If you sign in, everything except the last item is also synced to your account �
 - Every check-in
 - Your saved journal reflections and moods
 - Unfinished journal drafts, which always remain on this device
-- Your light/dark appearance preference
+- Your preferences, which always remain on this device: light or dark mode, colour theme, whether the
+  garden game is on, your flower's petal colour, which garden levels, badges and keepsakes have
+  already been celebrated, and the day you last played your week's story. Garden progress itself
+  is worked out from your check-ins, never stored
 
 If you use an account, each account gets its own separate local space on the device, and guest use
 gets another. Signing out leaves that account's data on the device for next time.

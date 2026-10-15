@@ -45,7 +45,7 @@ class MotionRoundFourTest {
         val expected = mapOf(
             Season.Winter to listOf(12, 1, 2), Season.Spring to listOf(3, 4, 5),
             Season.Summer to listOf(6, 7, 8), Season.Autumn to listOf(9, 10, 11))
-        expected.forEach { (season, months) -> months.forEach { assertTrue("month $it", seasonFor(it) == season) } }
+        expected.forEach { (season, months) -> months.forEach { assertTrue("month $it", seasonFor(it, south = false) == season) } }
     }
 
     @Test fun plantGrowsThroughItsStagesWithAMonthOfDoing() {

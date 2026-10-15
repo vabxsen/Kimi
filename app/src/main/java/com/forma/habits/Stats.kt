@@ -15,9 +15,15 @@ import java.time.LocalDate
 @Immutable
 data class HabitStats(val streaks: Map<String, Int>, val bestStreak: Int)
 
-/** One column of the seven-day chart. A rest day is not a zero: nothing was asked of you. */
+/**
+ * One column of the seven-day chart. A rest day is not a zero: nothing was asked of you. A day
+ * [before] any habit existed is not even a rest day, just a gap before the story starts.
+ */
 @Immutable
-data class DayScore(val date: LocalDate, val percent: Int, val rest: Boolean)
+data class DayScore(val date: LocalDate, val percent: Int, val rest: Boolean, val before: Boolean = false)
+
+private fun HabitState.dayScore(date: LocalDate) =
+    DayScore(date, percent(date), isRestDay(date), before = habits.none { !date.isBefore(it.created) })
 
 @Immutable
 data class InsightSummary(
@@ -46,7 +52,7 @@ data class WeekStory(
 
 fun HabitState.weekStory(today: LocalDate, frozen: Set<LocalDate> = emptySet()): WeekStory {
     val dates = (6L downTo 0L).map { today.minusDays(it) }
-    val days = dates.map { DayScore(it, percent(it), isRestDay(it)) }
+    val days = dates.map { dayScore(it) }
     val best = days.filter { !it.rest && it.percent > 0 }.maxWithOrNull(compareBy<DayScore>({ it.percent }, { it.date }))
     val streaks = habitStats(today, frozen).streaks
     val longest = habits.filter { (streaks[it.id] ?: 0) > 0 }.maxByOrNull { streaks[it.id] ?: 0 }
@@ -106,7 +112,7 @@ private fun HabitState.counted(habit: Habit, date: LocalDate, today: LocalDate) 
 
 fun HabitState.insightSummary(today: LocalDate): InsightSummary {
     val dates = (6L downTo 0L).map { today.minusDays(it) }
-    val week = dates.map { DayScore(it, percent(it), isRestDay(it)) }
+    val week = dates.map { dayScore(it) }
     val possible = dates.sumOf { date -> habits.count { counted(it, date, today) } }
     val wins = dates.sumOf { count(it) }
     val month = (0L..29L).map { today.minusDays(it) }

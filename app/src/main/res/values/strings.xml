@@ -31,6 +31,7 @@
     </plurals>
     <string name="cd_calendar_day_rest">%1$s, rest day</string>
     <string name="cd_chart_bar_rest">%1$s: rest day, nothing scheduled</string>
+    <string name="cd_chart_bar_before">%1$s: before your first habit</string>
     <plurals name="cd_habit_week">
         <item quantity="one">Last seven days: %1$d of %2$d scheduled day done</item>
         <item quantity="other">Last seven days: %1$d of %2$d scheduled days done</item>
@@ -553,8 +554,8 @@
     <string name="cd_close_garden">Close your garden</string>
     <string name="garden_quests_title">This week’s quests</string>
     <plurals name="garden_quests_body">
-        <item quantity="one">Each one you finish adds %1$d petal. New quests every Monday.</item>
-        <item quantity="other">Each one you finish adds %1$d petals. New quests every Monday.</item>
+        <item quantity="one">Each one you finish adds %1$d petal. New quests every %2$s.</item>
+        <item quantity="other">Each one you finish adds %1$d petals. New quests every %2$s.</item>
     </plurals>
     <string name="garden_quests_none">Add a habit to get this week’s quests.</string>
     <plurals name="quest_ticks">

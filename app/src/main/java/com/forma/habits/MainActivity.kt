@@ -193,8 +193,8 @@ val LocalToday = compositionLocalOf { LocalDate.now() }
             }, label = "page") { shown ->
             savedPages.SaveableStateProvider(shown.name) {
             when (shown) {
-                Page.Today -> TodayScreen(state, vm::toggle, { edit(null) }, { edit(it) })
-                Page.Habits -> HabitsScreen(state, { edit(null) }, { edit(it) })
+                Page.Today -> TodayScreen(state, vm::toggle, { edit(null) }, { edit(it) }, fresh = vm.freshHabit)
+                Page.Habits -> HabitsScreen(state, { edit(null) }, { edit(it) }, fresh = vm.freshHabit)
                 Page.Calendar -> CalendarScreen(state, vm::toggle) { edit(it) }
                 Page.Insights -> InsightsScreen(state)
                 Page.Journal -> JournalScreen(state, vm::reflect, vm::deleteReflection, vm.draftMood, vm.draftText, vm::updateDraft, vm.draftDate, vm::loadDraft, vm.draftDates)

@@ -30,6 +30,9 @@ class FormaViewModel(application: Application) : AndroidViewModel(application) {
         private set
     var busy by mutableStateOf(false)
         private set
+    /** The habit most recently created on this phone, so the lists can scroll to it but not to synced ones. */
+    var freshHabit by mutableStateOf<String?>(null)
+        private set
     private var tasks = 0
     private fun beginTask() { tasks++; busy = true }
     private fun endTask() { tasks--; busy = tasks > 0 }
@@ -169,6 +172,7 @@ class FormaViewModel(application: Application) : AndroidViewModel(application) {
     }
     fun saveHabit(habit: Habit, onComplete: (Boolean) -> Unit) {
         // The editor closing is the confirmation.
+        if (state.habits.none { it.id == habit.id }) freshHabit = habit.id
         change(null, onComplete = onComplete) { current ->
             val old = current.habits.find { it.id == habit.id }
             demand(old != null || current.habits.size < 500, R.string.err_collection_full)

@@ -30,10 +30,11 @@ The app is fully native—there is no WebView—and its interface includes light
 
 | Area | What you can do |
 | --- | --- |
-| ☀️ **Today** | Check off today's habits, undo check-ins, filter by time of day, and review daily progress and streaks. |
+| ☀️ **Today** | Check off today's habits by tap or swipe, undo check-ins, filter by time of day, and review daily progress and streaks. |
 | 🌿 **Habits** | Create, search, edit, and delete rituals with custom icons, colors, schedules, dayparts, and goals. |
 | 📅 **Calendar** | Browse previous and upcoming months, then review the habits completed on any date. |
-| 📊 **Insights** | See seven-day completion, weekly wins, current streaks, and 30-day consistency. |
+| 📊 **Insights** | See seven-day completion, weekly wins, current streaks, and 30-day consistency, and replay your week as a short story. |
+| 🌸 **Garden** | Grow petals and garden levels, earn badges and seasonal keepsakes, take on weekly quests, and bank streak freezes, all shown in a living garden scene. |
 | 📖 **Journal** | Record a mood and one private reflection per day, with resilient draft recovery. |
 | ⚙️ **Settings** | Choose a theme, manage reminders and accounts, and check for updates. |
 
@@ -47,6 +48,8 @@ Additional details:
 - Email/password and Google sign-in.
 - Manual, certificate-verified updates from GitHub Releases.
 - Localized date and calendar labels, with all app copy stored in Android resources.
+- Four colour themes, a sky that follows the time of day and the seasons, and gentle motion and haptics throughout, all respecting Android's Remove animations setting.
+- A garden game that can be switched off in Settings for a plain tracker.
 
 ## 📱 Download and install
 
@@ -88,6 +91,7 @@ See the complete [Privacy Policy](docs/PRIVACY.md) for data handling details.
 - Schedule edits apply from the edit date onward, preserving historical statistics.
 - Deleting a habit also deletes its check-ins.
 - Appearance is stored per device and is not included in backups or switched with accounts.
+- Garden progress (petals, levels, badges, quests, keepsakes and streak freezes) is worked out from your history, so it is never stored or synced and every device agrees. Freezes already earned keep protecting streaks even with the game switched off.
 - Bottom navigation retains screen state, and Android Back closes transient UI before returning to Today.
 
 ## 🛠️ Build from source
@@ -160,6 +164,12 @@ Connected tests replace the Kimi test data on the selected emulator. See [docs/V
 | `AccountViewModel.kt` | Authentication, Credential Manager, and account lifecycle |
 | `FormaViewModel.kt` | User operations, drafts, backups, and sync scheduling |
 | `Data.kt` / `Stats.kt` | Habit rules, schedules, streaks, and consistency |
+| `Game.kt` / `GameUI.kt` | The garden game's rules, worked out from history, and its screens |
+| `GardenScene.kt` / `Garden.kt` | The garden scene and the habit plants |
+| `Story.kt` / `Charts.kt` | The weekly story and Insights' self-drawing charts |
+| `Sky.kt` / `Moments.kt` / `Mascot.kt` | The living sky, celebrations, and the flower mascot |
+| `Motion.kt` / `Choreography.kt` / `Haptics.kt` | Shared motion, list choreography, and haptic feedback |
+| `Gust.kt` / `Ripple.kt` / `Logo.kt` | Delete petals, the theme ripple, and the animated logo |
 | `HabitStore.kt` | Durable local persistence and recovery |
 | `BackupCodec.kt` | Versioned JSON serialization, migration, and validation |
 | `Sync.kt` / `SpaceSync.kt` | Per-entry merge logic and Firestore synchronization |

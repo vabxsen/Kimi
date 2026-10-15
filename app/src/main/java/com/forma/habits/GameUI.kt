@@ -369,17 +369,17 @@ private val RosetteGold = Color(0xFFFFC94D)
                 LevelBar(report.levelProgress)
                 Spacer(Modifier.height(5.dp))
                 val toGo = report.nextLevelAt - report.petals
-                Text(pluralStringResource(R.plurals.garden_petals_to_go, toGo, toGo, report.level + 1), fontSize = 11.sp, color = Quiet)
+                Text(pluralStringResource(R.plurals.garden_petals_to_go, toGo, toGo, report.level + 1), fontSize = 11.sp, lineHeight = 14.sp, color = Quiet)
             }
             Spacer(Modifier.width(12.dp))
             Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 if (report.quests.isNotEmpty()) Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Rounded.Flag, null, Modifier.size(16.dp), tint = Ink); Spacer(Modifier.width(3.dp))
-                    Text(stringResource(R.string.garden_bar_quests, questsDone, report.quests.size), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.garden_bar_quests, questsDone, report.quests.size), fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Bold)
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Rounded.AcUnit, null, Modifier.size(16.dp), tint = Ink); Spacer(Modifier.width(3.dp))
-                    Text("${report.freezes}", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text("${report.freezes}", fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Bold)
                 }
             }
             Icon(Icons.Rounded.ChevronRight, null, tint = Ink)
@@ -429,7 +429,7 @@ private val RosetteGold = Color(0xFFFFC94D)
                 Text(stringResource(R.string.garden_level, report.level, levelName(report.level)), style = MaterialTheme.typography.headlineMedium)
                 Spacer(Modifier.height(4.dp))
                 val shown by rememberGrow(report.petals.toFloat(), 1100)
-                Text(pluralStringResource(R.plurals.garden_petals_total, report.petals, shown.toInt()), color = Quiet, fontSize = 13.sp)
+                Text(pluralStringResource(R.plurals.garden_petals_total, report.petals, shown.toInt()), color = Quiet, fontSize = 13.sp, lineHeight = 17.sp)
             }
             Flower(Modifier.size(92.dp), petal = petal, petals = petals, alive = true)
         }
@@ -437,16 +437,17 @@ private val RosetteGold = Color(0xFFFFC94D)
         LevelBar(report.levelProgress)
         Spacer(Modifier.height(6.dp))
         val toGo = report.nextLevelAt - report.petals
-        Text(pluralStringResource(R.plurals.garden_petals_to_go, toGo, toGo, report.level + 1), fontSize = 12.sp, color = Quiet)
+        Text(pluralStringResource(R.plurals.garden_petals_to_go, toGo, toGo, report.level + 1), fontSize = 12.sp, lineHeight = 16.sp, color = Quiet)
     }
 }
 
 @Composable private fun QuestsCard(report: GameReport, modifier: Modifier) {
     PlayCard(Paper, modifier) {
         Text(stringResource(R.string.garden_quests_title), style = MaterialTheme.typography.titleMedium)
-        Text(pluralStringResource(R.plurals.garden_quests_body, QuestPetals, QuestPetals), fontSize = 12.sp, color = Quiet)
+        Text(pluralStringResource(R.plurals.garden_quests_body, QuestPetals, QuestPetals,
+            Region.firstDay.getDisplayName(java.time.format.TextStyle.FULL, LocalConfiguration.current.locales[0])), fontSize = 12.sp, lineHeight = 16.sp, color = Quiet)
         Spacer(Modifier.height(12.dp))
-        if (report.quests.isEmpty()) Text(stringResource(R.string.garden_quests_none), fontSize = 13.sp)
+        if (report.quests.isEmpty()) Text(stringResource(R.string.garden_quests_none), fontSize = 13.sp, lineHeight = 17.sp)
         report.quests.forEach { quest ->
             Row(Modifier.fillMaxWidth().padding(vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(34.dp).clip(CircleShape).background(if (quest.done) Mint else Overlay)
@@ -456,14 +457,14 @@ private val RosetteGold = Color(0xFFFFC94D)
                 }
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(questText(quest), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Text(questText(quest), fontSize = 14.sp, lineHeight = 18.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(5.dp))
                     LevelBar(quest.progress.toFloat() / quest.target)
                     Spacer(Modifier.height(3.dp))
-                    Text(stringResource(R.string.quest_progress, quest.progress, quest.target), fontSize = 11.sp, color = Quiet)
+                    Text(stringResource(R.string.quest_progress, quest.progress, quest.target), fontSize = 11.sp, lineHeight = 14.sp, color = Quiet)
                 }
                 Spacer(Modifier.width(10.dp))
-                Text(stringResource(R.string.quest_reward, QuestPetals), fontWeight = FontWeight.ExtraBold, fontSize = 13.sp,
+                Text(stringResource(R.string.quest_reward, QuestPetals), fontWeight = FontWeight.ExtraBold, fontSize = 13.sp, lineHeight = 17.sp,
                     color = if (quest.done) Ink else Quiet)
             }
         }
@@ -480,7 +481,7 @@ private val RosetteGold = Color(0xFFFFC94D)
         Text(pluralStringResource(R.plurals.collection_body, KeepsakePetals, KeepsakePetals), fontSize = 12.sp, color = Quiet, lineHeight = 17.sp)
         Spacer(Modifier.height(12.dp))
         val shown by rememberGrow(report.collected.toFloat(), 900)
-        Text(pluralStringResource(collectionCount(season), report.collected, shown.toInt()), fontWeight = FontWeight.Bold, fontSize = 15.sp)
+        Text(pluralStringResource(collectionCount(season), report.collected, shown.toInt()), fontWeight = FontWeight.Bold, fontSize = 15.sp, lineHeight = 20.sp)
         Spacer(Modifier.height(8.dp))
         val next = KeepsakeAt.indexOfFirst { report.collected < it }
         if (next >= 0) {
@@ -488,8 +489,8 @@ private val RosetteGold = Color(0xFFFFC94D)
             LevelBar((report.collected - from).toFloat() / (KeepsakeAt[next] - from))
             Spacer(Modifier.height(5.dp))
             val left = KeepsakeAt[next] - report.collected
-            Text(pluralStringResource(R.plurals.collection_to_next, left, left, stringResource(keepsakeName(season, next))), fontSize = 12.sp, color = Quiet)
-        } else Text(stringResource(R.string.collection_complete), fontSize = 12.sp, color = Quiet)
+            Text(pluralStringResource(R.plurals.collection_to_next, left, left, stringResource(keepsakeName(season, next))), fontSize = 12.sp, lineHeight = 16.sp, color = Quiet)
+        } else Text(stringResource(R.string.collection_complete), fontSize = 12.sp, lineHeight = 16.sp, color = Quiet)
         Spacer(Modifier.height(14.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             KeepsakeAt.indices.forEach { tier ->
@@ -501,26 +502,26 @@ private val RosetteGold = Color(0xFFFFC94D)
                             tint = if (got) Ink else Quiet.copy(alpha = .6f))
                     }
                     Spacer(Modifier.height(5.dp))
-                    Text(stringResource(keepsakeName(season, tier)), fontSize = 11.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
+                    Text(stringResource(keepsakeName(season, tier)), fontSize = 11.sp, lineHeight = 14.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
                         color = if (got) Ink else Quiet)
-                    Text("${KeepsakeAt[tier]}", fontSize = 10.sp, color = Quiet)
+                    Text("${KeepsakeAt[tier]}", fontSize = 10.sp, lineHeight = 13.sp, color = Quiet)
                 }
             }
         }
         // Keepsakes from earlier seasons, newest first.
         val past = report.keepsakes.filter { it.of != report.season }.reversed()
         Spacer(Modifier.height(14.dp))
-        Text(stringResource(R.string.collection_keepsakes_title), style = MaterialTheme.typography.titleMedium, fontSize = 15.sp)
+        Text(stringResource(R.string.collection_keepsakes_title), style = MaterialTheme.typography.titleMedium, fontSize = 15.sp, lineHeight = 20.sp)
         Spacer(Modifier.height(6.dp))
-        if (past.isEmpty()) Text(stringResource(R.string.collection_none_yet), fontSize = 12.sp, color = Quiet)
+        if (past.isEmpty()) Text(stringResource(R.string.collection_none_yet), fontSize = 12.sp, lineHeight = 16.sp, color = Quiet)
         past.forEach { keepsake ->
             Row(Modifier.fillMaxWidth().padding(vertical = 4.dp).semantics(mergeDescendants = true) {}, verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(30.dp).clip(CircleShape).background(Yellow), contentAlignment = Alignment.Center) {
                     Icon(KeepsakeIcons.getValue(keepsake.of.season)[keepsake.tier], null, Modifier.size(16.dp), tint = Ink)
                 }
                 Spacer(Modifier.width(10.dp))
-                Text(stringResource(keepsakeName(keepsake.of.season, keepsake.tier)), fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                Text(stringResource(R.string.collection_keepsake_season, seasonName(keepsake.of.season), keepsake.of.year), fontSize = 12.sp, color = Quiet)
+                Text(stringResource(keepsakeName(keepsake.of.season, keepsake.tier)), fontSize = 13.sp, lineHeight = 17.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                Text(stringResource(R.string.collection_keepsake_season, seasonName(keepsake.of.season), keepsake.of.year), fontSize = 12.sp, lineHeight = 16.sp, color = Quiet)
             }
         }
     }
@@ -540,7 +541,7 @@ private val RosetteGold = Color(0xFFFFC94D)
         }
         Spacer(Modifier.height(10.dp))
         Text(if (report.freezes > 0) pluralStringResource(R.plurals.garden_freezes_count, report.freezes, report.freezes)
-            else stringResource(R.string.garden_freezes_none), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+            else stringResource(R.string.garden_freezes_none), fontWeight = FontWeight.Bold, fontSize = 13.sp, lineHeight = 17.sp)
         Spacer(Modifier.height(4.dp))
         Text(stringResource(R.string.garden_freezes_body), fontSize = 12.sp, color = Quiet, lineHeight = 17.sp)
     }
@@ -551,7 +552,7 @@ private val RosetteGold = Color(0xFFFFC94D)
     val date = remember(locale) { DateTimeFormatter.ofPattern("MMM d", locale) }
     PlayCard(Paper, modifier) {
         Text(stringResource(R.string.garden_badges_title), style = MaterialTheme.typography.titleMedium)
-        Text(pluralStringResource(R.plurals.garden_badges_count, BadgeKind.entries.size, report.badges.size, BadgeKind.entries.size), fontSize = 12.sp, color = Quiet)
+        Text(pluralStringResource(R.plurals.garden_badges_count, BadgeKind.entries.size, report.badges.size, BadgeKind.entries.size), fontSize = 12.sp, lineHeight = 16.sp, color = Quiet)
         Spacer(Modifier.height(12.dp))
         BadgeKind.entries.chunked(3).forEach { row ->
             Row(Modifier.fillMaxWidth().padding(bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -565,7 +566,7 @@ private val RosetteGold = Color(0xFFFFC94D)
                                 tint = if (earned != null) Ink else Quiet.copy(alpha = .6f))
                         }
                         Spacer(Modifier.height(6.dp))
-                        Text(stringResource(look.title), fontSize = 12.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
+                        Text(stringResource(look.title), fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
                             color = if (earned != null) Ink else Quiet)
                         Text(if (earned != null) stringResource(R.string.badge_earned_on, earned.format(date)) else stringResource(look.hint),
                             fontSize = 10.sp, color = Quiet, textAlign = TextAlign.Center, lineHeight = 13.sp)
@@ -581,7 +582,7 @@ private val RosetteGold = Color(0xFFFFC94D)
     val context = androidx.compose.ui.platform.LocalContext.current
     PlayCard(Paper, modifier) {
         Text(stringResource(R.string.garden_unlocks_title), style = MaterialTheme.typography.titleMedium)
-        Text(stringResource(R.string.garden_unlocks_body), fontSize = 12.sp, color = Quiet)
+        Text(stringResource(R.string.garden_unlocks_body), fontSize = 12.sp, lineHeight = 16.sp, color = Quiet)
         Spacer(Modifier.height(10.dp))
         Unlock.entries.sortedBy { it.level }.forEach { unlock ->
             val open = report.unlocked(unlock)
@@ -593,10 +594,10 @@ private val RosetteGold = Color(0xFFFFC94D)
                 }
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(stringResource(unlockName(unlock)), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = if (open) Ink else Quiet)
-                    Text(stringResource(unlockBody(unlock)), fontSize = 11.sp, color = Quiet)
+                    Text(stringResource(unlockName(unlock)), fontSize = 14.sp, lineHeight = 18.sp, fontWeight = FontWeight.Bold, color = if (open) Ink else Quiet)
+                    Text(stringResource(unlockBody(unlock)), fontSize = 11.sp, lineHeight = 14.sp, color = Quiet)
                 }
-                Text(stringResource(R.string.unlock_level, unlock.level), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Quiet)
+                Text(stringResource(R.string.unlock_level, unlock.level), fontSize = 11.sp, lineHeight = 14.sp, fontWeight = FontWeight.Bold, color = Quiet)
                 Spacer(Modifier.width(6.dp))
                 Icon(if (open) Icons.Rounded.Check else Icons.Rounded.Lock,
                     stringResource(if (open) R.string.cd_unlock_open else R.string.cd_unlock_locked), Modifier.size(16.dp), tint = if (open) Ink else Quiet)
@@ -640,6 +641,7 @@ private sealed class GameMoment {
 @Composable fun GameMoments(report: GameReport, memory: GameMemory, quiet: Boolean = false) {
     var shown by remember { mutableStateOf<GameMoment?>(null) }
     val haptics = rememberHaptics()
+    val today = LocalToday.current
     LaunchedEffect(report.level, report.badges.keys, report.keepsakes, quiet) {
         shown = null
         val keys = report.keepsakes.map { it.key() }
@@ -657,7 +659,9 @@ private sealed class GameMoment {
         }
         val seen = memory.badges
         report.badges.keys.filter { it.name !in seen }.forEach { queue += GameMoment.NewBadge(it) }
-        if (keptBefore != null) report.keepsakes.filter { it.key() !in keptBefore }.forEach { queue += GameMoment.NewKeepsake(it) }
+        // Only a keepsake earned just now is celebrated; one that a past season's recount turns up joins quietly.
+        if (keptBefore != null) report.keepsakes.filter { it.key() !in keptBefore && !it.earnedOn.isBefore(today.minusDays(1)) }
+            .forEach { queue += GameMoment.NewKeepsake(it) }
         memory.level = maxOf(memory.level, report.level)
         memory.badges = seen + report.badges.keys.map { it.name }
         memory.keepsakes = memory.keepsakes.orEmpty() + keys
@@ -716,11 +720,11 @@ private sealed class GameMoment {
             val (petal, petals) = chosenPetals(LocalGame.current)
             Flower(Modifier.size(72.dp), petal = petal, petals = petals, bloom = progress.value * 18f)
             Text(stringResource(R.string.garden_level, moment.level, levelName(moment.level)), color = Highlight,
-                fontWeight = FontWeight.ExtraBold, fontSize = 24.sp, textAlign = TextAlign.Center)
-            Text(stringResource(R.string.garden_level_up, levelName(moment.level)), color = OnAccent, fontSize = 14.sp, textAlign = TextAlign.Center)
+                fontWeight = FontWeight.ExtraBold, fontSize = 24.sp, lineHeight = 31.sp, textAlign = TextAlign.Center)
+            Text(stringResource(R.string.garden_level_up, levelName(moment.level)), color = OnAccent, fontSize = 14.sp, lineHeight = 18.sp, textAlign = TextAlign.Center)
             moment.unlocks.forEach { unlock ->
                 Text(stringResource(R.string.garden_new_unlock, stringResource(unlockName(unlock))), color = OnAccent.copy(alpha = .9f),
-                    fontSize = 12.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+                    fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
             }
         }
     }
@@ -751,8 +755,8 @@ private sealed class GameMoment {
             }
             Spacer(Modifier.width(12.dp))
             Column {
-                Text(label, color = OnInk.copy(alpha = .75f), fontSize = 11.sp)
-                Text(title, color = OnInk, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                Text(label, color = OnInk.copy(alpha = .75f), fontSize = 11.sp, lineHeight = 14.sp)
+                Text(title, color = OnInk, fontWeight = FontWeight.Bold, fontSize = 15.sp, lineHeight = 20.sp)
             }
         }
     }

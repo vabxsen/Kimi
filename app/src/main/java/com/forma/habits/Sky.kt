@@ -154,7 +154,8 @@ private val SkyStars = listOf(
 /** The time of year, by the month (northern seasons). */
 enum class Season { Spring, Summer, Autumn, Winter }
 
-internal fun seasonFor(month: Int): Season = when (month) {
+/** The season for a [month] (1-12), turned half a year round in the [south]ern hemisphere. */
+internal fun seasonFor(month: Int, south: Boolean = Region.south): Season = when ((if (south) month + 5 else month - 1) % 12 + 1) {
     3, 4, 5 -> Season.Spring
     6, 7, 8 -> Season.Summer
     9, 10, 11 -> Season.Autumn

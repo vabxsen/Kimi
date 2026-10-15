@@ -152,13 +152,15 @@ private const val LensLargest = 1.12f
 private const val LensFaintest = .62f
 private val LensLift = 3.dp
 
-@Composable fun TodayScreen(state: HabitState, onToggle: (Habit, LocalDate) -> Unit, onNew: () -> Unit, onEdit: (Habit) -> Unit = {}) {
+@Composable fun TodayScreen(state: HabitState, onToggle: (Habit, LocalDate) -> Unit, onNew: () -> Unit, onEdit: (Habit) -> Unit = {}, fresh: String? = null) {
     val today = LocalToday.current
     val stats = rememberHabitStats(state, today)
     var dateString by rememberSaveable(today) { mutableStateOf(today.toString()) }
     val date = LocalDate.parse(dateString)
     var filter by rememberSaveable { mutableStateOf("All") }
     var storyOpen by rememberSaveable { mutableStateOf(false) }
+    val context = LocalContext.current
+    var storyWatchedOn by remember { mutableStateOf(storyPrefs(context).getString(StoryWatchedOn, null)) }
     var gardenOpen by rememberSaveable { mutableStateOf(false) }
     val game = LocalGame.current
     val (flowerPetal, flowerPetals) = chosenPetals(game)
@@ -195,11 +197,12 @@ private val LensLift = 3.dp
     val list = rememberLazyListState()
     val cascade = rememberCascade()
     val arrivals = rememberArrivals { state.habits.map { it.id } }
-    // A habit just added is brought into view, so its seed lands where it can be seen.
+    // A habit just added on this phone is brought into view, so its seed lands where it can be seen.
+    // One that arrives by sync stays where it falls, so the list never jumps on its own.
     var knownHabits by remember { mutableStateOf(state.habits.map { it.id }.toSet()) }
     LaunchedEffect(state.habits) {
         val ids = state.habits.map { it.id }.toSet()
-        val added = (ids - knownHabits).firstOrNull()
+        val added = fresh?.takeIf { it in ids - knownHabits }
         knownHabits = ids
         if (added != null && state.due(date).any { it.id == added && (filter == "All" || it.time == filter) }) list.revealArrival(added)
     }
@@ -258,8 +261,8 @@ private val LensLift = 3.dp
                 if (!expandedText) Mascot(Modifier.align(Alignment.CenterEnd).size(111.dp).offset(x = 9.dp).then(parallax), progress = dayProgress, sleeping = state.isRestDay(date), petal = flowerPetal, petals = flowerPetals)
             }
         }
-        // On Sundays, once the week has a tick in it, its story is ready to play.
-        if (today.dayOfWeek == java.time.DayOfWeek.SUNDAY && state.weekStory(today).ticks > 0) item {
+        // On the last day of the week, once it has a tick in it, its story is ready to play, until it has been played.
+        if (endsWeek(today) && storyWatchedOn != today.toString() && state.weekStory(today).ticks > 0) item {
             PlayCard(Purple, Modifier.cascaded(cascade.entrance(2)), onClick = { storyOpen = true }) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Flower(Modifier.size(48.dp), alive = true)
@@ -409,7 +412,7 @@ private val LensLift = 3.dp
         if (state.demo) item { Text(stringResource(R.string.demo_footer_today), color = Quiet, fontSize = 10.sp, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) }
     }
     DayCompleteCelebration(celebrations)
-    if (storyOpen) WeekStoryDialog(state, today) { storyOpen = false }
+    if (storyOpen) WeekStoryDialog(state, today) { storyOpen = false; storyWatchedOn = today.toString() }
     if (gardenOpen && game != null) GardenScreen(state, game) { gardenOpen = false }
     MilestoneMoment(milestoneShows, milestone.first, milestone.second)
     }
@@ -514,18 +517,19 @@ private const val SwipeCommit = .42f
     }
 }
 
-@Composable fun HabitsScreen(state: HabitState, onNew: () -> Unit, onEdit: (Habit) -> Unit) {
+@Composable fun HabitsScreen(state: HabitState, onNew: () -> Unit, onEdit: (Habit) -> Unit, fresh: String? = null) {
     val today = LocalToday.current
     val stats = rememberHabitStats(state, today)
     var query by rememberSaveable { mutableStateOf("") }
     val cascade = rememberCascade()
     val arrivals = rememberArrivals { state.habits.map { it.id } }
     val list = rememberLazyListState()
-    // A habit just added is brought into view, so its seed lands where it can be seen.
+    // A habit just added on this phone is brought into view, so its seed lands where it can be seen.
+    // One that arrives by sync stays where it falls, so the list never jumps on its own.
     var knownHabits by remember { mutableStateOf(state.habits.map { it.id }.toSet()) }
     LaunchedEffect(state.habits) {
         val ids = state.habits.map { it.id }.toSet()
-        val added = (ids - knownHabits).firstOrNull()
+        val added = fresh?.takeIf { it in ids - knownHabits }
         knownHabits = ids
         if (added != null && state.habits.any { it.id == added && it.name.contains(query, true) }) list.revealArrival(added)
     }
@@ -556,16 +560,17 @@ private const val SwipeCommit = .42f
                     week.count { state.done(h.id, it) }, scheduledDays)
                 Row(Modifier.fillMaxWidth().semantics { contentDescription = weekLabel }, horizontalArrangement = Arrangement.SpaceBetween) {
                     week.forEach { d ->
-                        val done = state.done(h.id, d); val scheduled = h.isDue(d)
+                        val done = state.done(h.id, d); val scheduled = h.isDue(d); val before = d.isBefore(h.created)
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(weekdayInitial(d.dayOfWeek), fontSize = 10.sp, color = Quiet)
                             Spacer(Modifier.height(6.dp))
-                            // A day this habit was never due on is left blank, not marked missed.
+                            // A day off is marked with a dash, not as missed; a day before the habit existed stays empty.
                             Box(Modifier.size(30.dp).clip(RoundedCornerShape(10.dp))
                                 .background(if (done) Ink else if (scheduled) Overlay else Color.Transparent), contentAlignment = Alignment.Center) {
                                 when {
                                     done -> Icon(Icons.Rounded.Check, null, Modifier.size(17.dp), tint = OnInk)
                                     scheduled -> Text("·", color = Quiet)
+                                    before -> {}
                                     else -> Text(stringResource(R.string.rest_marker), color = Quiet.copy(alpha = .68f), fontSize = 11.sp)
                                 }
                             }
@@ -632,7 +637,7 @@ private const val SwipeCommit = .42f
                     }
                 }, label = "month") { shown ->
                 Column {
-                val offset = shown.atDay(1).dayOfWeek.value - 1
+                val offset = (shown.atDay(1).dayOfWeek.value - Region.firstDay.value + 7) % 7
                 val cells = (offset + shown.lengthOfMonth() + 6) / 7 * 7
                 (0 until cells).chunked(7).forEachIndexed { row, week ->
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
@@ -767,20 +772,22 @@ private const val SwipeCommit = .42f
                 TrendLine(trend, trace, rises, Modifier.matchParentSize().onPlaced { trend.chart = it })
                 Row(Modifier.fillMaxWidth().then(if (enlargedText) Modifier.heightIn(min = 165.dp) else Modifier.height(165.dp)), horizontalArrangement = Arrangement.spacedBy(11.dp), verticalAlignment = Alignment.Bottom) {
                     summary.week.forEachIndexed { i, day ->
-                        val barLabel = if (day.rest) stringResource(R.string.cd_chart_bar_rest, day.date.format(ShortDate))
+                        val barLabel = if (day.before) stringResource(R.string.cd_chart_bar_before, day.date.format(ShortDate))
+                            else if (day.rest) stringResource(R.string.cd_chart_bar_rest, day.date.format(ShortDate))
                             else pluralStringResource(R.plurals.cd_chart_bar, day.percent, day.date.format(ShortDate), day.percent)
                         Column(Modifier.weight(1f).semantics { contentDescription = barLabel }, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom) {
                             // A rest day shows a dash and a flat marker; charting it as 0% would
-                            // make a perfect week look like it collapsed every weekend.
+                            // make a perfect week look like it collapsed every weekend. A day before
+                            // any habit existed shows nothing at all.
                             val rise by rises[i]
                             if (day.rest) trend.bars[i] = null
-                            Text(if (day.rest) stringResource(R.string.rest_marker) else stringResource(R.string.percent_value, rise.roundToInt()),
+                            Text(if (day.before) "" else if (day.rest) stringResource(R.string.rest_marker) else stringResource(R.string.percent_value, rise.roundToInt()),
                                 fontSize = 9.sp, color = Quiet); Spacer(Modifier.height(7.dp))
                             // Scaled so a 100% bar plus both labels fits the 165dp chart; 1.05 pushed that day's letter below the rest.
                             Box(Modifier.fillMaxWidth().height(if (day.rest) 4.dp else (rise * .95f + 4).dp)
                                 .then(if (day.rest) Modifier else Modifier.onPlaced { trend.bars[i] = it })
                                 .clip(RoundedCornerShape(11.dp))
-                                .background(if (day.rest) Quiet.copy(alpha = .25f) else if (i == 6) Purple else TileColors[i % 6]))
+                                .background(if (day.before) Color.Transparent else if (day.rest) Quiet.copy(alpha = .25f) else if (i == 6) Purple else TileColors[i % 6]))
                             Spacer(Modifier.height(9.dp)); Text(weekdayInitial(day.date.dayOfWeek), fontSize = 10.sp, color = Quiet)
                         }
                     }
@@ -835,8 +842,8 @@ private val MoodIcons = listOf(Icons.Rounded.SentimentVeryDissatisfied, Icons.Ro
     Icons.Rounded.SentimentSatisfied, Icons.Rounded.SentimentVerySatisfied, Icons.Rounded.Celebration)
 @Composable private fun moodNames(): Array<String> = stringArrayResource(R.array.mood_names)
 
-/** Locale-correct single-letter column headings, Monday first, matching the grid layout. */
-@Composable private fun weekdayInitials(): List<String> = (0..6).map { weekdayInitial(java.time.DayOfWeek.of(it + 1)) }
+/** Locale-correct single-letter column headings, from the region's first day, matching the grid layout. */
+@Composable private fun weekdayInitials(): List<String> = (0L..6L).map { weekdayInitial(Region.firstDay.plus(it)) }
 
 @Composable private fun weekdayInitial(day: java.time.DayOfWeek): String =
     day.getDisplayName(java.time.format.TextStyle.NARROW, LocalConfiguration.current.locales[0])

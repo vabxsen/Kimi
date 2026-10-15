@@ -384,7 +384,11 @@ private class FlowerIdle(val sway: State<Float>, val breath: State<Float>, val e
     // correctly on light and dark alike, whereas the theme ink would invert it after dark.
     val face = Color(0xFF33283E)
     // Monochrome drains the orange centre and rosy cheeks too, leaving a grey flower with the same face.
-    val mono = LocalKimiPalette.current.mono
+    val palette = LocalKimiPalette.current
+    val mono = palette.mono
+    // Light Monochrome's highlight is nearly the colour of its cards, so the petals would vanish
+    // into them; there the flower wears a mid grey instead.
+    val shownPetal = if (mono && !palette.dark && petal == palette.highlight) Color(0xFFA2A2A7) else petal
     val core = if (mono) Color(0xFFB9B9BD) else Color(0xFFFFAD73)
     val cheek = if (mono) Color(0xFFA3A3A8) else Color(0xFFF88972)
     val idle = if (alive && !reducedMotion()) rememberFlowerIdle() else null
@@ -408,7 +412,7 @@ private class FlowerIdle(val sway: State<Float>, val breath: State<Float>, val e
                 val order = (i + 1) % 6
                 val open = easeOutBack((bloom - order).coerceIn(0f, 1f))
                 if (open <= 0f) continue
-                val own = petals?.let { it[i % it.size] } ?: petal
+                val own = petals?.let { it[i % it.size] } ?: shownPetal
                 val base = if (woe > 0f) lerp(own, Color(0xFFC9C3B8), .35f * woe) else own
                 val color = if (progress == null) base
                     else lerp(base.copy(alpha = base.alpha * .32f), base, (filled.value * 6f - order).coerceIn(0f, 1f))

@@ -47,10 +47,9 @@ const val KeepsakePetals = 25
  */
 @Immutable data class SeasonOf(val season: Season, val year: Int)
 
-fun seasonOf(date: LocalDate): SeasonOf {
-    val season = seasonFor(date.monthValue)
-    return SeasonOf(season, if (season == Season.Winter && date.monthValue <= 2) date.year - 1 else date.year)
-}
+fun seasonOf(date: LocalDate, south: Boolean = Region.south): SeasonOf =
+    // January and February belong to the season that began in December: winter, or summer in the south.
+    SeasonOf(seasonFor(date.monthValue, south), if (date.monthValue <= 2) date.year - 1 else date.year)
 
 /** A keepsake: the [tier] (0-2) of a season's collection, and the day it was earned. */
 @Immutable data class Keepsake(val of: SeasonOf, val tier: Int, val earnedOn: LocalDate)
@@ -98,10 +97,8 @@ fun levelFor(petals: Int): Int {
     return level
 }
 
-private fun weekStart(date: LocalDate): LocalDate = date.minusDays((date.dayOfWeek.value - 1).toLong())
-
-fun HabitState.game(today: LocalDate): GameReport {
-    if (habits.isEmpty()) return GameReport(0, 1, 0, petalsForLevel(2), emptyMap(), 0, emptySet(), emptyList(), seasonOf(today), 0, emptyList())
+fun HabitState.game(today: LocalDate, first: DayOfWeek = Region.firstDay, south: Boolean = Region.south): GameReport {
+    if (habits.isEmpty()) return GameReport(0, 1, 0, petalsForLevel(2), emptyMap(), 0, emptySet(), emptyList(), seasonOf(today, south), 0, emptyList())
     val start = habits.minOf { it.created }.coerceAtMost(today)
     var petals = 0
     var freezes = 0
@@ -120,7 +117,7 @@ fun HabitState.game(today: LocalDate): GameReport {
     val keepsakes = mutableListOf<Keepsake>()
     var date = start
     // This week's running totals, for perfect weeks and quests.
-    var week = weekStart(start)
+    var week = weekStart(start, first)
     var weekTicks = 0
     var weekPerfect = 0
     var weekDue = 0
@@ -131,9 +128,9 @@ fun HabitState.game(today: LocalDate): GameReport {
     var perfectSaturday = false
 
     fun closeWeek(through: LocalDate, ended: Boolean) {
-        val days = (0L..6L).map { week.plusDays(it) }
+        val days = weekOf(week, first)
         val questList = weekQuests(week, days)
-        val journal = journal.count { it.date in week..week.plusDays(6) && !it.date.isAfter(through) }
+        val journal = journal.count { it.date in week..days.last() && !it.date.isAfter(through) }
         val due = days.flatMap { d -> due(d).map { it.id } }.toSet()
         quests = questList.map { q ->
             val progress = when (q.kind) {
@@ -157,8 +154,8 @@ fun HabitState.game(today: LocalDate): GameReport {
     }
 
     while (!date.isAfter(today)) {
-        if (weekStart(date) != week) {
-            week = weekStart(date)
+        if (weekStart(date, first) != week) {
+            week = weekStart(date, first)
             weekTicks = 0; weekPerfect = 0; weekDue = 0; weekAllPerfect = true; weekMaxRun = 0
             weekDaypart.clear(); weekHabits.clear()
         }
@@ -190,7 +187,7 @@ fun HabitState.game(today: LocalDate): GameReport {
         ticks += doneHabits.size
         petals += doneHabits.size * PetalsPerTick
         // Every tick also collects one of the season's items; enough of them earn its keepsakes.
-        val season = seasonOf(date)
+        val season = seasonOf(date, south)
         val inSeasonBefore = seasonTicks[season] ?: 0
         val inSeason = inSeasonBefore + doneHabits.size
         seasonTicks[season] = inSeason
@@ -220,7 +217,7 @@ fun HabitState.game(today: LocalDate): GameReport {
             weekends++
             if (weekends == 4) earn(BadgeKind.WeekendWarrior, date)
         }
-        val weekOver = date.dayOfWeek == DayOfWeek.SUNDAY
+        val weekOver = endsWeek(date, first)
         if (weekOver && (past || perfect)) closeWeek(date, ended = true)
         else if (date == today) closeWeek(date, ended = false)
         date = date.plusDays(1)
@@ -228,7 +225,7 @@ fun HabitState.game(today: LocalDate): GameReport {
     journal.map { it.date }.sorted().getOrNull(9)?.let { earn(BadgeKind.JournalKeeper, it) }
     habits.map { it.created }.sorted().getOrNull(4)?.let { earn(BadgeKind.Collector, it) }
     val level = levelFor(petals)
-    val now = seasonOf(today)
+    val now = seasonOf(today, south)
     return GameReport(petals, level, petalsForLevel(level), petalsForLevel(level + 1), badges, freezes, frozen, quests,
         now, seasonTicks[now] ?: 0, keepsakes)
 }

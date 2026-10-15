@@ -51,6 +51,7 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
@@ -66,6 +67,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.core.content.edit
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
@@ -80,6 +82,11 @@ import kotlin.math.roundToInt
 private const val StoryPages = 4
 private const val PageMillis = 5_000f
 
+/** Remembers, on this device and for this space, the day a week's story was last played. */
+internal fun storyPrefs(context: android.content.Context): android.content.SharedPreferences =
+    context.getSharedPreferences(AccountSession.preferenceName("kimi_story"), android.content.Context.MODE_PRIVATE)
+internal const val StoryWatchedOn = "watched_on"
+
 @Composable fun WeekStoryDialog(state: HabitState, today: LocalDate, onClose: () -> Unit) {
     val frozen = LocalGame.current?.frozenDays ?: emptySet()
     val story = remember(state, today, frozen) { state.weekStory(today, frozen) }
@@ -88,6 +95,8 @@ private const val PageMillis = 5_000f
     val talkBack = remember(context) {
         (context.getSystemService(android.content.Context.ACCESSIBILITY_SERVICE) as AccessibilityManager).isTouchExplorationEnabled
     }
+    // Once it has been played, Today's card for it steps aside.
+    LaunchedEffect(today) { storyPrefs(context).edit { putString(StoryWatchedOn, today.toString()) } }
     val autoplay = !reduced && !talkBack
     var page by rememberSaveable { mutableIntStateOf(0) }
     var played by remember { mutableFloatStateOf(0f) }
@@ -125,7 +134,7 @@ private const val PageMillis = 5_000f
                     }
                 }
                 Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(R.string.cd_story_page, page + 1, StoryPages), color = onPage.copy(alpha = .8f), fontSize = 12.sp,
+                    Text(stringResource(R.string.cd_story_page, page + 1, StoryPages), color = onPage.copy(alpha = .8f), fontSize = 12.sp, lineHeight = 16.sp,
                         modifier = Modifier.weight(1f))
                     IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, stringResource(R.string.cd_story_close), tint = onPage) }
                 }
@@ -175,7 +184,7 @@ private const val PageMillis = 5_000f
     Spacer(Modifier.height(10.dp))
     val short = storyDate("MMM d")
     Text(stringResource(R.string.story_intro_range, story.days.first().date.format(short), today.format(short)),
-        color = OnAccent.copy(alpha = .85f), fontSize = 15.sp, textAlign = TextAlign.Center)
+        color = OnAccent.copy(alpha = .85f), fontSize = 15.sp, lineHeight = 20.sp, textAlign = TextAlign.Center)
 }
 
 /** Page two: every tick of the week, counting up, over seven bars rising one after another. */
@@ -190,9 +199,9 @@ private const val PageMillis = 5_000f
             val rise by rememberGrow(if (day.rest) 0f else day.percent / 100f, 650, 350 + i * 90)
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Box(Modifier.width(26.dp).height((8 + 92 * rise).dp).clip(RoundedCornerShape(9.dp))
-                    .background(if (day.rest) Ink.copy(alpha = .15f) else Ink))
+                    .background(if (day.before) Color.Transparent else if (day.rest) Ink.copy(alpha = .15f) else Ink))
                 Spacer(Modifier.height(8.dp))
-                Text(day.date.format(letters), color = Ink.copy(alpha = .75f), fontSize = 11.sp)
+                Text(day.date.format(letters), color = Ink.copy(alpha = .75f), fontSize = 11.sp, lineHeight = 14.sp)
             }
         }
     }
@@ -210,7 +219,7 @@ private const val PageMillis = 5_000f
         return
     }
     Text(best.date.format(storyDate("EEEE")), color = Ink, fontSize = 44.sp, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center)
-    Text(stringResource(R.string.story_best_day_caption, best.percent), color = Ink.copy(alpha = .8f), fontSize = 15.sp)
+    Text(stringResource(R.string.story_best_day_caption, best.percent), color = Ink.copy(alpha = .8f), fontSize = 15.sp, lineHeight = 20.sp)
     if (story.perfectDays > 0) {
         Spacer(Modifier.height(30.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -223,7 +232,7 @@ private const val PageMillis = 5_000f
             }
         }
         Spacer(Modifier.height(10.dp))
-        Text(pluralStringResource(R.plurals.story_perfect_days, story.perfectDays, story.perfectDays), color = Ink, fontSize = 14.sp, textAlign = TextAlign.Center)
+        Text(pluralStringResource(R.plurals.story_perfect_days, story.perfectDays, story.perfectDays), color = Ink, fontSize = 14.sp, lineHeight = 18.sp, textAlign = TextAlign.Center)
     }
 }
 
@@ -240,9 +249,9 @@ private const val PageMillis = 5_000f
     val top = story.topHabit
     if (top != null) {
         Spacer(Modifier.height(14.dp))
-        Text(pluralStringResource(R.plurals.story_top_habit, story.topCount, top, story.topCount), color = Ink.copy(alpha = .8f), fontSize = 14.sp, textAlign = TextAlign.Center)
+        Text(pluralStringResource(R.plurals.story_top_habit, story.topCount, top, story.topCount), color = Ink.copy(alpha = .8f), fontSize = 14.sp, lineHeight = 18.sp, textAlign = TextAlign.Center)
     }
     Spacer(Modifier.height(30.dp))
-    Text(stringResource(R.string.story_outro), color = Ink, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+    Text(stringResource(R.string.story_outro), color = Ink, fontWeight = FontWeight.Bold, fontSize = 16.sp, lineHeight = 21.sp)
 }
 

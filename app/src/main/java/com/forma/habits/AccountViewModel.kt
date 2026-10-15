@@ -233,7 +233,9 @@ class AccountViewModel(application: Application) : AndroidViewModel(application)
             try {
                 HabitStore.get(getApplication(), owner).erase()
                 withContext(Dispatchers.IO) {
-                    check(getApplication<Application>().getSharedPreferences(AccountSession.preferenceName("kimi_drafts", owner), 0).edit().clear().commit())
+                    for (prefs in listOf("kimi_drafts", "kimi_game_seen", "kimi_story")) {
+                        check(getApplication<Application>().getSharedPreferences(AccountSession.preferenceName(prefs, owner), 0).edit().clear().commit())
+                    }
                 }
             } catch (_: Exception) {
                 localCleanupFailed = true

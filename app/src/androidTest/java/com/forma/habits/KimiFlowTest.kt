@@ -36,6 +36,8 @@ class KimiFlowTest {
         AccountSession.testOwner = null
     }
     private fun waitFor(check: () -> Boolean) { compose.waitUntil(10000, check) }
+    /** The page's own vertical list, not the date strip or filter chips that also scroll. */
+    private val verticalList = hasScrollAction() and SemanticsMatcher.keyIsDefined(androidx.compose.ui.semantics.SemanticsProperties.VerticalScrollAxisRange)
 
     @Test fun createCompleteEditAndDeleteHabit() {
         compose.onNodeWithText("+ New habit").performClick()
@@ -86,6 +88,8 @@ class KimiFlowTest {
         runBlocking { store.update { HabitState(habits = listOf(Habit(name = "Stretch", goal = "Five minutes")), name = "Alex") } }
         waitFor { store.state.value.habits.size == 1 }
         val id = store.state.value.habits.single().id
+        // A habit that arrives from outside the app (as by sync) is not scrolled to on its own.
+        compose.onNode(verticalList).performScrollToNode(hasContentDescription("Complete Stretch"))
         // A short drag springs back without ticking anything.
         compose.onNodeWithContentDescription("Complete Stretch").performScrollTo().performTouchInput {
             swipe(centerLeft + Offset(20f, 0f), centerLeft + Offset(width * .2f, 0f), 300)
@@ -105,6 +109,7 @@ class KimiFlowTest {
     @Test fun habitCanBeEditedStraightFromToday() {
         runBlocking { store.update { HabitState(habits = listOf(Habit(name = "Read", goal = "Ten pages")), name = "Alex") } }
         waitFor { store.state.value.habits.size == 1 }
+        compose.onNode(verticalList).performScrollToNode(hasContentDescription("Edit Read"))
         compose.onNodeWithContentDescription("Edit Read").performScrollTo().performClick()
         compose.onNodeWithText("Save my changes").assertExists()
         compose.onNodeWithText("Habit name").performTextReplacement("Read a chapter")
