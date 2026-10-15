@@ -115,6 +115,35 @@ class KimiFlowTest {
         compose.onNodeWithContentDescription("Edit Read a chapter").assertExists()
     }
 
+    @Test fun gardenOpensFromTodayAndCanBeSwitchedOff() {
+        val today = LocalDate.now()
+        runBlocking {
+            store.update {
+                HabitState(habits = listOf(Habit(id = "g", name = "Water", goal = "", created = today.minusDays(3))),
+                    checks = mapOf(today.minusDays(1).toString() to setOf("g")), name = "Alex")
+            }
+        }
+        try {
+            compose.runOnIdle { GameSetting.setEnabled(context, true) }
+            waitFor { store.state.value.habits.size == 1 }
+            compose.onNodeWithTag("garden_bar").performScrollTo().performClick()
+            compose.onNodeWithText("Your garden").assertExists()
+            compose.onNodeWithText("Streak freezes").performScrollTo().assertExists()
+            compose.onNodeWithContentDescription("Close your garden").performClick()
+            compose.onNodeWithContentDescription("Open settings").performClick()
+            compose.onNode(hasScrollAction()).performScrollToNode(hasTestTag("game_switch"))
+            compose.onNodeWithTag("game_switch").assertIsOn().performClick()
+            compose.runOnIdle { assertFalse(GameSetting.enabled) }
+            compose.onNodeWithText("Today", substring = false).performClick()
+            compose.waitForIdle()
+            compose.onNodeWithTag("garden_bar").assertDoesNotExist()
+            // Still a habit tracker without the game.
+            compose.onNodeWithContentDescription("Complete Water").assertExists()
+        } finally {
+            GameSetting.setEnabled(context, true)
+        }
+    }
+
     @Test fun colorThemeCanBeChosenInSettings() {
         compose.onNodeWithContentDescription("Open settings").performClick()
         compose.onNode(hasScrollAction()).performScrollToNode(hasTestTag("palette_sunset"))

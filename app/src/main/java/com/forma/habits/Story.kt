@@ -81,7 +81,8 @@ private const val StoryPages = 4
 private const val PageMillis = 5_000f
 
 @Composable fun WeekStoryDialog(state: HabitState, today: LocalDate, onClose: () -> Unit) {
-    val story = remember(state, today) { state.weekStory(today) }
+    val frozen = LocalGame.current?.frozenDays ?: emptySet()
+    val story = remember(state, today, frozen) { state.weekStory(today, frozen) }
     val reduced = reducedMotion()
     val context = LocalContext.current
     val talkBack = remember(context) {

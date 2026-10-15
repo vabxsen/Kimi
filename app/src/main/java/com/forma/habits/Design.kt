@@ -363,7 +363,7 @@ private class FlowerIdle(val sway: State<Float>, val breath: State<Float>, val e
  *
  * The poses, each 0 to 1 so they can be animated: [asleep] closes the eyes and, with [zzz] (a 0-1
  * loop), sends Z's drifting up; [dizzy] turns the eyes into spirals; [blush] warms the cheeks.
- * [spin] turns the petals by that many degrees.
+ * [spin] turns the petals by that many degrees. [petals], when given, colours each petal in turn.
  */
 @Composable fun Flower(
     modifier: Modifier = Modifier,
@@ -377,7 +377,8 @@ private class FlowerIdle(val sway: State<Float>, val breath: State<Float>, val e
     zzz: Float? = null,
     dizzy: Float = 0f,
     blush: Float = 0f,
-    spin: Float = 0f
+    spin: Float = 0f,
+    petals: List<Color>? = null
 ) {
     // The mascot is a fixed illustration, not themed UI: a dark face on the orange centre reads
     // correctly on light and dark alike, whereas the theme ink would invert it after dark.
@@ -407,7 +408,8 @@ private class FlowerIdle(val sway: State<Float>, val breath: State<Float>, val e
                 val order = (i + 1) % 6
                 val open = easeOutBack((bloom - order).coerceIn(0f, 1f))
                 if (open <= 0f) continue
-                val base = if (woe > 0f) lerp(petal, Color(0xFFC9C3B8), .35f * woe) else petal
+                val own = petals?.let { it[i % it.size] } ?: petal
+                val base = if (woe > 0f) lerp(own, Color(0xFFC9C3B8), .35f * woe) else own
                 val color = if (progress == null) base
                     else lerp(base.copy(alpha = base.alpha * .32f), base, (filled.value * 6f - order).coerceIn(0f, 1f))
                 val angle = ((i * 60f + sway) * PI / 180).toFloat()

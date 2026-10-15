@@ -525,4 +525,143 @@
     <string name="cd_story_previous">Previous</string>
     <string name="cd_story_close">Close your weekly story</string>
     <string name="cd_story_page">Page %1$d of %2$d</string>
+    <!-- The garden game -->
+    <string-array name="garden_level_names">
+        <item>Seed</item><item>Sprout</item><item>Seedling</item><item>Bud</item><item>Bloom</item><item>Blossom</item>
+        <item>Posy</item><item>Bouquet</item><item>Meadow</item><item>Garden</item><item>Grove</item><item>Orchard</item><item>Paradise</item>
+    </string-array>
+    <string name="garden_title">Your garden</string>
+    <string name="garden_level">Level %1$d · %2$s</string>
+    <plurals name="garden_petals_total">
+        <item quantity="one">%1$d petal grown</item>
+        <item quantity="other">%1$d petals grown</item>
+    </plurals>
+    <plurals name="garden_petals_to_go">
+        <item quantity="one">%1$d petal to level %2$d</item>
+        <item quantity="other">%1$d petals to level %2$d</item>
+    </plurals>
+    <string name="garden_bar_quests">%1$d/%2$d</string>
+    <string name="cd_garden_bar">Your garden: level %1$d, %2$s. %3$s %4$s</string>
+    <plurals name="cd_garden_quests">
+        <item quantity="one">%1$d of %2$d quest done this week.</item>
+        <item quantity="other">%1$d of %2$d quests done this week.</item>
+    </plurals>
+    <plurals name="cd_garden_freezes">
+        <item quantity="one">%1$d streak freeze ready.</item>
+        <item quantity="other">%1$d streak freezes ready.</item>
+    </plurals>
+    <string name="cd_close_garden">Close your garden</string>
+    <string name="garden_quests_title">This week’s quests</string>
+    <plurals name="garden_quests_body">
+        <item quantity="one">Each one you finish adds %1$d petal. New quests every Monday.</item>
+        <item quantity="other">Each one you finish adds %1$d petals. New quests every Monday.</item>
+    </plurals>
+    <string name="garden_quests_none">Add a habit to get this week’s quests.</string>
+    <plurals name="quest_ticks">
+        <item quantity="one">Tick %1$d habit</item>
+        <item quantity="other">Tick %1$d habits</item>
+    </plurals>
+    <plurals name="quest_perfect">
+        <item quantity="one">Have %1$d day with everything done</item>
+        <item quantity="other">Have %1$d days with everything done</item>
+    </plurals>
+    <plurals name="quest_journal">
+        <item quantity="one">Write in your journal %1$d time</item>
+        <item quantity="other">Write in your journal %1$d times</item>
+    </plurals>
+    <plurals name="quest_morning">
+        <item quantity="one">Tick %1$d morning habit</item>
+        <item quantity="other">Tick %1$d morning habits</item>
+    </plurals>
+    <plurals name="quest_afternoon">
+        <item quantity="one">Tick %1$d afternoon habit</item>
+        <item quantity="other">Tick %1$d afternoon habits</item>
+    </plurals>
+    <plurals name="quest_evening">
+        <item quantity="one">Tick %1$d evening habit</item>
+        <item quantity="other">Tick %1$d evening habits</item>
+    </plurals>
+    <plurals name="quest_anytime">
+        <item quantity="one">Tick %1$d anytime habit</item>
+        <item quantity="other">Tick %1$d anytime habits</item>
+    </plurals>
+    <plurals name="quest_every">
+        <item quantity="one">Do your %1$d habit at least once</item>
+        <item quantity="other">Do each of your %1$d habits at least once</item>
+    </plurals>
+    <plurals name="quest_streak">
+        <item quantity="one">Keep a habit going %1$d day in a row</item>
+        <item quantity="other">Keep a habit going %1$d days in a row</item>
+    </plurals>
+    <string name="quest_progress">%1$d of %2$d</string>
+    <string name="quest_reward">+%1$d</string>
+    <string name="cd_quest_done">Done</string>
+    <string name="garden_freezes_title">Streak freezes</string>
+    <string name="garden_freezes_body">Earn one for every perfect week, up to three. Miss a day that would break a streak and Kimi uses one to cover it, so the streak carries on.</string>
+    <plurals name="garden_freezes_count">
+        <item quantity="one">%1$d freeze ready</item>
+        <item quantity="other">%1$d freezes ready</item>
+    </plurals>
+    <string name="garden_freezes_none">No freezes yet. Finish a perfect week to earn one.</string>
+    <string name="garden_badges_title">Badges</string>
+    <plurals name="garden_badges_count">
+        <item quantity="one">%1$d of %2$d earned</item>
+        <item quantity="other">%1$d of %2$d earned</item>
+    </plurals>
+    <string name="badge_earned_on">Earned %1$s</string>
+    <string name="badge_first_tick">First petal</string>
+    <string name="badge_first_tick_hint">Tick your first habit.</string>
+    <string name="badge_first_perfect">Full bloom</string>
+    <string name="badge_first_perfect_hint">Finish everything in a day.</string>
+    <string name="badge_perfect_week">Perfect week</string>
+    <string name="badge_perfect_week_hint">Finish everything, every day, Monday to Sunday.</string>
+    <string name="badge_streak7">Week of wins</string>
+    <string name="badge_streak7_hint">Keep a habit going for 7 days.</string>
+    <string name="badge_streak30">Month of magic</string>
+    <string name="badge_streak30_hint">Keep a habit going for 30 days.</string>
+    <string name="badge_streak100">Century</string>
+    <string name="badge_streak100_hint">Keep a habit going for 100 days.</string>
+    <string name="badge_ticks100">Hundred petals</string>
+    <string name="badge_ticks100_hint">Tick 100 habits in all.</string>
+    <string name="badge_ticks500">Petal storm</string>
+    <string name="badge_ticks500_hint">Tick 500 habits in all.</string>
+    <string name="badge_weekend">Weekend warrior</string>
+    <string name="badge_weekend_hint">Finish everything on 4 weekends.</string>
+    <string name="badge_comeback">Welcome back</string>
+    <string name="badge_comeback_hint">Come back after a week away.</string>
+    <string name="badge_morning">Morning person</string>
+    <string name="badge_morning_hint">Tick 25 morning habits.</string>
+    <string name="badge_journal">Dear diary</string>
+    <string name="badge_journal_hint">Write 10 journal entries.</string>
+    <string name="badge_collector">Green thumb</string>
+    <string name="badge_collector_hint">Grow a collection of 5 habits.</string>
+    <string name="badge_quests">Quest master</string>
+    <string name="badge_quests_hint">Finish all three quests in a week.</string>
+    <string name="garden_unlocks_title">Unlocks</string>
+    <string name="garden_unlocks_body">Rewards for growing your garden, just for fun. Nothing in Kimi itself is ever locked away.</string>
+    <string name="unlock_level">Level %1$d</string>
+    <string name="unlock_peach">Peach petals</string>
+    <string name="unlock_stars">Shooting stars</string>
+    <string name="unlock_stars_body">Now and then a star streaks across Today’s night sky.</string>
+    <string name="unlock_pink">Pink petals</string>
+    <string name="unlock_rainbow">Rainbows</string>
+    <string name="unlock_rainbow_body">After a day with everything done, a rainbow arcs over the next morning.</string>
+    <string name="unlock_sky">Sky petals</string>
+    <string name="unlock_mint">Mint petals</string>
+    <string name="unlock_lilac">Lilac petals</string>
+    <string name="unlock_rainbow_petals">Rainbow petals</string>
+    <string name="unlock_petals_body">A new colour for your flower on Today.</string>
+    <string name="cd_unlock_locked">Locked</string>
+    <string name="cd_unlock_open">Unlocked</string>
+    <string name="garden_petal_choice">Your flower’s petals</string>
+    <string name="petal_sunshine">Sunshine</string>
+    <string name="garden_how_title">How petals grow</string>
+    <string name="garden_how_body">1 for every tick, 3 for a day with everything done, 10 for a perfect week, 20 for each quest, and 15, 50 and 150 when a streak reaches 7, 30 and 100 days. Petals are never taken away.</string>
+    <string name="garden_level_up">You’ve grown into %1$s</string>
+    <string name="garden_new_unlock">Unlocked: %1$s</string>
+    <string name="garden_new_badge">New badge</string>
+    <string name="settings_game_title">Garden game</string>
+    <string name="settings_game_body">Petals, levels, badges, quests and rewards. Turn it off for a plain, quiet tracker. Streak freezes you have earned keep protecting your streaks either way.</string>
+    <string name="calendar_legend_frozen">Frozen</string>
+    <string name="cd_calendar_day_frozen">%1$s, covered by a streak freeze</string>
 </resources>

@@ -159,6 +159,9 @@ private val LensLift = 3.dp
     val date = LocalDate.parse(dateString)
     var filter by rememberSaveable { mutableStateOf("All") }
     var storyOpen by rememberSaveable { mutableStateOf(false) }
+    var gardenOpen by rememberSaveable { mutableStateOf(false) }
+    val game = LocalGame.current
+    val (flowerPetal, flowerPetals) = chosenPetals(game)
     // Celebrates the moment the day is finished, not every later visit to a finished day.
     val haptics = rememberHaptics()
     val dayDone = !state.isRestDay(today) && state.percent(today) == 100
@@ -250,9 +253,9 @@ private val LensLift = 3.dp
                         Text(if (state.isRestDay(date)) stringResource(R.string.today_banner_rest)
                             else pluralStringResource(R.plurals.today_banner_progress, state.due(date).size, state.count(date), state.due(date).size), fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
-                    if (expandedText) Mascot(Modifier.align(Alignment.End).size(86.dp).then(parallax), progress = dayProgress, sleeping = state.isRestDay(date))
+                    if (expandedText) Mascot(Modifier.align(Alignment.End).size(86.dp).then(parallax), progress = dayProgress, sleeping = state.isRestDay(date), petal = flowerPetal, petals = flowerPetals)
                 }
-                if (!expandedText) Mascot(Modifier.align(Alignment.CenterEnd).size(111.dp).offset(x = 9.dp).then(parallax), progress = dayProgress, sleeping = state.isRestDay(date))
+                if (!expandedText) Mascot(Modifier.align(Alignment.CenterEnd).size(111.dp).offset(x = 9.dp).then(parallax), progress = dayProgress, sleeping = state.isRestDay(date), petal = flowerPetal, petals = flowerPetals)
             }
         }
         // On Sundays, once the week has a tick in it, its story is ready to play.
@@ -301,6 +304,8 @@ private val LensLift = 3.dp
                 }
             }
         }
+        // The garden game at a glance: level, progress, quests and freezes. Opens the garden.
+        if (game != null && GameSetting.enabled) item { GardenBar(game, Modifier.cascaded(cascade.entrance(3))) { gardenOpen = true } }
         item {
             // A scrolling strip rather than one fixed week, so recent days stay reachable without
             // leaving Today. Cells keep the width they had when exactly seven filled the row, so
@@ -405,6 +410,7 @@ private val LensLift = 3.dp
     }
     DayCompleteCelebration(celebrations)
     if (storyOpen) WeekStoryDialog(state, today) { storyOpen = false }
+    if (gardenOpen && game != null) GardenScreen(game) { gardenOpen = false }
     MilestoneMoment(milestoneShows, milestone.first, milestone.second)
     }
 }
@@ -540,7 +546,7 @@ private const val SwipeCommit = .42f
                     BubbleIcon(HabitSymbols[h.icon.coerceIn(HabitSymbols.indices)], Overlay, size = 51)
                     Spacer(Modifier.width(12.dp)); Column(Modifier.weight(1f)) { Text(h.name, style = MaterialTheme.typography.titleMedium); if (h.goal.isNotBlank()) Text(h.goal, color = Quiet, fontSize = 11.sp) }
                     // Its plant: grows with how often it was done this month, droops after a miss.
-                    HabitPlant(plantStage(state.monthOfDone(h, today)), state.wilting(h, today), Modifier.size(width = 50.dp, height = 62.dp))
+                    HabitPlant(plantStage(state.monthOfDone(h, today)), state.wilting(h, today, LocalGame.current?.frozenDays ?: emptySet()), Modifier.size(width = 50.dp, height = 62.dp))
                     Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Edit, null, Modifier.size(21.dp)) }
                 }
                 Spacer(Modifier.height(18.dp))
@@ -586,6 +592,7 @@ private const val SwipeCommit = .42f
     var monthString by rememberSaveable { mutableStateOf(YearMonth.from(today).toString()) }
     var dateString by rememberSaveable { mutableStateOf(today.toString()) }
     val month = YearMonth.parse(monthString); val date = LocalDate.parse(dateString)
+    val frozenDays = LocalGame.current?.frozenDays ?: emptySet()
     LazyColumn(contentPadding = PaddingValues(23.dp, 17.dp, 23.dp, 24.dp), verticalArrangement = Arrangement.spacedBy(19.dp)) {
         item { PageTitle(stringResource(R.string.calendar_title), stringResource(R.string.calendar_subtitle)) }
         item {
@@ -638,10 +645,13 @@ private const val SwipeCommit = .42f
                                 val press = rememberSquish(.88f)
                                 val d = shown.atDay(day); val pct = state.percent(d); val selected = d == date
                                 val rest = state.isRestDay(d)
-                                val dayLabel = if (rest) stringResource(R.string.cd_calendar_day_rest, d.format(ShortDate))
+                                // A day a streak freeze covered shows in ice blue with a snowflake.
+                                val frozenDay = frozenDays.contains(d)
+                                val dayLabel = if (frozenDay) stringResource(R.string.cd_calendar_day_frozen, d.format(ShortDate))
+                                    else if (rest) stringResource(R.string.cd_calendar_day_rest, d.format(ShortDate))
                                     else pluralStringResource(R.plurals.cd_calendar_day, state.count(d), d.format(ShortDate), state.count(d))
                                 // A rest day stays unfilled so it never reads as a day you missed.
-                                val fill by animateColorAsState(if (selected) Purple else if (rest) Color.Transparent else if (pct == 100) Mint else if (pct > 0) Lavender else Cream, label = "day fill")
+                                val fill by animateColorAsState(if (selected) Purple else if (frozenDay) Blue else if (rest) Color.Transparent else if (pct == 100) Mint else if (pct > 0) Lavender else Cream, label = "day fill")
                                 val ink by animateColorAsState(if (selected) OnAccent else if (rest) Quiet.copy(alpha = .72f) else Ink, label = "day ink")
                                 // Each day's colour soaks outward from its middle like ink into paper,
                                 // in a wave a beat behind the pop.
@@ -677,6 +687,7 @@ private const val SwipeCommit = .42f
                                     .clickable(press.interaction, LocalIndication.current, role = Role.Button) { dateString = d.toString() }
                                     .semantics { contentDescription = dayLabel }, contentAlignment = Alignment.Center) {
                                     Text(day.toString(), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = ink)
+                                    if (frozenDay) Icon(Icons.Rounded.AcUnit, null, Modifier.align(Alignment.TopEnd).padding(3.dp).size(10.dp), tint = ink)
                                 }
                             }
                         }
@@ -690,6 +701,7 @@ private const val SwipeCommit = .42f
                     LegendDot(Lavender, stringResource(R.string.calendar_legend_some))
                     LegendDot(Mint, stringResource(R.string.calendar_legend_all), ring = gold)
                     LegendDot(Quiet.copy(alpha = .55f), stringResource(R.string.calendar_legend_rest))
+                    if (frozenDays.any { YearMonth.from(it) == month }) LegendDot(Blue, stringResource(R.string.calendar_legend_frozen))
                 }
             }
         }
@@ -985,6 +997,7 @@ private val MoodIcons = listOf(Icons.Rounded.SentimentVeryDissatisfied, Icons.Ro
         item { Box(Modifier.cascaded(cascade.entrance(2))) { AccountCard(account, onAccount) } }
         if (syncable) item { Box(Modifier.cascaded(cascade.entrance(3))) { SyncStatusCard(syncing, syncFailed, syncError, onRetrySync) } }
         item { Box(Modifier.cascaded(cascade.entrance(4))) { AppearanceCard() } }
+        item { Box(Modifier.cascaded(cascade.entrance(4))) { GameSettingCard() } }
         item { Box(Modifier.cascaded(cascade.entrance(5))) { NotificationSettings(state.habits, onSaveHabit) } }
         if (state.demo) item { Text(stringResource(R.string.demo_footer_settings), color = Quiet, fontSize = 11.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) }
         item { UpdateCard() }

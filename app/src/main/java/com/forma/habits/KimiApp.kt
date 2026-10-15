@@ -31,6 +31,7 @@ class KimiApp : Application() {
     override fun onCreate() {
         super.onCreate()
         ThemeSetting.load(this)
+        GameSetting.load(this)
         // App Check must never be the reason Kimi fails to start; a missing provider only costs
         // attestation, and Authentication keeps working while enforcement is off.
         // Separate blocks on purpose: a failure in one must not skip the other.

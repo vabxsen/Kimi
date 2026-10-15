@@ -103,7 +103,7 @@ private val SkyStars = listOf(
 )
 
 @Composable fun LivingSky(modifier: Modifier = Modifier, now: () -> LocalTime = LocalTime::now,
-    season: Season = remember { seasonFor(LocalDate.now().monthValue) }) {
+    season: Season = remember { seasonFor(LocalDate.now().monthValue) }, shootingStars: Boolean = false, rainbow: Boolean = false) {
     val reduced = reducedMotion()
     val transition = if (!reduced) rememberInfiniteTransition(label = "living sky") else null
     val drift = transition?.animateFloat(0f, 1f, infiniteRepeatable(tween(CloudLoopMillis, easing = LinearEasing)), label = "clouds")
@@ -118,6 +118,11 @@ private val SkyStars = listOf(
         val (top, low) = skyColors(minute, palette)
         drawRect(Brush.verticalGradient(0f to top, .5f to low, 1f to low.copy(alpha = 0f)))
         val night = nightness(minute)
+        // A garden reward: through the morning after a day with everything done, a soft rainbow.
+        if (rainbow) {
+            val morning = ((minute - 360f) / 40f).coerceIn(0f, 1f) * ((660f - minute) / 40f).coerceIn(0f, 1f)
+            if (morning > 0f) drawRainbow(morning * (if (dark) .16f else .26f) * (1f - night), palette.mono)
+        }
         if (night > 0f) {
             val t = twinkle?.value ?: 0f
             SkyStars.forEach { (x, y, phase) ->
@@ -141,6 +146,8 @@ private val SkyStars = listOf(
         // with animations removed there are none.
         val t = fall?.value ?: return@Canvas
         drawSeason(season, t, night, dark, palette.mono)
+        // Another garden reward: now and then a star streaks across the night.
+        if (shootingStars && night > .4f) drawShootingStars(t, night, starColor)
     }
 }
 
@@ -278,4 +285,33 @@ private val UnitCloud: Path by lazy {
 /** A cloud [width] wide, centred on [at]. */
 private fun DrawScope.drawCloud(color: Color, at: Offset, width: Float) {
     withTransform({ translate(at.x, at.y); scale(width, width, Offset.Zero) }) { drawPath(UnitCloud, color) }
+}
+
+private val RainbowBands = listOf(0xFFFF8A80, 0xFFFFB74D, 0xFFFFE082, 0xFFA5D6A7, 0xFF90CAF9, 0xFFB39DDB).map { Color(it) }
+
+/** A rainbow arching up from the lower right of the sky, each band a soft stroke. */
+private fun DrawScope.drawRainbow(alpha: Float, mono: Boolean) {
+    val band = 5.dp.toPx()
+    val centre = Offset(size.width * .78f, size.height * .98f)
+    val outer = size.height * .62f
+    RainbowBands.forEachIndexed { i, colour ->
+        val r = outer - i * band
+        drawArc((if (mono) grey(colour) else colour).copy(alpha = alpha), 180f, 180f, false,
+            centre - Offset(r, r), androidx.compose.ui.geometry.Size(r * 2, r * 2), style = androidx.compose.ui.graphics.drawscope.Stroke(band))
+    }
+}
+
+/** Two shooting stars per [SeasonLoopMillis]: each a bright head with a fading tail, gone in about a second. */
+private fun DrawScope.drawShootingStars(t: Float, night: Float, colour: Color) {
+    listOf(Triple(.18f, .12f, .14f), Triple(.68f, .62f, .08f)).forEach { (at, x, y) ->
+        val q = (t - at) / .035f
+        if (q <= 0f || q >= 1f) return@forEach
+        val travel = size.width * .38f
+        val start = Offset(size.width * x, size.height * y)
+        val head = start + Offset(travel * q, travel * .45f * q)
+        val tail = head - Offset(travel * .28f, travel * .28f * .45f)
+        val fade = night * (if (q < .2f) q / .2f else 1f - (q - .2f) / .8f)
+        drawLine(Brush.linearGradient(listOf(Color.Transparent, colour.copy(alpha = fade)), tail, head), tail, head, 2.dp.toPx(), StrokeCap.Round)
+        drawCircle(colour.copy(alpha = fade), 2.2.dp.toPx(), head)
+    }
 }

@@ -36,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -58,6 +59,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) holdSplashUntilBloomed()
         ThemeSetting.load(this)
+        GameSetting.load(this)
         enableEdgeToEdge()
         setContent {
             val dark = kimiDarkTheme()
@@ -127,7 +129,13 @@ val LocalToday = compositionLocalOf { LocalDate.now() }
     LaunchedEffect(Unit) { vm.events.collectLatest { snackbar.currentSnackbarData?.dismiss(); snackbar.showSnackbar(it, withDismissAction = true) } }
     fun edit(habit: Habit?) { editingId = habit?.id; sheetOpen = true }
     val gust = remember { PetalGust() }
-    CompositionLocalProvider(LocalToday provides vm.today, LocalPetalGust provides gust) {
+    // The garden game, worked out from this space's history whenever it changes. It is worked out even
+    // while switched off, so streak freezes already earned keep protecting streaks either way.
+    val game = remember(state, vm.today) { state.game(vm.today) }
+    val playing = GameSetting.enabled
+    val context = LocalContext.current
+    val gameMemory = remember { GameMemory(context, AccountSession.owner) }
+    CompositionLocalProvider(LocalToday provides vm.today, LocalPetalGust provides gust, LocalGame provides game) {
     if (!state.onboarded) {
         Box(Modifier.fillMaxSize()) {
             WelcomeScreen(vm.busy, { name -> vm.start(name) { edit(null) } }, onAccount) {
@@ -140,7 +148,11 @@ val LocalToday = compositionLocalOf { LocalDate.now() }
     // away on the other tabs.
     val sky by animateFloatAsState(if (page == Page.Today) 1f else 0f, tween(if (reduced) 0 else 450), label = "sky")
     Box(Modifier.fillMaxSize().background(Cream)) {
-    if (sky > 0f) LivingSky(Modifier.fillMaxWidth().height(340.dp).graphicsLayer { alpha = sky })
+    // Sky rewards from the garden: shooting stars at night, and a morning rainbow after a day with everything done.
+    val yesterday = vm.today.minusDays(1)
+    val rainbow = playing && game.unlocked(Unlock.Rainbow) && !state.isRestDay(yesterday) && state.percent(yesterday) == 100
+    if (sky > 0f) LivingSky(Modifier.fillMaxWidth().height(340.dp).graphicsLayer { alpha = sky },
+        shootingStars = playing && game.unlocked(Unlock.ShootingStars), rainbow = rainbow)
     Scaffold(containerColor = Color.Transparent, snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 23.dp, vertical = 5.dp),
@@ -209,6 +221,8 @@ val LocalToday = compositionLocalOf { LocalDate.now() }
     }
     // A deleted habit's petals blow away over everything, once the sheet has gone.
     PetalGustOverlay(gust)
+    // New levels and badges, celebrated once each; noted quietly while the game is switched off.
+    GameMoments(game, gameMemory, quiet = !playing)
     }
     }
     if (sheetOpen) {

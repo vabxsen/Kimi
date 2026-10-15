@@ -19,6 +19,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -56,7 +57,8 @@ internal class TapBurst {
  *
  * The taps carry no meaning, so they are not announced as a button; the flower stays decoration.
  */
-@Composable fun Mascot(modifier: Modifier = Modifier, progress: Float? = null, sleeping: Boolean = false) {
+@Composable fun Mascot(modifier: Modifier = Modifier, progress: Float? = null, sleeping: Boolean = false,
+    petal: Color = Highlight, petals: List<Color>? = null) {
     val reduced = reducedMotion()
     val haptics = rememberHaptics()
     val scope = rememberCoroutineScope()
@@ -110,6 +112,8 @@ internal class TapBurst {
                 scaleY = 1f - .07f * wave
                 translationY = -sin(hop.value * PI.toFloat()) * 10.dp.toPx()
             },
+        petal = petal,
+        petals = petals,
         progress = progress,
         alive = true,
         asleep = asleep.value,

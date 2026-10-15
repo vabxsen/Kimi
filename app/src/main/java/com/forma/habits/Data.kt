@@ -47,11 +47,12 @@ fun HabitState.count(date: LocalDate) = due(date).count { done(it.id, date) }
 fun HabitState.percent(date: LocalDate): Int = if (due(date).isEmpty()) 0 else count(date) * 100 / due(date).size
 /** No habits fall on this day, so there is nothing to be behind on. */
 fun HabitState.isRestDay(date: LocalDate) = due(date).isEmpty()
-fun HabitState.streak(habit: Habit, today: LocalDate = LocalDate.now()): Int {
+/** Consecutive due days done, counting back from today (or yesterday, while today is open). A [frozen] day is skipped, neither counting nor breaking it. */
+fun HabitState.streak(habit: Habit, today: LocalDate = LocalDate.now(), frozen: Set<LocalDate> = emptySet()): Int {
     var date = if (done(habit.id, today)) today else today.minusDays(1)
     var count = 0
     while (!date.isBefore(habit.created)) {
-        if (habit.isDue(date)) { if (!done(habit.id, date)) break; count++ }
+        if (habit.isDue(date) && date !in frozen) { if (!done(habit.id, date)) break; count++ }
         date = date.minusDays(1)
     }
     return count

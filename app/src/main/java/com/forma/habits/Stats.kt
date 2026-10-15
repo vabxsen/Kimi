@@ -44,11 +44,11 @@ data class WeekStory(
     val topCount: Int
 )
 
-fun HabitState.weekStory(today: LocalDate): WeekStory {
+fun HabitState.weekStory(today: LocalDate, frozen: Set<LocalDate> = emptySet()): WeekStory {
     val dates = (6L downTo 0L).map { today.minusDays(it) }
     val days = dates.map { DayScore(it, percent(it), isRestDay(it)) }
     val best = days.filter { !it.rest && it.percent > 0 }.maxWithOrNull(compareBy<DayScore>({ it.percent }, { it.date }))
-    val streaks = habitStats(today).streaks
+    val streaks = habitStats(today, frozen).streaks
     val longest = habits.filter { (streaks[it.id] ?: 0) > 0 }.maxByOrNull { streaks[it.id] ?: 0 }
     val counts = habits.associateWith { h -> dates.count { done(h.id, it) } }
     val top = counts.filterValues { it > 0 }.maxByOrNull { it.value }
@@ -76,10 +76,10 @@ fun plantStage(doneInMonth: Int): Int = when {
     else -> 4
 }
 
-/** Missed yesterday and not done yet today: its plant droops until it is done again. */
-fun HabitState.wilting(habit: Habit, today: LocalDate): Boolean {
+/** Missed yesterday (unless a freeze covered it) and not done yet today: its plant droops until it is done again. */
+fun HabitState.wilting(habit: Habit, today: LocalDate, frozen: Set<LocalDate> = emptySet()): Boolean {
     val yesterday = today.minusDays(1)
-    return habit.isDue(yesterday) && !done(habit.id, yesterday) && !done(habit.id, today)
+    return habit.isDue(yesterday) && yesterday !in frozen && !done(habit.id, yesterday) && !done(habit.id, today)
 }
 
 /** From this hour on, a streak with nothing ticked yet today is at risk. */
@@ -92,8 +92,8 @@ const val StreakRiskHour = 20
 fun HabitState.streakAtRisk(today: LocalDate, hour: Int, bestStreak: Int): Boolean =
     hour >= StreakRiskHour && bestStreak > 0 && !isRestDay(today) && count(today) == 0
 
-fun HabitState.habitStats(today: LocalDate): HabitStats {
-    val streaks = habits.associate { it.id to streak(it, today) }
+fun HabitState.habitStats(today: LocalDate, frozen: Set<LocalDate> = emptySet()): HabitStats {
+    val streaks = habits.associate { it.id to streak(it, today, frozen) }
     return HabitStats(streaks, streaks.values.maxOrNull() ?: 0)
 }
 
@@ -117,8 +117,11 @@ fun HabitState.insightSummary(today: LocalDate): InsightSummary {
     return InsightSummary(week, wins, if (possible == 0) 0 else wins * 100 / possible, consistency)
 }
 
-@Composable fun rememberHabitStats(state: HabitState, today: LocalDate): HabitStats =
-    remember(state, today) { state.habitStats(today) }
+/** Streak stats for the screens: with the garden game on, days covered by a streak freeze are skipped. */
+@Composable fun rememberHabitStats(state: HabitState, today: LocalDate): HabitStats {
+    val frozen = LocalGame.current?.frozenDays ?: emptySet()
+    return remember(state, today, frozen) { state.habitStats(today, frozen) }
+}
 
 @Composable fun rememberInsights(state: HabitState, today: LocalDate): InsightSummary =
     remember(state, today) { state.insightSummary(today) }
