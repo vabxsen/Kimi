@@ -410,7 +410,7 @@ private val LensLift = 3.dp
     }
     DayCompleteCelebration(celebrations)
     if (storyOpen) WeekStoryDialog(state, today) { storyOpen = false }
-    if (gardenOpen && game != null) GardenScreen(game) { gardenOpen = false }
+    if (gardenOpen && game != null) GardenScreen(state, game) { gardenOpen = false }
     MilestoneMoment(milestoneShows, milestone.first, milestone.second)
     }
 }

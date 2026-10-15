@@ -51,23 +51,25 @@ private fun grey(c: Color): Color { val l = c.luminance(); return Color(l, l, l,
     val breeze = if (!reduced) rememberInfiniteTransition(label = "plant breeze")
         .animateFloat(-1f, 1f, infiniteRepeatable(tween(2600, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "sway") else null
     val mono = LocalKimiPalette.current.mono
-    val colors = remember(mono) { if (mono) PlantColors(grey(Soil), grey(Stem), grey(Leaf), grey(Bud), grey(Bloom), grey(BloomCore))
-        else PlantColors(Soil, Stem, Leaf, Bud, Bloom, BloomCore) }
+    val colors = remember(mono) { plantColors(mono) }
     Canvas(modifier) { drawPlant(growth, droop, breeze?.value ?: 0f, colors) }
 }
 
-private class PlantColors(val soil: Color, val stem: Color, val leaf: Color, val bud: Color, val bloom: Color, val core: Color)
+internal class PlantColors(val soil: Color, val stem: Color, val leaf: Color, val bud: Color, val bloom: Color, val core: Color)
+
+internal fun plantColors(mono: Boolean) = if (mono) PlantColors(grey(Soil), grey(Stem), grey(Leaf), grey(Bud), grey(Bloom), grey(BloomCore))
+    else PlantColors(Soil, Stem, Leaf, Bud, Bloom, BloomCore)
 
 /** Where along 0..4 growth [g] sits between stages [from] and [from]+1, as 0..1. */
 private fun part(g: Float, from: Float) = (g - from).coerceIn(0f, 1f)
 
-private fun DrawScope.drawPlant(g: Float, droop: Float, sway: Float, colors: PlantColors) {
+/** Draws the plant in a [w] by [h] box at the drawing origin: the whole canvas unless told otherwise. */
+internal fun DrawScope.drawPlant(g: Float, droop: Float, sway: Float, colors: PlantColors, w: Float = size.width, h: Float = size.height, soilShown: Boolean = true) {
     val soil = colors.soil; val stem = colors.stem; val leaf = colors.leaf
     val bud = colors.bud; val bloom = colors.bloom; val core = colors.core
-    val w = size.width; val h = size.height
     val ground = Offset(w / 2, h * .9f)
     // A little mound of earth, always there.
-    drawOval(soil, Offset(w * .18f, h * .84f), Size(w * .64f, h * .14f))
+    if (soilShown) drawOval(soil, Offset(w * .18f, h * .84f), Size(w * .64f, h * .14f))
     // The seed sinks into the soil as the sprout takes over.
     val seed = 1f - part(g, 0f)
     if (seed > 0f) drawOval(lerpColor(soil, Color.Black, .25f).copy(alpha = seed), Offset(w * .42f, h * .8f), Size(w * .16f, h * .09f))

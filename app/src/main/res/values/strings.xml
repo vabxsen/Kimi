@@ -664,4 +664,73 @@
     <string name="settings_game_body">Petals, levels, badges, quests and rewards. Turn it off for a plain, quiet tracker. Streak freezes you have earned keep protecting your streaks either way.</string>
     <string name="calendar_legend_frozen">Frozen</string>
     <string name="cd_calendar_day_frozen">%1$s, covered by a streak freeze</string>
+    <!-- The garden scene and seasonal collections -->
+    <string name="unlock_wildflowers">Wildflowers</string>
+    <string name="unlock_wildflowers_body">Little flowers spring up across your garden.</string>
+    <string name="unlock_butterflies">Butterflies</string>
+    <string name="unlock_butterflies_body">Butterflies drift over your garden by day.</string>
+    <string name="unlock_fence">Garden fence</string>
+    <string name="unlock_fence_body">A wooden fence along the back of your garden.</string>
+    <string name="unlock_pond">Pond</string>
+    <string name="unlock_pond_body">A little pond that ripples now and then.</string>
+    <string name="unlock_tree">Tree</string>
+    <string name="unlock_tree_body">A tree that changes with the seasons.</string>
+    <string name="unlock_path">Stepping stones</string>
+    <string name="unlock_path_body">A path of stones through your garden.</string>
+    <string name="unlock_birdhouse">Birdhouse</string>
+    <string name="unlock_birdhouse_body">A birdhouse, and a little bird who visits.</string>
+    <string name="unlock_lanterns">Lanterns</string>
+    <string name="unlock_lanterns_body">Lanterns strung along the fence, glowing after dark.</string>
+    <string name="unlock_meadow">Meadow</string>
+    <string name="unlock_meadow_body">Your garden bursts into a meadow of flowers.</string>
+    <plurals name="cd_garden_scene">
+        <item quantity="one">Your garden scene, with %1$d plant.</item>
+        <item quantity="other">Your garden scene, with %1$d plants.</item>
+    </plurals>
+    <string name="season_spring">Spring</string>
+    <string name="season_summer">Summer</string>
+    <string name="season_autumn">Autumn</string>
+    <string name="season_winter">Winter</string>
+    <string name="collection_title">%1$s collection</string>
+    <plurals name="collection_body">
+        <item quantity="one">Every tick this season collects one. Gather enough to earn its three keepsakes, each worth %1$d petal.</item>
+        <item quantity="other">Every tick this season collects one. Gather enough to earn its three keepsakes, each worth %1$d petals.</item>
+    </plurals>
+    <plurals name="collection_spring">
+        <item quantity="one">%1$d blossom collected</item>
+        <item quantity="other">%1$d blossoms collected</item>
+    </plurals>
+    <plurals name="collection_summer">
+        <item quantity="one">%1$d sunbeam collected</item>
+        <item quantity="other">%1$d sunbeams collected</item>
+    </plurals>
+    <plurals name="collection_autumn">
+        <item quantity="one">%1$d leaf collected</item>
+        <item quantity="other">%1$d leaves collected</item>
+    </plurals>
+    <plurals name="collection_winter">
+        <item quantity="one">%1$d snowflake collected</item>
+        <item quantity="other">%1$d snowflakes collected</item>
+    </plurals>
+    <plurals name="collection_to_next">
+        <item quantity="one">%1$d more for the %2$s</item>
+        <item quantity="other">%1$d more for the %2$s</item>
+    </plurals>
+    <string name="collection_complete">Every keepsake this season. Wonderful.</string>
+    <string name="collection_keepsakes_title">Keepsakes</string>
+    <string name="collection_keepsake_season">%1$s %2$d</string>
+    <string name="collection_none_yet">Your keepsakes from past seasons will live here.</string>
+    <string name="keepsake_spring_0">Blossom</string>
+    <string name="keepsake_spring_1">Seedling</string>
+    <string name="keepsake_spring_2">Spring rainbow</string>
+    <string name="keepsake_summer_0">Sunshine</string>
+    <string name="keepsake_summer_1">Beach day</string>
+    <string name="keepsake_summer_2">Firefly night</string>
+    <string name="keepsake_autumn_0">Falling leaf</string>
+    <string name="keepsake_autumn_1">Little oak</string>
+    <string name="keepsake_autumn_2">Harvest moon</string>
+    <string name="keepsake_winter_0">Snowflake</string>
+    <string name="keepsake_winter_1">Cosy mug</string>
+    <string name="keepsake_winter_2">Winter star</string>
+    <string name="garden_new_keepsake">New keepsake</string>
 </resources>

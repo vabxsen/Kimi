@@ -2,6 +2,17 @@ package com.forma.habits
 
 import android.content.Context
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -32,6 +43,21 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.AcUnit
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.AutoStories
+import androidx.compose.material.icons.rounded.BeachAccess
+import androidx.compose.material.icons.rounded.Brightness2
+import androidx.compose.material.icons.rounded.Eco
+import androidx.compose.material.icons.rounded.Fence
+import androidx.compose.material.icons.rounded.FlutterDash
+import androidx.compose.material.icons.rounded.Grass
+import androidx.compose.material.icons.rounded.Hiking
+import androidx.compose.material.icons.rounded.House
+import androidx.compose.material.icons.rounded.Lightbulb
+import androidx.compose.material.icons.rounded.LocalCafe
+import androidx.compose.material.icons.rounded.Nightlight
+import androidx.compose.material.icons.rounded.Park
+import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material.icons.rounded.Water
+import androidx.compose.material.icons.rounded.WbSunny
 import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ChevronRight
@@ -133,7 +159,13 @@ class GameMemory(context: Context, owner: String) {
     var badges: Set<String>
         get() = prefs.getStringSet("badges", emptySet()).orEmpty()
         set(value) = prefs.edit { putStringSet("badges", value) }
+    /** Null until keepsakes are first remembered, so an update does not celebrate every past season at once. */
+    var keepsakes: Set<String>?
+        get() = if (prefs.contains("keepsakes")) prefs.getStringSet("keepsakes", emptySet()).orEmpty() else null
+        set(value) = prefs.edit { putStringSet("keepsakes", value.orEmpty()) }
 }
+
+private fun Keepsake.key() = of.season.name + "-" + of.year + "-" + tier
 
 /** The colour each petal unlock gives the flower. */
 internal val PetalColours = linkedMapOf(
@@ -178,12 +210,69 @@ private fun unlockName(unlock: Unlock) = when (unlock) {
     Unlock.MintPetals -> R.string.unlock_mint
     Unlock.LilacPetals -> R.string.unlock_lilac
     Unlock.RainbowPetals -> R.string.unlock_rainbow_petals
+    Unlock.Wildflowers -> R.string.unlock_wildflowers
+    Unlock.Butterflies -> R.string.unlock_butterflies
+    Unlock.Fence -> R.string.unlock_fence
+    Unlock.Pond -> R.string.unlock_pond
+    Unlock.Tree -> R.string.unlock_tree
+    Unlock.StonePath -> R.string.unlock_path
+    Unlock.Birdhouse -> R.string.unlock_birdhouse
+    Unlock.Lanterns -> R.string.unlock_lanterns
+    Unlock.Meadow -> R.string.unlock_meadow
 }
 
 private fun unlockBody(unlock: Unlock) = when (unlock) {
     Unlock.ShootingStars -> R.string.unlock_stars_body
     Unlock.Rainbow -> R.string.unlock_rainbow_body
+    Unlock.Wildflowers -> R.string.unlock_wildflowers_body
+    Unlock.Butterflies -> R.string.unlock_butterflies_body
+    Unlock.Fence -> R.string.unlock_fence_body
+    Unlock.Pond -> R.string.unlock_pond_body
+    Unlock.Tree -> R.string.unlock_tree_body
+    Unlock.StonePath -> R.string.unlock_path_body
+    Unlock.Birdhouse -> R.string.unlock_birdhouse_body
+    Unlock.Lanterns -> R.string.unlock_lanterns_body
+    Unlock.Meadow -> R.string.unlock_meadow_body
     else -> R.string.unlock_petals_body
+}
+
+private fun unlockIcon(unlock: Unlock): ImageVector = when (unlock) {
+    Unlock.ShootingStars -> Icons.Rounded.AutoAwesome
+    Unlock.Rainbow -> Icons.Rounded.Looks
+    Unlock.Wildflowers, Unlock.Meadow -> Icons.Rounded.Grass
+    Unlock.Butterflies -> Icons.Rounded.FlutterDash
+    Unlock.Fence -> Icons.Rounded.Fence
+    Unlock.Pond -> Icons.Rounded.Water
+    Unlock.Tree -> Icons.Rounded.Park
+    Unlock.StonePath -> Icons.Rounded.Hiking
+    Unlock.Birdhouse -> Icons.Rounded.House
+    Unlock.Lanterns -> Icons.Rounded.Lightbulb
+    else -> Icons.Rounded.LocalFlorist
+}
+
+/** What a season is called, and how its keepsakes look and are named. */
+@Composable private fun seasonName(season: Season): String = stringResource(when (season) {
+    Season.Spring -> R.string.season_spring; Season.Summer -> R.string.season_summer
+    Season.Autumn -> R.string.season_autumn; Season.Winter -> R.string.season_winter
+})
+
+private val KeepsakeIcons = mapOf(
+    Season.Spring to listOf(Icons.Rounded.LocalFlorist, Icons.Rounded.Spa, Icons.Rounded.Looks),
+    Season.Summer to listOf(Icons.Rounded.WbSunny, Icons.Rounded.BeachAccess, Icons.Rounded.Nightlight),
+    Season.Autumn to listOf(Icons.Rounded.Eco, Icons.Rounded.Park, Icons.Rounded.Brightness2),
+    Season.Winter to listOf(Icons.Rounded.AcUnit, Icons.Rounded.LocalCafe, Icons.Rounded.Star)
+)
+
+private fun keepsakeName(season: Season, tier: Int) = when (season) {
+    Season.Spring -> listOf(R.string.keepsake_spring_0, R.string.keepsake_spring_1, R.string.keepsake_spring_2)
+    Season.Summer -> listOf(R.string.keepsake_summer_0, R.string.keepsake_summer_1, R.string.keepsake_summer_2)
+    Season.Autumn -> listOf(R.string.keepsake_autumn_0, R.string.keepsake_autumn_1, R.string.keepsake_autumn_2)
+    Season.Winter -> listOf(R.string.keepsake_winter_0, R.string.keepsake_winter_1, R.string.keepsake_winter_2)
+}[tier]
+
+private fun collectionCount(season: Season) = when (season) {
+    Season.Spring -> R.plurals.collection_spring; Season.Summer -> R.plurals.collection_summer
+    Season.Autumn -> R.plurals.collection_autumn; Season.Winter -> R.plurals.collection_winter
 }
 
 @Composable fun levelName(level: Int): String {
@@ -204,9 +293,54 @@ private fun unlockBody(unlock: Unlock) = when (unlock) {
 }
 
 /** A round badge with the level number in it. */
-@Composable private fun LevelBadge(level: Int, size: Int = 46) {
-    Box(Modifier.size(size.dp).clip(CircleShape).background(Purple), contentAlignment = Alignment.Center) {
-        Text("$level", color = OnAccent, fontWeight = FontWeight.ExtraBold, fontSize = (size * .42f).sp)
+/** The rosette's petals change colour every two levels, so a new tier looks new. */
+// No yellow among them: the rosette sits on the yellow garden bar.
+private val RosetteTiers = listOf(Color(0xFFD5C4F5), Color(0xFFFFC3A0), Color(0xFFB9E6CC), Color(0xFFA9D8F5), Color(0xFFF9B8CF), Color(0xFFFFAB91))
+private val RosetteGold = Color(0xFFFFC94D)
+
+/**
+ * The level, worn like a prize rosette: a ring of petals in the tier's colour turning slowly, a gold
+ * ring filling with the level's progress, and a glossy disc with the number in it. Decoration only:
+ * whatever shows it also says the level in words.
+ */
+@Composable private fun LevelBadge(level: Int, progress: Float, size: Int = 54) {
+    val reduced = reducedMotion()
+    val turn = if (!reduced) rememberInfiniteTransition(label = "rosette")
+        .animateFloat(0f, 360f, infiniteRepeatable(tween(24_000, easing = LinearEasing)), label = "rosette turn") else null
+    val fill by rememberGrow(progress.coerceIn(0f, 1f), 900, 150)
+    val mono = LocalKimiPalette.current.mono
+    val petal = if (mono) Lavender else RosetteTiers[((level - 1) / 2) % RosetteTiers.size]
+    val gold = if (mono) Ink else RosetteGold
+    val disc = Purple
+    Box(Modifier.size(size.dp), contentAlignment = Alignment.Center) {
+        Canvas(Modifier.matchParentSize()) {
+            val u = this.size.minDimension
+            val centre = Offset(this.size.width / 2, this.size.height / 2)
+            // Ten petals round the edge, the outer scallop of the rosette, with a faint shadow under them.
+            rotate(turn?.value ?: 0f, centre) {
+                for (i in 0 until 10) {
+                    val a = i * 36f * PI.toFloat() / 180f
+                    val at = centre + Offset(cos(a), sin(a)) * (u * .33f)
+                    drawCircle(Color.Black.copy(alpha = .08f), u * .145f, at + Offset(0f, u * .02f))
+                    drawCircle(petal, u * .14f, at)
+                    // A glint on the outer edge of each petal, where the light catches it.
+                    drawCircle(Color.White.copy(alpha = .45f), u * .035f, at + Offset(cos(a), sin(a)) * (u * .06f))
+                }
+            }
+            // The progress ring: a soft track, then gold for how far through the level.
+            val ring = u * .3f
+            val stroke = u * .055f
+            drawCircle(Color.White.copy(alpha = .75f), ring, centre, style = Stroke(stroke))
+            if (fill > 0f) drawArc(gold, -90f, 360f * fill, false, centre - Offset(ring, ring), Size(ring * 2, ring * 2),
+                style = Stroke(stroke, cap = StrokeCap.Round))
+            // The glossy centre.
+            val r = u * .25f
+            drawCircle(Brush.radialGradient(listOf(lerp(disc, Color.White, .3f), disc, lerp(disc, Color.Black, .18f)),
+                centre - Offset(r * .35f, r * .4f), r * 1.6f), r, centre)
+            drawOval(Color.White.copy(alpha = .28f), centre - Offset(r * .55f, r * .78f), Size(r * 1.1f, r * .55f))
+        }
+        Text("$level", color = OnAccent, fontWeight = FontWeight.ExtraBold, fontSize = (size * (if (level >= 10) .24f else .3f)).sp,
+            style = TextStyle(shadow = Shadow(Color.Black.copy(alpha = .25f), Offset(0f, 2f), 3f)))
     }
 }
 
@@ -227,7 +361,7 @@ private fun unlockBody(unlock: Unlock) = when (unlock) {
         pluralStringResource(R.plurals.cd_garden_freezes, report.freezes, report.freezes))
     PlayCard(Yellow, modifier.semantics(mergeDescendants = true) { contentDescription = label }.testTag("garden_bar"), onClick = onOpen) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            LevelBadge(report.level)
+            LevelBadge(report.level, report.levelProgress)
             Spacer(Modifier.width(13.dp))
             Column(Modifier.weight(1f)) {
                 Text(stringResource(R.string.garden_level, report.level, name), style = MaterialTheme.typography.titleMedium)
@@ -254,7 +388,11 @@ private fun unlockBody(unlock: Unlock) = when (unlock) {
 }
 
 /** The garden: everything about the game, opened from Today's bar. */
-@Composable fun GardenScreen(report: GameReport, onClose: () -> Unit) {
+@Composable fun GardenScreen(state: HabitState, report: GameReport, onClose: () -> Unit) {
+    val today = LocalToday.current
+    val plants = remember(state, today, report.frozenDays) {
+        state.habits.map { ScenePlant(plantStage(state.monthOfDone(it, today)), state.wilting(it, today, report.frozenDays)) }
+    }
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         Surface(color = Cream, modifier = Modifier.fillMaxSize()) {
             Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
@@ -265,8 +403,10 @@ private fun unlockBody(unlock: Unlock) = when (unlock) {
                 val cascade = rememberCascade()
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(23.dp, 8.dp, 23.dp, 28.dp),
                     verticalArrangement = Arrangement.spacedBy(18.dp)) {
+                    GardenScene(plants, report, Modifier.fillMaxWidth().height(250.dp).cascaded(cascade.entrance(0)).clip(RoundedCornerShape(27.dp)))
                     GardenHero(report, Modifier.cascaded(cascade.entrance(0)))
                     QuestsCard(report, Modifier.cascaded(cascade.entrance(1)))
+                    CollectionCard(report, Modifier.cascaded(cascade.entrance(2)))
                     FreezesCard(report, Modifier.cascaded(cascade.entrance(2)))
                     BadgesCard(report, Modifier.cascaded(cascade.entrance(3)))
                     UnlocksCard(report, Modifier.cascaded(cascade.entrance(4)))
@@ -330,6 +470,62 @@ private fun unlockBody(unlock: Unlock) = when (unlock) {
     }
 }
 
+/** This season's collection: items so far, the way to the next keepsake, and keepsakes kept from earlier seasons. */
+@Composable private fun CollectionCard(report: GameReport, modifier: Modifier) {
+    val season = report.season.season
+    val name = seasonName(season)
+    val earned = report.keepsakes.filter { it.of == report.season }.map { it.tier }.toSet()
+    PlayCard(Pink, modifier) {
+        Text(stringResource(R.string.collection_title, name), style = MaterialTheme.typography.titleMedium)
+        Text(pluralStringResource(R.plurals.collection_body, KeepsakePetals, KeepsakePetals), fontSize = 12.sp, color = Quiet, lineHeight = 17.sp)
+        Spacer(Modifier.height(12.dp))
+        val shown by rememberGrow(report.collected.toFloat(), 900)
+        Text(pluralStringResource(collectionCount(season), report.collected, shown.toInt()), fontWeight = FontWeight.Bold, fontSize = 15.sp)
+        Spacer(Modifier.height(8.dp))
+        val next = KeepsakeAt.indexOfFirst { report.collected < it }
+        if (next >= 0) {
+            val from = if (next == 0) 0 else KeepsakeAt[next - 1]
+            LevelBar((report.collected - from).toFloat() / (KeepsakeAt[next] - from))
+            Spacer(Modifier.height(5.dp))
+            val left = KeepsakeAt[next] - report.collected
+            Text(pluralStringResource(R.plurals.collection_to_next, left, left, stringResource(keepsakeName(season, next))), fontSize = 12.sp, color = Quiet)
+        } else Text(stringResource(R.string.collection_complete), fontSize = 12.sp, color = Quiet)
+        Spacer(Modifier.height(14.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            KeepsakeAt.indices.forEach { tier ->
+                val got = tier in earned
+                Column(Modifier.weight(1f).semantics(mergeDescendants = true) {}, horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(Modifier.size(50.dp).clip(CircleShape).background(if (got) Yellow else Overlay)
+                        .border(if (got) 2.dp else 1.5.dp, if (got) Ink else Quiet.copy(alpha = .35f), CircleShape), contentAlignment = Alignment.Center) {
+                        Icon(if (got) KeepsakeIcons.getValue(season)[tier] else Icons.Rounded.Lock, null, Modifier.size(if (got) 24.dp else 18.dp),
+                            tint = if (got) Ink else Quiet.copy(alpha = .6f))
+                    }
+                    Spacer(Modifier.height(5.dp))
+                    Text(stringResource(keepsakeName(season, tier)), fontSize = 11.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
+                        color = if (got) Ink else Quiet)
+                    Text("${KeepsakeAt[tier]}", fontSize = 10.sp, color = Quiet)
+                }
+            }
+        }
+        // Keepsakes from earlier seasons, newest first.
+        val past = report.keepsakes.filter { it.of != report.season }.reversed()
+        Spacer(Modifier.height(14.dp))
+        Text(stringResource(R.string.collection_keepsakes_title), style = MaterialTheme.typography.titleMedium, fontSize = 15.sp)
+        Spacer(Modifier.height(6.dp))
+        if (past.isEmpty()) Text(stringResource(R.string.collection_none_yet), fontSize = 12.sp, color = Quiet)
+        past.forEach { keepsake ->
+            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp).semantics(mergeDescendants = true) {}, verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(30.dp).clip(CircleShape).background(Yellow), contentAlignment = Alignment.Center) {
+                    Icon(KeepsakeIcons.getValue(keepsake.of.season)[keepsake.tier], null, Modifier.size(16.dp), tint = Ink)
+                }
+                Spacer(Modifier.width(10.dp))
+                Text(stringResource(keepsakeName(keepsake.of.season, keepsake.tier)), fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                Text(stringResource(R.string.collection_keepsake_season, seasonName(keepsake.of.season), keepsake.of.year), fontSize = 12.sp, color = Quiet)
+            }
+        }
+    }
+}
+
 @Composable private fun FreezesCard(report: GameReport, modifier: Modifier) {
     PlayCard(Blue, modifier) {
         Text(stringResource(R.string.garden_freezes_title), style = MaterialTheme.typography.titleMedium)
@@ -387,17 +583,13 @@ private fun unlockBody(unlock: Unlock) = when (unlock) {
         Text(stringResource(R.string.garden_unlocks_title), style = MaterialTheme.typography.titleMedium)
         Text(stringResource(R.string.garden_unlocks_body), fontSize = 12.sp, color = Quiet)
         Spacer(Modifier.height(10.dp))
-        Unlock.entries.forEach { unlock ->
+        Unlock.entries.sortedBy { it.level }.forEach { unlock ->
             val open = report.unlocked(unlock)
             Row(Modifier.fillMaxWidth().padding(vertical = 6.dp).semantics(mergeDescendants = true) {}, verticalAlignment = Alignment.CenterVertically) {
                 val tint = PetalColours[unlock]
                 Box(Modifier.size(36.dp).clip(CircleShape).background(if (open) (tint ?: Lavender) else Overlay)
                     .then(if (open) Modifier else Modifier.border(1.5.dp, Quiet.copy(alpha = .35f), CircleShape)), contentAlignment = Alignment.Center) {
-                    Icon(when (unlock) {
-                        Unlock.ShootingStars -> Icons.Rounded.AutoAwesome
-                        Unlock.Rainbow -> Icons.Rounded.Looks
-                        else -> Icons.Rounded.LocalFlorist
-                    }, null, Modifier.size(19.dp), tint = if (open) Color(0xFF33283E) else Quiet.copy(alpha = .6f))
+                    Icon(unlockIcon(unlock), null, Modifier.size(19.dp), tint = if (open) Color(0xFF33283E) else Quiet.copy(alpha = .6f))
                 }
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
@@ -438,6 +630,7 @@ private fun unlockBody(unlock: Unlock) = when (unlock) {
 private sealed class GameMoment {
     data class LevelUp(val level: Int, val unlocks: List<Unlock>) : GameMoment()
     data class NewBadge(val kind: BadgeKind) : GameMoment()
+    data class NewKeepsake(val keepsake: Keepsake) : GameMoment()
 }
 
 /**
@@ -447,11 +640,15 @@ private sealed class GameMoment {
 @Composable fun GameMoments(report: GameReport, memory: GameMemory, quiet: Boolean = false) {
     var shown by remember { mutableStateOf<GameMoment?>(null) }
     val haptics = rememberHaptics()
-    LaunchedEffect(report.level, report.badges.keys, quiet) {
+    LaunchedEffect(report.level, report.badges.keys, report.keepsakes, quiet) {
         shown = null
+        val keys = report.keepsakes.map { it.key() }
+        val keptBefore = memory.keepsakes
+        if (keptBefore == null) memory.keepsakes = keys.toSet()
         if (memory.level < 0 || quiet) {
             memory.level = maxOf(memory.level, report.level)
             memory.badges = memory.badges + report.badges.keys.map { it.name }
+            memory.keepsakes = memory.keepsakes.orEmpty() + keys
             return@LaunchedEffect
         }
         val queue = mutableListOf<GameMoment>()
@@ -460,8 +657,10 @@ private sealed class GameMoment {
         }
         val seen = memory.badges
         report.badges.keys.filter { it.name !in seen }.forEach { queue += GameMoment.NewBadge(it) }
+        if (keptBefore != null) report.keepsakes.filter { it.key() !in keptBefore }.forEach { queue += GameMoment.NewKeepsake(it) }
         memory.level = maxOf(memory.level, report.level)
         memory.badges = seen + report.badges.keys.map { it.name }
+        memory.keepsakes = memory.keepsakes.orEmpty() + keys
         if (queue.isEmpty()) return@LaunchedEffect
         delay(1300)
         for (moment in queue) {
@@ -474,7 +673,11 @@ private sealed class GameMoment {
     }
     when (val moment = shown) {
         is GameMoment.LevelUp -> LevelUpView(moment)
-        is GameMoment.NewBadge -> BadgeView(moment.kind)
+        is GameMoment.NewBadge -> BadgeLooks.getValue(moment.kind).let { look ->
+            ToastView(moment, look.icon, stringResource(R.string.garden_new_badge), stringResource(look.title))
+        }
+        is GameMoment.NewKeepsake -> ToastView(moment, KeepsakeIcons.getValue(moment.keepsake.of.season)[moment.keepsake.tier],
+            stringResource(R.string.garden_new_keepsake), stringResource(keepsakeName(moment.keepsake.of.season, moment.keepsake.tier)))
         null -> Unit
     }
 }
@@ -523,11 +726,11 @@ private sealed class GameMoment {
     }
 }
 
-@Composable private fun BadgeView(kind: BadgeKind) {
+/** A small card that drops in from the top to announce a new badge or keepsake. */
+@Composable private fun ToastView(key: Any, icon: ImageVector, label: String, title: String) {
     val reduced = reducedMotion()
-    val progress = remember(kind) { Animatable(0f) }
-    LaunchedEffect(kind) { progress.animateTo(1f, tween(2400, easing = LinearEasing)) }
-    val look = BadgeLooks.getValue(kind)
+    val progress = remember(key) { Animatable(0f) }
+    LaunchedEffect(key) { progress.animateTo(1f, tween(2400, easing = LinearEasing)) }
     Box(Modifier.fillMaxSize().statusBarsPadding().padding(top = 70.dp), contentAlignment = Alignment.TopCenter) {
         Row(
             Modifier.graphicsLayer {
@@ -542,14 +745,14 @@ private sealed class GameMoment {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(Modifier.size(40.dp).clip(CircleShape).background(Yellow), contentAlignment = Alignment.Center) {
-                Icon(look.icon, null, Modifier.size(22.dp).graphicsLayer {
+                Icon(icon, null, Modifier.size(22.dp).graphicsLayer {
                     val s = if (reduced) 1f else easeOutBack(((progress.value - .1f) / .25f).coerceIn(0f, 1f)); scaleX = s; scaleY = s
                 }, tint = Color(0xFF33283E))
             }
             Spacer(Modifier.width(12.dp))
             Column {
-                Text(stringResource(R.string.garden_new_badge), color = OnInk.copy(alpha = .75f), fontSize = 11.sp)
-                Text(stringResource(look.title), color = OnInk, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                Text(label, color = OnInk.copy(alpha = .75f), fontSize = 11.sp)
+                Text(title, color = OnInk, fontWeight = FontWeight.Bold, fontSize = 15.sp)
             }
         }
     }

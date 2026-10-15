@@ -108,6 +108,34 @@ class GameTest {
         assertTrue(HabitState(habits = listOf(stretch.copy(created = today.plusDays(30)))).weekQuests(monday).isEmpty())
     }
 
+    @Test fun ticksThroughASeasonEarnItsKeepsakes() {
+        // One habit every day from 1 September to today, 14 October: 44 autumn ticks.
+        val autumn = stretch.copy(created = LocalDate.of(2026, 9, 1))
+        val days = generateSequence(LocalDate.of(2026, 9, 1)) { it.plusDays(1) }.takeWhile { !it.isAfter(today) }
+        val s = HabitState(habits = listOf(autumn), checks = days.associate { it.toString() to setOf("a") })
+        val game = s.game(today)
+        assertEquals(SeasonOf(Season.Autumn, 2026), game.season)
+        assertEquals(44, game.collected)
+        assertEquals(listOf(0, 1), game.keepsakes.map { it.tier })
+        assertEquals(LocalDate.of(2026, 9, 15), game.keepsakes[0].earnedOn)
+        assertEquals(LocalDate.of(2026, 10, 10), game.keepsakes[1].earnedOn)
+        // Each keepsake adds its petals on top of everything else.
+        val without = s.game(LocalDate.of(2026, 9, 14)).petals
+        val withFirst = s.game(LocalDate.of(2026, 9, 15)).petals
+        assertTrue(withFirst - without >= KeepsakePetals + PetalsPerTick)
+    }
+
+    @Test fun winterBelongsToTheYearItStarts() {
+        assertEquals(SeasonOf(Season.Winter, 2026), seasonOf(LocalDate.of(2026, 12, 20)))
+        assertEquals(SeasonOf(Season.Winter, 2026), seasonOf(LocalDate.of(2027, 2, 10)))
+        assertEquals(SeasonOf(Season.Spring, 2027), seasonOf(LocalDate.of(2027, 3, 1)))
+        assertEquals(SeasonOf(Season.Winter, 2025), seasonOf(LocalDate.of(2026, 1, 5)))
+    }
+
+    @Test fun everyLevelFromTwoToElevenUnlocksSomething() {
+        (2..9).plus(10).plus(11).forEach { level -> assertTrue("level $level", Unlock.entries.any { it.level == level }) }
+    }
+
     @Test fun anEmptyGardenStartsAtLevelOne() {
         val game = HabitState().game(today)
         assertEquals(0, game.petals); assertEquals(1, game.level); assertTrue(game.badges.isEmpty())
