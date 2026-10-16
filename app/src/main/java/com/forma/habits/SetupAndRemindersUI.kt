@@ -215,6 +215,7 @@ import java.time.format.DateTimeFormatter
     var editingId by rememberSaveable { mutableStateOf<String?>(null) }
     var minutes by rememberSaveable { mutableStateOf<Int?>(null) }
     var count by rememberSaveable { mutableIntStateOf(1) }
+    var sound by rememberSaveable { mutableStateOf(ReminderSound.Default) }
     var saving by remember { mutableStateOf(false) }
     // Which habit's switch is mid-save, so a second tap cannot race the first.
     var switching by remember { mutableStateOf<String?>(null) }
@@ -250,7 +251,7 @@ import java.time.format.DateTimeFormatter
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             habits.forEach { habit ->
                 ReminderRow(habit, format, busy = switching == habit.id,
-                    onOpen = { editingId = habit.id; minutes = habit.reminderMinutes; count = habit.reminderCount }) { on ->
+                    onOpen = { editingId = habit.id; minutes = habit.reminderMinutes; count = habit.reminderCount; sound = ReminderSound.of(context, habit.id) }) { on ->
                     if (on && !Reminders.allowed(context) && Build.VERSION.SDK_INT >= 33) permission.launch(Manifest.permission.POST_NOTIFICATIONS)
                     switching = habit.id
                     // Switching on starts at 9 am, the same default the editor uses; tap the row to change it.
@@ -266,9 +267,13 @@ import java.time.format.DateTimeFormatter
     }
     habits.find { it.id == editingId }?.let { habit ->
         AlertDialog(onDismissRequest = { if (!saving) editingId = null }, title = { Text(habit.name) },
-            text = { Column(Modifier.verticalScroll(rememberScrollState())) { ReminderPicker(minutes, count) { nextMinutes, nextCount -> minutes = nextMinutes; count = nextCount } } },
+            text = { Column(Modifier.verticalScroll(rememberScrollState())) {
+                ReminderPicker(minutes, count) { nextMinutes, nextCount -> minutes = nextMinutes; count = nextCount }
+                if (minutes != null) { Spacer(Modifier.height(14.dp)); ReminderSoundPicker(sound) { sound = it } }
+            } },
             confirmButton = { TextButton(enabled = !saving, onClick = {
                 saving = true
+                ReminderSound.set(context, habit.id, sound)
                 onSave(habit.copy(reminderMinutes = minutes, reminderCount = count)) { saved ->
                     saving = false
                     if (saved) editingId = null

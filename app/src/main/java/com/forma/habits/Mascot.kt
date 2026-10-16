@@ -84,11 +84,18 @@ internal class TapBurst {
     val g = giggle.value
     Flower(
         modifier
-            .pointerInput(reduced) {
+            .pointerInput(reduced, sleeping) {
                 detectTapGestures {
                     haptics.play(Feel.Tick)
+                    val dizzyNow = burst.tap(SystemClock.uptimeMillis())
+                    // Its voice: a giggle when poked, a yawn when poked awake, a "wheee" when spun.
+                    when {
+                        dizzyNow && !reduced -> Sound.wheee()
+                        sleeping -> Sound.yawn()
+                        else -> Sound.giggle()
+                    }
                     if (reduced) return@detectTapGestures
-                    if (burst.tap(SystemClock.uptimeMillis())) {
+                    if (dizzyNow) {
                         haptics.play(Feel.Thud)
                         scope.launch { spin.animateTo(spin.value + 720f, tween(1300, easing = FastOutSlowInEasing)) }
                         scope.launch {

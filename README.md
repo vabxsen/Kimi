@@ -30,13 +30,14 @@ The app is fully native—there is no WebView—and its interface includes light
 
 | Area | What you can do |
 | --- | --- |
-| ☀️ **Today** | Check off today's habits by tap or swipe, undo check-ins, filter by time of day, and review daily progress and streaks. |
+| ☀️ **Today** | Check off today's habits by tap or swipe, undo check-ins, filter by time of day, review daily progress and streaks, and do a habit as a timed focus session with rain, café, fireplace or brown-noise sounds, or a breathing guide. |
 | 🌿 **Habits** | Create, search, edit, and delete rituals with custom icons, colors, schedules, dayparts, and goals. |
 | 📅 **Calendar** | Browse previous and upcoming months, then review the habits completed on any date. |
 | 📊 **Insights** | See seven-day completion, weekly wins, current streaks, and 30-day consistency, and replay your week as a short story. |
 | 🌸 **Garden** | Grow petals and garden levels, earn badges and seasonal keepsakes, take on weekly quests, and bank streak freezes, all shown in a living garden scene. |
-| 📖 **Journal** | Record a mood and one private reflection per day, with resilient draft recovery. |
-| ⚙️ **Settings** | Choose a theme, manage reminders and accounts, and check for updates. |
+| 📖 **Journal** | Record a mood and one private reflection per day, with resilient draft recovery, and add a voice note that stays on your phone. |
+| 🎵 **Sound** | Optional sounds made in code: a note for every tick that builds into the day's tune, streak crackles, garden chimes, a voice for the flower, a soundscape that follows the sky, and a soundtrack for the weekly story. |
+| ⚙️ **Settings** | Choose a theme and sounds, manage reminders (each with its own sound) and accounts, and check for updates. |
 
 Additional details:
 
@@ -50,6 +51,8 @@ Additional details:
 - Localized date and calendar labels, with all app copy stored in Android resources.
 - Four colour themes, a sky that follows the time of day and the seasons, and gentle motion and haptics throughout, all respecting Android's Remove animations setting.
 - A garden game that can be switched off in Settings for a plain tracker.
+- Sounds that are off until switched on, quiet when the phone is on silent or vibrate, and never play a background over your music.
+- An optional evening nudge at 8 pm when a streak is still waiting for the day.
 
 ## 📱 Download and install
 
@@ -169,6 +172,8 @@ Connected tests replace the Kimi test data on the selected emulator. See [docs/V
 | `Story.kt` / `Charts.kt` | The weekly story and Insights' self-drawing charts |
 | `Sky.kt` / `Moments.kt` / `Mascot.kt` | The living sky, celebrations, and the flower mascot |
 | `Motion.kt` / `Choreography.kt` / `Haptics.kt` | Shared motion, list choreography, and haptic feedback |
+| `Synth.kt` / `Audio.kt` / `Soundscape.kt` | Every sound, synthesised in code, and the mixer, settings and backgrounds that play them |
+| `Focus.kt` / `VoiceNotes.kt` / `SoundUI.kt` | Focus sessions, journal voice notes, and sound settings |
 | `Gust.kt` / `Ripple.kt` / `Logo.kt` | Delete petals, the theme ripple, and the animated logo |
 | `HabitStore.kt` | Durable local persistence and recovery |
 | `BackupCodec.kt` | Versioned JSON serialization, migration, and validation |

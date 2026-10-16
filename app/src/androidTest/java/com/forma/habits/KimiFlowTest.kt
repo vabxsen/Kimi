@@ -149,6 +149,47 @@ class KimiFlowTest {
         }
     }
 
+    @Test fun soundsCanBeSwitchedOnInSettings() {
+        try {
+            compose.runOnIdle { SoundSetting.setEffects(context, false) }
+            compose.onNodeWithContentDescription("Open settings").performClick()
+            compose.onNode(hasScrollAction()).performScrollToNode(hasTestTag("sound_switch"))
+            compose.onNodeWithTag("sound_switch").assertIsOff().performClick()
+            compose.runOnIdle { assertTrue(SoundSetting.effects) }
+            compose.onNodeWithTag("sound_switch").assertIsOn()
+            compose.onNodeWithContentDescription("Background volume").assertExists()
+            compose.onNode(hasScrollAction()).performScrollToNode(hasTestTag("nudge_switch"))
+            compose.onNodeWithTag("nudge_switch").assertExists()
+        } finally {
+            SoundSetting.setEffects(context, false)
+        }
+    }
+
+    @Test fun aFocusSessionCanBeStartedPausedAndClosed() {
+        runBlocking { store.update { HabitState(habits = listOf(Habit(name = "Meditate", goal = "", icon = 0)), name = "Alex") } }
+        waitFor { store.state.value.habits.size == 1 }
+        compose.onNode(verticalList).performScrollToNode(hasContentDescription("Start a focus session for Meditate"))
+        compose.onNodeWithContentDescription("Start a focus session for Meditate").performClick()
+        compose.onNodeWithText("Focus session").assertExists()
+        // A calm habit starts out with the breathing guide, for five minutes.
+        compose.onNodeWithText("Breathe").assertIsSelected()
+        compose.onNodeWithText("5 min").assertIsSelected()
+        compose.onNodeWithText("Silence").performScrollTo().performClick()
+        compose.onNodeWithTag("focus_start").performClick()
+        compose.onNodeWithText("Pause").assertExists().performClick()
+        compose.onNodeWithText("Keep going").assertExists()
+        compose.onNodeWithContentDescription("Close the focus session").performClick()
+        compose.onNodeWithText("Focus session").assertDoesNotExist()
+        // Stopping early leaves the habit for the user to tick.
+        assertEquals(0, store.state.value.count(LocalDate.now()))
+    }
+
+    @Test fun theJournalOffersAVoiceNote() {
+        compose.onNodeWithText("Journal", substring = false).performClick()
+        compose.onNode(hasScrollAction()).performScrollToNode(hasTestTag("voice_record"))
+        compose.onNodeWithText("Add a voice note").assertExists()
+    }
+
     @Test fun colorThemeCanBeChosenInSettings() {
         compose.onNodeWithContentDescription("Open settings").performClick()
         compose.onNode(hasScrollAction()).performScrollToNode(hasTestTag("palette_sunset"))

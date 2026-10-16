@@ -84,6 +84,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -113,6 +114,8 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.edit
 import kotlinx.coroutines.delay
+import java.time.LocalDate
+import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import kotlin.math.PI
 import kotlin.math.cos
@@ -163,6 +166,10 @@ class GameMemory(context: Context, owner: String) {
     var keepsakes: Set<String>?
         get() = if (prefs.contains("keepsakes")) prefs.getStringSet("keepsakes", emptySet()).orEmpty() else null
         set(value) = prefs.edit { putStringSet("keepsakes", value.orEmpty()) }
+    /** Days a streak freeze has covered; null until first remembered, so old ones are never announced. */
+    var frozen: Set<String>?
+        get() = if (prefs.contains("frozen")) prefs.getStringSet("frozen", emptySet()).orEmpty() else null
+        set(value) = prefs.edit { putStringSet("frozen", value.orEmpty()) }
 }
 
 private fun Keepsake.key() = of.season.name + "-" + of.year + "-" + tier
@@ -393,6 +400,10 @@ private val RosetteGold = Color(0xFFFFC94D)
     val plants = remember(state, today, report.frozenDays) {
         state.habits.map { ScenePlant(plantStage(state.monthOfDone(it, today)), state.wilting(it, today, report.frozenDays)) }
     }
+    // The garden sounds like what is in it, while it is open: see gardenBed.
+    DuckSoundscape()
+    val night = nightness(LocalTime.now().let { it.hour * 60f + it.minute }) > .5f
+    AmbientBed(Triple(report.level, report.season.season, night), SoundSetting.effects && Sound.ringerOn()) { gardenBed(report, night) }
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         Surface(color = Cream, modifier = Modifier.fillMaxSize()) {
             Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
@@ -632,6 +643,7 @@ private sealed class GameMoment {
     data class LevelUp(val level: Int, val unlocks: List<Unlock>) : GameMoment()
     data class NewBadge(val kind: BadgeKind) : GameMoment()
     data class NewKeepsake(val keepsake: Keepsake) : GameMoment()
+    data class FreezeUsed(val day: LocalDate) : GameMoment()
 }
 
 /**
@@ -642,15 +654,26 @@ private sealed class GameMoment {
     var shown by remember { mutableStateOf<GameMoment?>(null) }
     val haptics = rememberHaptics()
     val today = LocalToday.current
-    LaunchedEffect(report.level, report.badges.keys, report.keepsakes, quiet) {
+    // Petals landing: a big win (a perfect day, a quest, a perfect week) pings once per petal, up to a dozen.
+    var petalsHeard by remember { mutableIntStateOf(report.petals) }
+    LaunchedEffect(report.petals, quiet) {
+        val gained = report.petals - petalsHeard
+        petalsHeard = report.petals
+        if (!quiet && gained >= PerfectDayPetals) Sound.petals(gained, delayMillis = 450)
+    }
+    LaunchedEffect(report.level, report.badges.keys, report.keepsakes, report.frozenDays, quiet) {
         shown = null
         val keys = report.keepsakes.map { it.key() }
         val keptBefore = memory.keepsakes
         if (keptBefore == null) memory.keepsakes = keys.toSet()
+        val frozenKeys = report.frozenDays.map { it.toString() }
+        val frozenBefore = memory.frozen
+        if (frozenBefore == null) memory.frozen = frozenKeys.toSet()
         if (memory.level < 0 || quiet) {
             memory.level = maxOf(memory.level, report.level)
             memory.badges = memory.badges + report.badges.keys.map { it.name }
             memory.keepsakes = memory.keepsakes.orEmpty() + keys
+            memory.frozen = memory.frozen.orEmpty() + frozenKeys
             return@LaunchedEffect
         }
         val queue = mutableListOf<GameMoment>()
@@ -665,10 +688,20 @@ private sealed class GameMoment {
         memory.level = maxOf(memory.level, report.level)
         memory.badges = seen + report.badges.keys.map { it.name }
         memory.keepsakes = memory.keepsakes.orEmpty() + keys
+        // A freeze spent on a day just gone: said once, with a frosty hiss, the first time Kimi is opened after.
+        if (frozenBefore != null) report.frozenDays.filter { it.toString() !in frozenBefore && !it.isBefore(today.minusDays(2)) }
+            .maxOrNull()?.let { queue += GameMoment.FreezeUsed(it) }
+        memory.frozen = memory.frozen.orEmpty() + frozenKeys
         if (queue.isEmpty()) return@LaunchedEffect
         delay(1300)
         for (moment in queue) {
             shown = moment
+            when (moment) {
+                is GameMoment.LevelUp -> Sound.levelUp()
+                is GameMoment.NewBadge -> Sound.petals(6)
+                is GameMoment.NewKeepsake -> Sound.keepsake(moment.keepsake.of.season)
+                is GameMoment.FreezeUsed -> Sound.freeze()
+            }
             if (moment is GameMoment.LevelUp) haptics.pattern(*MilestoneBeats) else haptics.play(Feel.Confirm)
             delay(if (moment is GameMoment.LevelUp) 3000 else 2400)
             shown = null
@@ -682,6 +715,7 @@ private sealed class GameMoment {
         }
         is GameMoment.NewKeepsake -> ToastView(moment, KeepsakeIcons.getValue(moment.keepsake.of.season)[moment.keepsake.tier],
             stringResource(R.string.garden_new_keepsake), stringResource(keepsakeName(moment.keepsake.of.season, moment.keepsake.tier)))
+        is GameMoment.FreezeUsed -> ToastView(moment, Icons.Rounded.AcUnit, stringResource(R.string.garden_freeze_used), stringResource(R.string.garden_freeze_used_title))
         null -> Unit
     }
 }

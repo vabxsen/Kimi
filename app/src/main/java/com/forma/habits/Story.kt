@@ -113,6 +113,16 @@ internal const val StoryWatchedOn = "watched_on"
         }
         if (page < StoryPages - 1) page++
     }
+    // Each page has its own musical moment, timed to what it shows.
+    DuckSoundscape()
+    LaunchedEffect(page) {
+        when (page) {
+            0 -> Sound.storyBloom()
+            1 -> Sound.drumroll()
+            2 -> if (story.bestDay != null) Sound.flourish(story.perfectDays)
+            else -> Sound.storyEnd(streakLevel(story.streak))
+        }
+    }
     val colors = listOf(Purple, Mint, Yellow, Peach)
     val onPage = if (page == 0) OnAccent else Ink
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {

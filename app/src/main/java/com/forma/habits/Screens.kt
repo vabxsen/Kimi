@@ -162,6 +162,7 @@ private val LensLift = 3.dp
     val context = LocalContext.current
     var storyWatchedOn by remember { mutableStateOf(storyPrefs(context).getString(StoryWatchedOn, null)) }
     var gardenOpen by rememberSaveable { mutableStateOf(false) }
+    var focusId by rememberSaveable { mutableStateOf<String?>(null) }
     val game = LocalGame.current
     val (flowerPetal, flowerPetals) = chosenPetals(game)
     // Celebrates the moment the day is finished, not every later visit to a finished day.
@@ -173,7 +174,7 @@ private val LensLift = 3.dp
         val finished = dayDone && !wasDone
         wasDone = dayDone
         // Felt in step with the confetti and the flower's pop.
-        if (finished) { celebrations++; haptics.pattern(*DayCompleteBeats) }
+        if (finished) { celebrations++; Sound.dayDone(state.count(today), delayMillis = 260); haptics.pattern(*DayCompleteBeats) }
     }
     // A streak reaching 7, 30 or 100 days gets its own moment, once per habit and milestone. Only
     // habits already on screen count, so a sync or restore that brings in a long streak stays quiet.
@@ -187,6 +188,12 @@ private val LensLift = 3.dp
             val now = stats.streaks[habit.id] ?: 0
             StreakMilestones.lastOrNull { before < it && now >= it && celebrated.add("${habit.id}/$it") }?.let { it to habit.name }
         }
+        // A streak that grew crackles like its flame, fuller at 7, 30 and 100 days, just after the tick's note.
+        val grown = state.habits.mapNotNull { habit ->
+            val before = lastStreaks[habit.id] ?: return@mapNotNull null
+            (stats.streaks[habit.id] ?: 0).takeIf { it > before }
+        }.maxOrNull()
+        if (grown != null) Sound.crackle(streakLevel(grown), delayMillis = 230)
         lastStreaks = stats.streaks
         // A beat after the check-in pop, so the two moments do not land on top of each other.
         if (reached != null) { delay(650); milestone = reached; milestoneShows++; haptics.pattern(*MilestoneBeats) }
@@ -400,7 +407,8 @@ private val LensLift = 3.dp
         itemsIndexed(habits, key = { _, habit -> habit.id }) { index, habit ->
             val fresh = remember { arrivals.isNew(habit.id) }
             HabitRow(habit, state, date, { onToggle(habit, date) },
-                listMotion().cascaded(cascade.entrance(5 + index)).sprouted(rememberSprout(fresh, seed = true)), onEdit = { onEdit(habit) })
+                listMotion().cascaded(cascade.entrance(5 + index)).sprouted(rememberSprout(fresh, seed = true)), onEdit = { onEdit(habit) },
+                onFocus = { focusId = habit.id })
         }
         if (habits.isEmpty()) item {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -413,6 +421,9 @@ private val LensLift = 3.dp
     }
     DayCompleteCelebration(celebrations)
     if (storyOpen) WeekStoryDialog(state, today) { storyOpen = false; storyWatchedOn = today.toString() }
+    state.habits.find { it.id == focusId }?.let { habit ->
+        FocusDialog(habit, canTick = habit.isDue(today) && !state.done(habit.id, today), onTick = { onToggle(habit, today) }) { focusId = null }
+    }
     if (gardenOpen && game != null) GardenScreen(state, game) { gardenOpen = false }
     MilestoneMoment(milestoneShows, milestone.first, milestone.second)
     }
@@ -422,7 +433,7 @@ private val LensLift = 3.dp
 private const val SwipeCommit = .42f
 
 @Composable fun HabitRow(habit: Habit, state: HabitState, date: LocalDate, onToggle: () -> Unit, modifier: Modifier = Modifier,
-    onEdit: (() -> Unit)? = null) {
+    onEdit: (() -> Unit)? = null, onFocus: (() -> Unit)? = null) {
     val today = LocalToday.current
     val checked = state.done(habit.id, date)
     val haptics = rememberHaptics()
@@ -443,28 +454,39 @@ private const val SwipeCommit = .42f
     val swipe = remember { Animatable(0f) }
     var armed by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    val toggleNow by rememberUpdatedState(onToggle)
+    // Each tick plays the next note of the day's tune; undoing one plays its note backwards.
+    val toggleWithSound by rememberUpdatedState {
+        val doneSoFar = state.count(date)
+        if (checked) Sound.untick((doneSoFar - 1).coerceAtLeast(0)) else Sound.tick(doneSoFar)
+        onToggle()
+    }
+    var hum by remember { mutableStateOf<SwipeHum?>(null) }
     val wash = lerp(background, Ink, .16f)
     val mark = Ink
     val markInk = OnInk
     val drag = if (date != today) Modifier else Modifier.pointerInput(checked) {
         var dragged = 0f
         detectHorizontalDragGestures(
-            onDragStart = { dragged = swipe.value },
+            onDragStart = { dragged = swipe.value; hum = Sound.swipe() },
             onDragEnd = {
+                hum?.release(commit = armed); hum = null
                 scope.launch {
-                    if (armed) { haptics.play(Feel.Confirm); toggleNow() }
+                    if (armed) { haptics.play(Feel.Confirm); toggleWithSound() }
                     swipe.animateTo(0f, if (reduced) snap() else spring(dampingRatio = .55f, stiffness = Spring.StiffnessMediumLow))
                     armed = false
                 }
             },
-            onDragCancel = { scope.launch { swipe.animateTo(0f); armed = false } }
+            onDragCancel = { hum?.release(commit = false); hum = null; scope.launch { swipe.animateTo(0f); armed = false } }
         ) { change, amount ->
             change.consume()
             dragged = (dragged + amount).coerceIn(0f, size.width.toFloat())
             scope.launch { swipe.snapTo(dragged) }
             val past = dragged >= size.width * SwipeCommit
-            if (past != armed) { armed = past; haptics.play(if (past) Feel.Threshold else Feel.Tick) }
+            hum?.reach = dragged / (size.width * SwipeCommit).toDouble()
+            if (past != armed) {
+                armed = past; haptics.play(if (past) Feel.Threshold else Feel.Tick)
+                if (past) Sound.swipeCatch()
+            }
         }
     }
     val press = rememberSquish(.97f)
@@ -494,7 +516,7 @@ private const val SwipeCommit = .42f
         .then(drag)
         .toggleable(value = checked, interactionSource = press.interaction, indication = LocalIndication.current,
             enabled = date == today, role = Role.Checkbox, onValueChange = {
-            haptics.play(if (checked) Feel.Off else Feel.On); onToggle()
+            haptics.play(if (checked) Feel.Off else Feel.On); toggleWithSound()
         }).semantics { contentDescription = toggleLabel }) {
     Row(Modifier.fillMaxWidth().graphicsLayer { translationX = swipe.value }.padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
         BubbleIcon(HabitSymbols[habit.icon.coerceIn(HabitSymbols.indices)], Overlay, size = 44)
@@ -502,6 +524,14 @@ private const val SwipeCommit = .42f
         Column(Modifier.weight(1f)) {
             Text(habit.name, style = MaterialTheme.typography.titleMedium, fontSize = 14.sp)
             if (habit.goal.isNotBlank()) { Spacer(Modifier.height(4.dp)); Text(habit.goal, fontSize = 10.sp, color = Quiet) }
+        }
+        // A habit still to do today can be done as a focus session, with a timer and something to listen to.
+        if (onFocus != null && date == today && !checked) {
+            IconButton(onClick = onFocus, modifier = Modifier.size(44.dp)) {
+                Box(Modifier.size(34.dp).clip(CircleShape).background(Overlay), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Rounded.HourglassTop, stringResource(R.string.cd_focus_habit, habit.name), Modifier.size(17.dp), tint = Ink)
+                }
+            }
         }
         // Every habit can be edited right where it is listed, not only from the Habits tab. The
         // pencil is its own button, so tapping it never ticks the habit by accident.
@@ -853,6 +883,12 @@ private val MoodIcons = listOf(Icons.Rounded.SentimentVeryDissatisfied, Icons.Ro
     onEditDate: (LocalDate) -> Unit, draftDates: List<LocalDate>) {
     val today = LocalToday.current
     var deleteDate by remember { mutableStateOf<LocalDate?>(null) }
+    val context = LocalContext.current
+    // A voice note recorded on a day with no written reflection still has its place in the history.
+    val voiceOnly = remember(VoiceNotes.changes, state.journal, draftDate) {
+        val written = state.journal.map { it.date }.toSet()
+        VoiceNotes.dates(context).filter { it !in written && it != draftDate }
+    }
     val scroll = rememberLazyListState()
     val scope = rememberCoroutineScope()
     fun editDate(date: LocalDate) { onEditDate(date); scope.launch { scroll.animateScrollToItem(0) } }
@@ -932,10 +968,23 @@ private val MoodIcons = listOf(Icons.Rounded.SentimentVeryDissatisfied, Icons.Ro
                     Text(folded, style = MaterialTheme.typography.bodyMedium, color = Quiet, maxLines = 6)
                 }
             }
+            // A voice note to go with the day's words, kept on this phone.
+            Spacer(Modifier.height(12.dp)); VoiceNote(draftDate, editable = true)
             Spacer(Modifier.height(14.dp)); MainButton(stringResource(R.string.action_save_reflection), enabled = text.isNotBlank()) { save() }
             Spacer(Modifier.height(10.dp)); Text(stringResource(R.string.journal_privacy), color = Quiet, fontSize = 10.sp, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
         }
         item { SectionTitle(stringResource(R.string.journal_history_section)) }
+        items(voiceOnly, key = { "voice-$it" }) { date ->
+            PlayCard(Paper, listMotion()) {
+                Text(date.format(ShortDate), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                Spacer(Modifier.height(10.dp))
+                VoiceNote(date, editable = false)
+                Row(Modifier.align(Alignment.End)) {
+                    TextButton(onClick = { editDate(date) }) { Text(stringResource(R.string.action_write_about_it), fontSize = 11.sp) }
+                    TextButton(onClick = { VoiceNotes.delete(context, date) }) { Text(stringResource(R.string.action_delete), fontSize = 11.sp) }
+                }
+            }
+        }
         itemsIndexed(state.journal.sortedByDescending { it.date }, key = { _, entry -> entry.date.toString() }) { index, entry ->
             // A new entry sprouts in where the folded note lands; an edited one gives a little bounce.
             val fresh = remember { arrivals.isNew(entry.date.toString()) }
@@ -956,6 +1005,7 @@ private val MoodIcons = listOf(Icons.Rounded.SentimentVeryDissatisfied, Icons.Ro
                     Pill(moodNames()[entry.mood.coerceIn(0, 4)], Yellow, MoodIcons[entry.mood.coerceIn(0, 4)])
                 }
                 Spacer(Modifier.height(12.dp)); Text(entry.text, style = MaterialTheme.typography.bodyMedium, color = Quiet)
+                if (entry.date != draftDate) VoiceNote(entry.date, editable = false, Modifier.padding(top = 10.dp))
                 Row(Modifier.align(Alignment.End)) {
                     TextButton(onClick = { editDate(entry.date) }) { Text(stringResource(R.string.action_edit), fontSize = 11.sp) }
                     TextButton(onClick = { deleteDate = entry.date }) { Text(stringResource(R.string.action_delete), fontSize = 11.sp) }
@@ -964,7 +1014,7 @@ private val MoodIcons = listOf(Icons.Rounded.SentimentVeryDissatisfied, Icons.Ro
         }
     }
     deleteDate?.let { date -> AlertDialog(onDismissRequest = { deleteDate = null }, title = { Text(stringResource(R.string.dialog_delete_reflection_title)) }, text = { Text(stringResource(R.string.dialog_delete_reflection_body)) },
-        confirmButton = { TextButton(onClick = { onDelete(date); deleteDate = null }) { Text(stringResource(R.string.action_delete)) } },
+        confirmButton = { TextButton(onClick = { onDelete(date); VoiceNotes.delete(context, date); deleteDate = null }) { Text(stringResource(R.string.action_delete)) } },
         dismissButton = { TextButton(onClick = { deleteDate = null }) { Text(stringResource(R.string.action_keep_it)) } }) }
 }
 
@@ -1005,6 +1055,7 @@ private val MoodIcons = listOf(Icons.Rounded.SentimentVeryDissatisfied, Icons.Ro
         if (syncable) item { Box(Modifier.cascaded(cascade.entrance(3))) { SyncStatusCard(syncing, syncFailed, syncError, onRetrySync) } }
         item { Box(Modifier.cascaded(cascade.entrance(4))) { AppearanceCard() } }
         item { Box(Modifier.cascaded(cascade.entrance(4))) { GameSettingCard() } }
+        item { Box(Modifier.cascaded(cascade.entrance(5))) { SoundSettingCard() } }
         item { Box(Modifier.cascaded(cascade.entrance(5))) { NotificationSettings(state.habits, onSaveHabit) } }
         if (state.demo) item { Text(stringResource(R.string.demo_footer_settings), color = Quiet, fontSize = 11.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) }
         item { UpdateCard() }

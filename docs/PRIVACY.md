@@ -1,6 +1,6 @@
 # Kimi privacy policy
 
-**Last updated: 18 September 2026**
+**Last updated: 16 October 2026**
 
 Kimi is a habit tracker and journal for Android. This policy describes exactly what the app does
 with your information. It is written to match the app's actual behaviour, which you can verify in
@@ -15,7 +15,7 @@ you can read them. Kimi has no analytics, no advertising and no tracking.
 ## What stays on your device
 
 These are stored in Kimi's private app storage. **As a guest they are never uploaded anywhere.**
-If you sign in, everything except the last two items is also synced to your account — see
+If you sign in, everything except the last three items is also synced to your account — see
 *Your synced space* below.
 
 - Your display name
@@ -23,10 +23,14 @@ If you sign in, everything except the last two items is also synced to your acco
 - Every check-in
 - Your saved journal reflections and moods
 - Unfinished journal drafts, which always remain on this device
+- Voice notes you record in the journal, which always remain on this device. Kimi records only
+  from when you tap the microphone until you stop; notes are never synced or uploaded, and are
+  deleted with their reflection, or with the account they belong to
 - Your preferences, which always remain on this device: light or dark mode, colour theme, whether the
   garden game is on, your flower's petal colour, which garden levels, badges and keepsakes have
-  already been celebrated, and the day you last played your week's story. Garden progress itself
-  is worked out from your check-ins, never stored
+  already been celebrated, the day you last played your week's story, your sound settings,
+  each reminder's sound, and each habit's last focus-session length and sound. Garden progress
+  itself is worked out from your check-ins, never stored
 
 If you use an account, each account gets its own separate local space on the device, and guest use
 gets another. Signing out leaves that account's data on the device for next time.
@@ -119,15 +123,17 @@ journal content is never sold, shared with anyone else, or used for advertising 
 | Permission | Why |
 | --- | --- |
 | `INTERNET` | To sign in, to sync your space while signed in, and to send crash reports |
-| `POST_NOTIFICATIONS` | To show habit reminders. These are generated on your device; nothing is sent anywhere |
+| `POST_NOTIFICATIONS` | To show habit reminders and, if you turn it on, the evening streak nudge. These are generated on your device; nothing is sent anywhere |
+| `RECORD_AUDIO` | Only to record a journal voice note, asked for the first time you tap **Add a voice note**. Recordings stay on your device |
 | `RECEIVE_BOOT_COMPLETED` | To restore your reminder schedule after a restart |
 | `REQUEST_INSTALL_PACKAGES` | To hand an update you downloaded to Android's installer. Android still asks you to confirm, and to allow Kimi as a source the first time |
 | `ACCESS_NETWORK_STATE` | Lets Kimi retry a failed sync when connectivity returns; Firebase and Google Play services also use it to understand whether a network connection is available |
 | `USE_BIOMETRIC` / `USE_FINGERPRINT` | Added by Android Credential Manager so your device can protect saved sign-in credentials with its normal authentication UI |
 | `READ_GSERVICES` | Added by Google Play services to read Google service configuration on the device |
 
-Kimi requests no access to contacts, location, camera, microphone, storage or any other sensitive
-permission.
+Apart from the microphone for voice notes, which you can decline and still use everything else,
+Kimi requests no access to contacts, location, camera, storage or any other sensitive permission.
+Every other sound in Kimi is made by the app itself; it never listens.
 
 ## Backups
 

@@ -233,6 +233,7 @@ class AccountViewModel(application: Application) : AndroidViewModel(application)
             try {
                 HabitStore.get(getApplication(), owner).erase()
                 withContext(Dispatchers.IO) {
+                    VoiceNotes.eraseSpace(getApplication(), owner)
                     for (prefs in listOf("kimi_drafts", "kimi_game_seen", "kimi_story")) {
                         check(getApplication<Application>().getSharedPreferences(AccountSession.preferenceName(prefs, owner), 0).edit().clear().commit())
                     }

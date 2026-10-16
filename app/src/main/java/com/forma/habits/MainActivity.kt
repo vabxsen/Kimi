@@ -221,6 +221,8 @@ val LocalToday = compositionLocalOf { LocalDate.now() }
     }
     // A deleted habit's petals blow away over everything, once the sheet has gone.
     PetalGustOverlay(gust)
+    // The optional soundscape under every tab, following the sky.
+    TodaySoundscape(vm.today)
     // New levels and badges, celebrated once each; noted quietly while the game is switched off.
     GameMoments(game, gameMemory, quiet = !playing)
     }

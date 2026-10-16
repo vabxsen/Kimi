@@ -98,6 +98,7 @@ private val UnitGustPetal: Path by lazy { Path().apply {
             LaunchedEffect(run) {
                 delay(GustWaitMillis)
                 haptics.play(Feel.Off)
+                Sound.whoosh()
                 run.progress.animateTo(1f, tween(GustMillis, easing = LinearEasing))
                 gust.runs.remove(run)
             }
